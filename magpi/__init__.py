@@ -42,3 +42,5 @@ def __getattr__(name):
             return MockArcPyObject() # Recursive mocking for chained calls
             
     return MockArcPyObject()
+
+from .objects import Describe, Result
