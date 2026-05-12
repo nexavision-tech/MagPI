@@ -1,0 +1,21 @@
+# Ignore Python Cache
+__pycache__/
+*.pyc
+
+# Ignore massive test data and raster formats
+test_data/
+*.zip
+*.tif
+*.tfw
+*.ovr
+*.xml
+*.shp
+*.shx
+*.dbf
+*.prj
+*.cpg
+
+# Ignore environments
+.conda/
+venv/
+env/
