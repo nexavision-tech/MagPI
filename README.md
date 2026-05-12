@@ -1,6 +1,6 @@
 🧭 MagPI (Magnetic & Planetary Integrations)An open-source Python translation matrix designed to liberate geospatial workflows from proprietary dependencies.🌍 The MissionThe modern geospatial industry is heavily reliant on proprietary, closed-source ecosystems (e.g., ESRI's arcpy). These systems mandate expensive licenses, lock users into Windows environments, and introduce massive computational bottlenecks by resisting native Linux deployment and vectorized array processing.MagPI is a Trojan Horse for open-source freedom. It acts as an intercept layer. By simply changing one line of legacy code from import arcpy to import magpi as arcpy, users can execute their existing geospatial scripts natively on Linux servers. MagPI intercepts the legacy commands and routes them through lightning-fast, open-source libraries like geopandas, rasterio, and shapely.🏗️ Architecture & RoutingMagPI operates by mapping proprietary modules to their open-source equivalents.
 
-'''mermaid
+'''mermaid;
 graph TD;
     A[Legacy User Script] -->|import magpi as arcpy| B(MagPI Core Translation Matrix);
     
