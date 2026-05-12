@@ -1,29 +1,34 @@
-🧭 MagPI (Magnetic & Planetary Integrations)An open-source Python translation matrix designed to liberate geospatial workflows from proprietary dependencies.🌍 The MissionThe modern geospatial industry is heavily reliant on proprietary, closed-source ecosystems (e.g., ESRI's arcpy). These systems mandate expensive licenses, lock users into Windows environments, and introduce massive computational bottlenecks by resisting native Linux deployment and vectorized array processing.MagPI is a Trojan Horse for open-source freedom. It acts as an intercept layer. By simply changing one line of legacy code from import arcpy to import magpi as arcpy, users can execute their existing geospatial scripts natively on Linux servers. MagPI intercepts the legacy commands and routes them through lightning-fast, open-source libraries like geopandas, rasterio, and shapely.🏗️ Architecture & RoutingMagPI operates by mapping proprietary modules to their open-source equivalents.graph TD
-    A[Legacy User Script] -->|import magpi as arcpy| B(MagPI Core Translation Matrix)
-    
-    B --> C{Module Interceptor}
-    
-    C -->|arcpy.management| D[Vector / Geometry Engine]
-    D --> D1(GeoPandas)
-    D --> D2(Shapely)
-    
-    C -->|arcpy.sa| E[Spatial Analyst / Raster Engine]
-    E --> E1(Rasterio)
-    E --> E2(SciPy.ndimage)
-    E --> E3(NumPy Arrays)
-    
-    C -->|arcpy.da| F[Data Access / Cursors]
-    F --> F1(Itertuples / GeoPandas)
-    
-    C -->|arcpy.ia| G[Image Analyst / Deep Learning]
-    G --> G1(Scikit-Image)
-    G --> G2(PyTorch Native)
+🧭 MagPI (Magnetic & Planetary Integrations)An open-source Python translation matrix designed to liberate geospatial workflows from proprietary dependencies.🌍 The MissionThe modern geospatial industry is heavily reliant on proprietary, closed-source ecosystems (e.g., ESRI's arcpy). These systems mandate expensive licenses, lock users into Windows environments, and introduce massive computational bottlenecks by resisting native Linux deployment and vectorized array processing.MagPI is a Trojan Horse for open-source freedom. It acts as an intercept layer. By simply changing one line of legacy code from import arcpy to import magpi as arcpy, users can execute their existing geospatial scripts natively on Linux servers. MagPI intercepts the legacy commands and routes them through lightning-fast, open-source libraries like geopandas, rasterio, and shapely.🏗️ Architecture & RoutingMagPI operates by mapping proprietary modules to their open-source equivalents.
 
-    style B fill:#f2849e,stroke:#333,stroke-width:2px,color:#fff
-    style D fill:#00ccff,stroke:#333,stroke-width:2px,color:#000
-    style E fill:#00ccff,stroke:#333,stroke-width:2px,color:#000
-    style F fill:#00ccff,stroke:#333,stroke-width:2px,color:#000
-    style G fill:#00ccff,stroke:#333,stroke-width:2px,color:#000
+'''mermaid
+graph TD;
+    A[Legacy User Script] -->|import magpi as arcpy| B(MagPI Core Translation Matrix);
+    
+    B --> C{Module Interceptor};
+    
+    C -->|arcpy.management| D[Vector / Geometry Engine];
+    D --> D1(GeoPandas);
+    D --> D2(Shapely);
+    
+    C -->|arcpy.sa| E[Spatial Analyst / Raster Engine];
+    E --> E1(Rasterio);
+    E --> E2(SciPy.ndimage);
+    E --> E3(NumPy Arrays);
+    
+    C -->|arcpy.da| F[Data Access / Cursors];
+    F --> F1(Itertuples / GeoPandas);
+    
+    C -->|arcpy.ia| G[Image Analyst / Deep Learning];
+    G --> G1(Scikit-Image);
+    G --> G2(PyTorch Native);
+
+    style B fill:#f2849e,stroke:#333,stroke-width:2px,color:#fff;
+    style D fill:#00ccff,stroke:#333,stroke-width:2px,color:#000;
+    style E fill:#00ccff,stroke:#333,stroke-width:2px,color:#000;
+    style F fill:#00ccff,stroke:#333,stroke-width:2px,color:#000;
+    style G fill:#00ccff,stroke:#333,stroke-width:2px,color:#000;
+    '''
+
 🚀 Quick Start (Conceptual)The goal of MagPI is zero-friction adoption for legacy GIS analysts.Before (Proprietary & Slow):import arcpy
 
 # Requires a Windows machine and an expensive Spatial Analyst license
