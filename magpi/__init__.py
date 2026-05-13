@@ -17,6 +17,9 @@ from . import sa
 from . import da
 from . import conversion
 from . import ddd
+from . import ia
+from . import stats
+from . import wfs
 
 # 4. Expose the Global Environment
 from .env import env

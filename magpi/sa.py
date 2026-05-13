@@ -57,7 +57,6 @@ def Aspect(in_raster, method="PLANAR", z_unit="METER"):
 def Reclassify(in_raster, reclass_field, remap, missing_values="DATA"):
     """MagPI Translation of arcpy.sa.Reclassify."""
     logger.info(f"Executing Open-Source Reclassify on: {in_raster}")
-    logger.info("Reclassifying NumPy array based on remap rules...")
     return Result(str(in_raster).replace(".tif", "_reclass.tif"))
 
 def FocalStatistics(in_raster, neighborhood="", statistics_type="MEAN", ignore_nodata="DATA"):
@@ -74,36 +73,26 @@ def FocalStatistics(in_raster, neighborhood="", statistics_type="MEAN", ignore_n
             else:
                 out_array = ndimage.median_filter(array, size=3)
                 
-            logger.info(f"Neighborhood filter '{statistics_type}' applied via SciPy.")
             return Result(str(in_raster).replace(".tif", f"_focal_{statistics_type.lower()}.tif"))
     except Exception as e:
         logger.error(f"Failed to calculate FocalStatistics: {e}")
         return Result(None, status=3)
 
 def ExtractByMask(in_raster, in_mask_data):
-    """
-    MagPI Translation of arcpy.sa.ExtractByMask.
-    Clips a raster using a vector polygon mask (like your QGIS bounding box).
-    """
+    """MagPI Translation of arcpy.sa.ExtractByMask."""
     logger.info(f"Executing ExtractByMask on: {in_raster} using {in_mask_data}")
     try:
         from rasterio.mask import mask
         import geopandas as gpd
 
-        # 1. Load the vector bounding box
         mask_gdf = gpd.read_file(in_mask_data)
 
-        # 2. Open the raster
         with rasterio.open(in_raster) as src:
-            # Auto-Reproject the mask to match the raster on the fly if needed!
             if mask_gdf.crs != src.crs:
                 logger.info("Reprojecting mask to match raster CRS on the fly...")
                 mask_gdf = mask_gdf.to_crs(src.crs)
 
-            # Convert GeoPandas geometry to GeoJSON shapes for Rasterio
             shapes = [geom for geom in mask_gdf.geometry]
-
-            # 3. Crop the raster pixels
             out_image, out_transform = mask(src, shapes, crop=True)
             out_meta = src.meta.copy()
 
@@ -114,13 +103,58 @@ def ExtractByMask(in_raster, in_mask_data):
                 "transform": out_transform
             })
 
-            # 4. Return it as a MagPI Map Algebra object so it can be manipulated further!
             out_name = str(in_raster).replace(".tif", "_extracted.tif")
             logger.info("Raster successfully extracted by mask.")
             return Raster(out_name, array=out_image[0], meta=out_meta)
 
     except Exception as e:
         logger.error(f"Failed to ExtractByMask: {e}")
+        return Result(None, status=3)
+
+def ZonalStatisticsAsTable(in_zone_data, zone_field, in_value_raster, out_table, ignore_nodata="DATA", statistics_type="ALL"):
+    """
+    MagPI Translation of arcpy.sa.ZonalStatisticsAsTable.
+    Calculates summary statistics of a raster dataset within vector zones.
+    """
+    logger.info(f"Executing ZonalStatisticsAsTable on {in_value_raster} using zones from {in_zone_data}")
+    try:
+        from rasterstats import zonal_stats
+        import geopandas as gpd
+        import pandas as pd
+
+        # 1. Read the vector zones
+        gdf = gpd.read_file(in_zone_data)
+
+        # 2. Perform the incredibly fast C-backed zonal stats calculation
+        # This rips through the raster and calculates the math for every polygon simultaneously
+        stats = zonal_stats(gdf, in_value_raster, stats="count min max mean std", geojson_out=False)
+
+        # 3. Convert the results into a Pandas DataFrame
+        df = pd.DataFrame(stats)
+        
+        # 4. Attach the unique Zone ID (e.g., Parcel Number, Tract ID)
+        df[zone_field] = gdf[zone_field]
+
+        # Reorder columns to put the Zone ID first for readability
+        cols = [zone_field] + [c for c in df.columns if c != zone_field]
+        df = df[cols]
+
+        # 5. Output the result. 
+        # Legacy ESRI outputs a proprietary .dbf. We output a universal .csv.
+        out_csv = str(out_table)
+        if not out_csv.endswith('.csv'):
+            out_csv += '.csv'
+            
+        df.to_csv(out_csv, index=False)
+        logger.info(f"Zonal Statistics calculated. Saved to: {out_csv}")
+        
+        return Result(out_csv)
+        
+    except ImportError:
+        logger.error("Missing dependency: 'rasterstats'. Run: conda install -c conda-forge rasterstats -y")
+        return Result(None, status=3)
+    except Exception as e:
+        logger.error(f"Failed to calculate Zonal Statistics: {e}")
         return Result(None, status=3)
 
 class Raster:

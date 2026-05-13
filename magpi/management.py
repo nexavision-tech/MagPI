@@ -95,7 +95,6 @@ def Merge(inputs, output, field_mappings=None, add_source="NO_SOURCE_INFO"):
     """
     logger.info(f"Executing Open-Source Merge on: {inputs}")
     try:
-        # Handle semi-colon separated strings or standard lists
         if isinstance(inputs, str):
             inputs = [f.strip() for f in inputs.split(';')]
         
@@ -109,7 +108,6 @@ def Merge(inputs, output, field_mappings=None, add_source="NO_SOURCE_INFO"):
         if not gdfs:
             raise ValueError("No valid inputs found for Merge.")
             
-        # The Pandas heavy lifter
         merged_gdf = pd.concat(gdfs, ignore_index=True)
         merged_gdf.to_file(output)
         
@@ -117,6 +115,51 @@ def Merge(inputs, output, field_mappings=None, add_source="NO_SOURCE_INFO"):
         return Result(output)
     except Exception as e:
         logger.error(f"Failed to merge datasets: {e}")
+        return Result(None, status=3)
+
+def JoinField(in_data, in_field, join_table, join_field, fields=None):
+    """
+    MagPI Translation of arcpy.management.JoinField.
+    Permanently joins the contents of a CSV/Table to a Shapefile/GeoDataFrame.
+    """
+    logger.info(f"Executing Open-Source JoinField on {in_data} using {join_table}")
+    try:
+        # 1. Load the target spatial data
+        gdf = gpd.read_file(in_data)
+        
+        # 2. Load the tabular join data
+        if str(join_table).endswith('.csv'):
+            df = pd.read_csv(join_table)
+        else:
+            df = gpd.read_file(join_table).drop(columns='geometry', errors='ignore')
+
+        # Convert join fields to strings to ensure they match (e.g. FIPS codes/GEOIDs)
+        gdf[in_field] = gdf[in_field].astype(str)
+        df[join_field] = df[join_field].astype(str)
+
+        # 3. Filter specific fields if requested
+        if fields:
+            if isinstance(fields, str):
+                fields = [f.strip() for f in fields.split(';')]
+            if join_field not in fields:
+                fields.append(join_field)
+            df = df[fields]
+
+        # 4. Perform the Relational Merge (Left Join)
+        logger.info(f"Merging tables on {in_field} == {join_field}...")
+        merged_gdf = gdf.merge(df, how='left', left_on=in_field, right_on=join_field)
+
+        if in_field != join_field and join_field in merged_gdf.columns:
+            merged_gdf = merged_gdf.drop(columns=[join_field])
+
+        # 5. Overwrite the original target file
+        merged_gdf.to_file(in_data)
+        
+        logger.info(f"Join complete. Data saved back to: {in_data}")
+        return Result(in_data)
+
+    except Exception as e:
+        logger.error(f"Failed to execute JoinField: {e}")
         return Result(None, status=3)
 
 def AddField(in_table, field_name, field_type, field_precision=None, field_scale=None, field_length=None, field_alias=None, field_is_nullable="NULLABLE", field_is_required="NON_REQUIRED", field_domain=""):
@@ -128,7 +171,6 @@ def AddField(in_table, field_name, field_type, field_precision=None, field_scale
     try:
         gdf = gpd.read_file(in_table)
         
-        # Map basic ESRI types to Python/Pandas types
         ftype_upper = field_type.upper()
         if ftype_upper in ["TEXT", "STRING"]:
             gdf[field_name] = ""
@@ -139,7 +181,7 @@ def AddField(in_table, field_name, field_type, field_precision=None, field_scale
         elif ftype_upper == "DATE":
             gdf[field_name] = pd.to_datetime(pd.Series(dtype='object'))
         else:
-            gdf[field_name] = None # Fallback
+            gdf[field_name] = None
             
         gdf.to_file(in_table)
         logger.info(f"Field '{field_name}' added successfully.")
@@ -158,7 +200,6 @@ def CalculateField(in_table, field, expression, expression_type="PYTHON3", code_
         gdf = gpd.read_file(in_table)
         
         # Basic translation of ESRI's !Field_Name! syntax to Pandas gdf['Field_Name'] syntax
-        # This regex enables MVP execution of legacy string manipulation and math!
         pandas_expr = re.sub(r'!([^!]+)!', r"gdf['\1']", expression)
         
         # Execute the calculation vectorized over the entire column at once

@@ -10,21 +10,17 @@ def Buffer(in_features, out_feature_class, buffer_distance_or_field,
            dissolve_field=None, method="PLANAR"):
     """MagPI Translation of arcpy.analysis.Buffer."""
     logger.info(f"Executing Open-Source Buffer on: {in_features}")
-    
     try:
         gdf = gpd.read_file(in_features)
         
-        # Parse the distance string (e.g., "10 Meters" -> 10.0)
         try:
             dist_val = float(buffer_distance_or_field.split(" ")[0])
         except (ValueError, AttributeError):
             dist_val = float(buffer_distance_or_field)
 
-        # Apply vectorized geometry math (Native C-speed via Shapely)
         buffered_gdf = gdf.copy()
         buffered_gdf.geometry = gdf.geometry.buffer(dist_val)
         
-        # Save output
         buffered_gdf.to_file(out_feature_class)
         logger.info(f"Buffer complete. Saved to: {out_feature_class}")
         return Result(out_feature_class)
@@ -32,7 +28,6 @@ def Buffer(in_features, out_feature_class, buffer_distance_or_field,
     except Exception as e:
         logger.error(f"Failed to buffer: {e}")
         return Result(None, status=3)
-
 
 def Clip(in_features, clip_features, out_feature_class, cluster_tolerance=None):
     """MagPI Translation of arcpy.analysis.Clip."""
@@ -50,15 +45,10 @@ def Clip(in_features, clip_features, out_feature_class, cluster_tolerance=None):
         logger.error(f"Failed to clip: {e}")
         return Result(None, status=3)
 
-
 def Intersect(in_features, out_feature_class, join_attributes="ALL", cluster_tolerance=None, output_type="INPUT"):
-    """
-    MagPI Translation of arcpy.analysis.Intersect.
-    Handles single inputs (self-intersect) or multiple inputs via GeoPandas overlay.
-    """
+    """MagPI Translation of arcpy.analysis.Intersect."""
     logger.info(f"Executing Open-Source Intersect on: {in_features}")
     try:
-        # Legacy scripts pass a list or a semicolon-separated string for multiple inputs
         if isinstance(in_features, str):
             feature_list = [f.strip() for f in in_features.split(';')]
         else:
@@ -70,7 +60,6 @@ def Intersect(in_features, out_feature_class, join_attributes="ALL", cluster_tol
             gdf.to_file(out_feature_class)
             return Result(out_feature_class)
 
-        # Iteratively intersect all layers in the list
         base_gdf = gpd.read_file(feature_list[0])
         for feat in feature_list[1:]:
             overlay_gdf = gpd.read_file(feat)
@@ -84,12 +73,8 @@ def Intersect(in_features, out_feature_class, join_attributes="ALL", cluster_tol
         logger.error(f"Failed to intersect: {e}")
         return Result(None, status=3)
 
-
 def Erase(in_features, erase_features, out_feature_class, cluster_tolerance=None):
-    """
-    MagPI Translation of arcpy.analysis.Erase.
-    ESRI locks this behind an 'Advanced' license. MagPI does it for free.
-    """
+    """MagPI Translation of arcpy.analysis.Erase."""
     logger.info(f"Executing Open-Source Erase on: {in_features}")
     try:
         gdf_in = gpd.read_file(in_features)
@@ -104,3 +89,72 @@ def Erase(in_features, erase_features, out_feature_class, cluster_tolerance=None
         logger.error(f"Failed to erase: {e}")
         return Result(None, status=3)
 
+def SpatialJoin(target_features, join_features, out_feature_class, join_operation="JOIN_ONE_TO_ONE", join_type="KEEP_ALL", match_option="INTERSECT"):
+    """
+    MagPI Translation of arcpy.analysis.SpatialJoin.
+    Merges the attributes of one layer into another based on their spatial relationship.
+    """
+    logger.info(f"Executing Open-Source SpatialJoin: {target_features} <- {join_features}")
+    try:
+        target_gdf = gpd.read_file(target_features)
+        join_gdf = gpd.read_file(join_features)
+
+        # Reproject on the fly if CRSs don't match (crucial for spatial joins)
+        if target_gdf.crs != join_gdf.crs:
+            logger.info("CRSs do not match. Reprojecting join features to match target...")
+            join_gdf = join_gdf.to_crs(target_gdf.crs)
+
+        # Translate ESRI match options to GeoPandas predicates
+        predicate_map = {
+            "INTERSECT": "intersects",
+            "CONTAINS": "contains",
+            "WITHIN": "within",
+            "TOUCHES": "touches"
+        }
+        predicate = predicate_map.get(match_option.upper(), "intersects")
+
+        # Translate ESRI join types (KEEP_ALL = Left Join, KEEP_COMMON = Inner Join)
+        how = "left" if join_type.upper() == "KEEP_ALL" else "inner"
+
+        # The C-backed rtree spatial index makes this instant
+        logger.info(f"Applying '{how}' join using '{predicate}' predicate...")
+        joined_gdf = gpd.sjoin(target_gdf, join_gdf, how=how, predicate=predicate)
+        
+        # Clean up the auto-generated index column from GeoPandas
+        if 'index_right' in joined_gdf.columns:
+            joined_gdf = joined_gdf.drop(columns=['index_right'])
+
+        joined_gdf.to_file(out_feature_class)
+        logger.info(f"Spatial Join complete. Saved to: {out_feature_class}")
+        return Result(out_feature_class)
+
+    except Exception as e:
+        logger.error(f"Failed to execute Spatial Join: {e}")
+        return Result(None, status=3)
+
+def Select(in_features, out_feature_class, where_clause=""):
+    """
+    MagPI Translation of arcpy.analysis.Select.
+    Extracts features from an input layer based on a SQL query and saves them to a new file.
+    """
+    logger.info(f"Executing Open-Source Select on: {in_features}")
+    try:
+        gdf = gpd.read_file(in_features)
+        
+        if where_clause:
+            logger.info(f"Applying SQL filter: {where_clause}")
+            # Translating basic SQL '=' to Pandas '==' for seamless translation
+            pandas_query = where_clause.replace(" = ", " == ")
+            try:
+                gdf = gdf.query(pandas_query)
+            except Exception as q_err:
+                logger.error(f"Pandas evaluation failed for where_clause. Error: {q_err}")
+                return Result(None, status=3)
+                
+        gdf.to_file(out_feature_class)
+        logger.info(f"Select complete. Saved to: {out_feature_class}")
+        return Result(out_feature_class)
+        
+    except Exception as e:
+        logger.error(f"Failed to execute Select: {e}")
+        return Result(None, status=3)
