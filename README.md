@@ -8,7 +8,7 @@ MagPI is a Trojan Horse for open-source freedom. It acts as an intercept layer. 
 ## 🏗️ Architecture & Routing
 MagPI operates by mapping proprietary modules to their open-source C-backed equivalents.
 
-```mermaid
+``` mermaid
 graph TD;
     A[Legacy User Script] -->|import magpi as arcpy| B(MagPI Core Translation Matrix);
     
