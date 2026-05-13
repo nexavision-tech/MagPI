@@ -26,6 +26,7 @@ from . import server
 from . import geocoding
 from . import na
 from . import lr
+from . import ga
 
 # 4. Expose the Global Environment
 from .env import env
