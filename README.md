@@ -33,6 +33,7 @@ graph TD;
 🚀 Quick Start (Conceptual)The goal of MagPI is zero-friction adoption for legacy GIS analysts.
 
 *** GOAL ***
+
 -Before: (Proprietary & Slow):import arcpy
 
 -Now: import magpi as arcpy
