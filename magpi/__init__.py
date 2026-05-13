@@ -15,6 +15,7 @@ from . import management
 from . import analysis
 from . import sa
 from . import da
+from . import conversion
 
 # 4. Expose the Global Environment
 from .env import env
@@ -48,3 +49,9 @@ def __getattr__(name):
             return MockArcPyObject()
             
     return MockArcPyObject()
+
+# 9. Expose Data Enumerators (List Functions)
+from .listing import ListFeatureClasses, ListRasters
+
+# 10. Expose Map Algebra Raster Class
+from .sa import Raster
