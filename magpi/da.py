@@ -9,185 +9,143 @@ logger = logging.getLogger("MagPI_DataAccess")
 class SearchCursor:
     """
     MagPI Translation of arcpy.da.SearchCursor.
-    Reads rows from a feature class or table using GeoPandas.
+    Reads records from a feature class or table in memory.
     """
     def __init__(self, in_table, field_names, where_clause=None):
-        logger.info(f"Initializing Open-Source SearchCursor for: {in_table}")
         self.in_table = in_table
         
-        # Handle the special ESRI "SHAPE@" and "OID@" tokens
-        if isinstance(field_names, str):
-            field_names = [field_names]
-        
-        self.original_fields = field_names
-        self.query_fields = []
-        for f in field_names:
-            if f.upper() == "SHAPE@":
-                self.query_fields.append("geometry")
-            elif f.upper() == "OID@":
-                self.query_fields.append("FID") # Pandas doesn't have native OIDs, we will use index
-            else:
-                self.query_fields.append(f)
-                
         try:
-            self.gdf = gpd.read_file(self.in_table)
-            
-            # Map index to FID if OID@ was requested
-            if "FID" in self.query_fields and "FID" not in self.gdf.columns:
-                self.gdf["FID"] = self.gdf.index
+            self.gdf = gpd.read_file(in_table)
+        except Exception:
+            # Fallback for standard CSVs/Tables
+            self.gdf = pd.read_csv(in_table)
 
-            # MVP SQL Filtering
-            if where_clause:
-                logger.info(f"Applying SearchCursor filter: {where_clause}")
-                # Replace basic SQL '=' with Pandas '==' for seamless translation
-                pandas_query = where_clause.replace(" = ", " == ")
+        # Handle '*' for all fields
+        if field_names == "*":
+            self.field_names = list(self.gdf.columns)
+        else:
+            self.field_names = [field_names] if isinstance(field_names, str) else field_names
+
+        # Filter if a SQL where_clause is provided
+        if where_clause:
+            pandas_query = where_clause.replace(" = ", " == ")
+            try:
                 self.gdf = self.gdf.query(pandas_query)
-                
-            # Filter to requested columns
-            self.gdf = self.gdf[self.query_fields]
-            
-            # Create a generator yielding tuples (matching arcpy behavior)
-            self._iterator = self.gdf.itertuples(index=False, name=None)
-            
-        except Exception as e:
-            logger.error(f"SearchCursor failed to initialize: {e}")
-            self._iterator = iter([])
+            except Exception as e:
+                logger.error(f"SearchCursor query failed: {e}")
 
     def __enter__(self):
+        # Yielding tuples just like ArcPy
+        self._iter = self.gdf[self.field_names].itertuples(index=False, name=None)
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self.gdf = None # Free up RAM
+        pass # Memory is freed automatically
 
     def __iter__(self):
         return self
 
     def __next__(self):
-        return next(self._iterator)
+        return next(self._iter)
 
-    def next(self):
-        """Python 2 legacy support."""
-        return self.__next__()
+
+class UpdateCursor:
+    """
+    MagPI Translation of arcpy.da.UpdateCursor.
+    Allows for row-by-row updating of data. Commits changes to disk upon exiting the 'with' block.
+    """
+    def __init__(self, in_table, field_names, where_clause=None):
+        self.in_table = in_table
+        self.is_spatial = True
+        
+        try:
+            self.gdf = gpd.read_file(in_table)
+        except Exception:
+            self.gdf = pd.read_csv(in_table)
+            self.is_spatial = False
+
+        if field_names == "*":
+            self.field_names = list(self.gdf.columns)
+            if 'geometry' in self.field_names:
+                self.field_names.remove('geometry') # Prevent accidental geometry overwrites in MVP
+        else:
+            self.field_names = [field_names] if isinstance(field_names, str) else field_names
+
+        if where_clause:
+            pandas_query = where_clause.replace(" = ", " == ")
+            self.query_indices = self.gdf.query(pandas_query).index
+        else:
+            self.query_indices = self.gdf.index
+
+        self.current_idx = -1
+        self._iterator = iter(self.query_indices)
+        self.has_updates = False
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        # The MagPI Magic: Flush the changes back to disk automatically!
+        if self.has_updates:
+            logger.info(f"Flushing UpdateCursor changes back to: {self.in_table}")
+            if self.is_spatial:
+                self.gdf.to_file(self.in_table)
+            else:
+                self.gdf.to_csv(self.in_table, index=False)
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        self.current_idx = next(self._iterator)
+        row = tuple(self.gdf.loc[self.current_idx, self.field_names])
+        # Return as a mutable list so the user can change the values
+        return list(row)
+
+    def updateRow(self, row):
+        """Commits the modified row list back into the in-memory dataframe."""
+        self.gdf.loc[self.current_idx, self.field_names] = row
+        self.has_updates = True
+
+    def deleteRow(self):
+        """Drops the row from the dataframe."""
+        self.gdf = self.gdf.drop(self.current_idx)
+        self.has_updates = True
 
 
 class InsertCursor:
     """
     MagPI Translation of arcpy.da.InsertCursor.
-    Collects new rows in memory and appends them to the dataset upon closing.
+    Appends new rows to a dataset.
     """
     def __init__(self, in_table, field_names):
-        logger.info(f"Initializing Open-Source InsertCursor for: {in_table}")
         self.in_table = in_table
-        self.field_names = field_names if isinstance(field_names, list) else [field_names]
-        
-        # Translate SHAPE@ to geometry
-        self.mapped_fields = ["geometry" if f.upper() == "SHAPE@" else f for f in self.field_names]
+        self.field_names = [field_names] if isinstance(field_names, str) else field_names
         self.new_rows = []
+        
+        try:
+            self.gdf = gpd.read_file(in_table)
+            self.is_spatial = True
+        except Exception:
+            self.gdf = pd.read_csv(in_table)
+            self.is_spatial = False
 
     def __enter__(self):
         return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self.new_rows:
+            logger.info(f"Flushing {len(self.new_rows)} new rows to: {self.in_table}")
+            new_df = pd.DataFrame(self.new_rows, columns=self.field_names)
+            
+            if self.is_spatial:
+                # If spatial, just append null geometries for the MVP
+                new_gdf = gpd.GeoDataFrame(new_df, geometry=[None]*len(new_df), crs=self.gdf.crs)
+                self.gdf = pd.concat([self.gdf, new_gdf], ignore_index=True)
+                self.gdf.to_file(self.in_table)
+            else:
+                self.gdf = pd.concat([self.gdf, new_df], ignore_index=True)
+                self.gdf.to_csv(self.in_table, index=False)
 
     def insertRow(self, row):
-        """Adds a row tuple to the staging list."""
-        if len(row) != len(self.mapped_fields):
-            logger.error("InsertRow failed: Row length does not match field names length.")
-            return
-        
-        # Create a dictionary mapping the fields to the values
-        row_dict = dict(zip(self.mapped_fields, row))
-        self.new_rows.append(row_dict)
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        """When the 'with' block ends, execute the batch append to disk."""
-        if not self.new_rows:
-            return
-            
-        logger.info(f"Committing {len(self.new_rows)} new rows to {self.in_table}")
-        try:
-            # Create a GeoDataFrame from the new rows
-            new_gdf = gpd.GeoDataFrame(self.new_rows)
-            
-            if os.path.exists(self.in_table):
-                # If file exists, load it, concat, and overwrite
-                existing_gdf = gpd.read_file(self.in_table)
-                # Ensure the CRS matches
-                if 'geometry' in new_gdf.columns and existing_gdf.crs:
-                    new_gdf = new_gdf.set_crs(existing_gdf.crs)
-                    
-                combined_gdf = pd.concat([existing_gdf, new_gdf], ignore_index=True)
-                combined_gdf.to_file(self.in_table)
-            else:
-                # If file doesn't exist, just save the new rows
-                new_gdf.to_file(self.in_table)
-                
-        except Exception as e:
-            logger.error(f"Failed to commit InsertCursor rows: {e}")
-
-class UpdateCursor:
-    """
-    MagPI Translation of arcpy.da.UpdateCursor.
-    Loads data into memory, allows row-by-row mutation, and saves on exit.
-    """
-    def __init__(self, in_table, field_names, where_clause=None):
-        logger.info(f"Initializing Open-Source UpdateCursor for: {in_table}")
-        logger.warning("Note: UpdateCursor caches the full file in memory for MVP.")
-        self.in_table = in_table
-        self.field_names = field_names if isinstance(field_names, list) else [field_names]
-        self.mapped_fields = ["geometry" if f.upper() == "SHAPE@" else f for f in self.field_names]
-        
-        try:
-            self.gdf = gpd.read_file(self.in_table)
-            self.current_index = -1
-            self.total_rows = len(self.gdf)
-        except Exception as e:
-            logger.error(f"Failed to initialize UpdateCursor: {e}")
-            self.gdf = gpd.GeoDataFrame()
-            self.total_rows = 0
-
-    def __enter__(self):
-        return self
-
-    def __iter__(self):
-        self.current_index = -1
-        return self
-
-    def __next__(self):
-        self.current_index += 1
-        if self.current_index >= self.total_rows:
-            raise StopIteration
-            
-        # Extract the requested fields for the current row as a list
-        row_values = []
-        for field in self.mapped_fields:
-            if field in self.gdf.columns:
-                row_values.append(self.gdf.at[self.current_index, field])
-            else:
-                row_values.append(None)
-                
-        return row_values
-
-    def next(self):
-        return self.__next__()
-
-    def updateRow(self, row):
-        """Updates the current row in the GeoDataFrame memory cache."""
-        if self.current_index < 0 or self.current_index >= self.total_rows:
-            return
-            
-        for i, field in enumerate(self.mapped_fields):
-            if field in self.gdf.columns:
-                self.gdf.at[self.current_index, field] = row[i]
-
-    def deleteRow(self):
-        """Drops the current row from the GeoDataFrame memory cache."""
-        if self.current_index >= 0 and self.current_index < self.total_rows:
-            self.gdf = self.gdf.drop(self.current_index)
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        """Commit all updates and deletions back to the file."""
-        if not self.gdf.empty:
-            logger.info(f"Committing updates to {self.in_table}")
-            try:
-                self.gdf.to_file(self.in_table)
-            except Exception as e:
-                logger.error(f"Failed to commit UpdateCursor changes: {e}")
+        self.new_rows.append(row)

@@ -3,34 +3,42 @@ import logging
 
 logger = logging.getLogger("MagPI_Env")
 
-class ArcPyEnvironment:
+class _Environment:
     """
     MagPI Translation of arcpy.env.
-    A thread-safe Singleton that stores global geoprocessing settings.
+    This is a Singleton class that holds the global state for all geoprocessing operations.
     """
-    _instance = None
-
-    def __new__(cls):
-        # Ensure only one instance of the environment ever exists
-        if cls._instance is None:
-            cls._instance = super(ArcPyEnvironment, cls).__new__(cls)
-            cls._instance._init_defaults()
-        return cls._instance
-
-    def _init_defaults(self):
-        """Initializes the default ESRI environment states."""
+    def __init__(self):
+        # -----------------------------------------------------
+        # Core ESRI Environment Variables
+        # -----------------------------------------------------
         self._workspace = None
-        self._overwriteOutput = False
         self._scratchWorkspace = None
+        self._overwriteOutput = False
+        
+        # Coordinates & Geometry
         self._outputCoordinateSystem = None
-        self._extent = None
-        self._cell_size = "MAXOF"
+        self._geographicTransformations = None
+        self._outputZFlag = "Same As Input"
+        self._outputMFlag = "Same As Input"
+        
+        # Raster Analysis
+        self._cellSize = "MAXOF"
+        self._extent = "MAXOF"
+        self._snapRaster = None
         self._mask = None
+        self._nodata = "NONE"
+        
+        # Processing & Performance
         self._parallelProcessingFactor = None
         
-        logger.info("MagPI Global Environment (arcpy.env) Initialized.")
+        # -----------------------------------------------------
+        # Catch-all dictionary for unsupported/obscure environments
+        # to prevent legacy scripts from crashing (Duck-typing)
+        # -----------------------------------------------------
+        self._unsupported_envs = {}
 
-    # --- Properties with Getters and Setters ---
+    # --- Property Getters and Setters for Core Variables ---
 
     @property
     def workspace(self):
@@ -42,23 +50,22 @@ class ArcPyEnvironment:
         self._workspace = value
 
     @property
-    def overwriteOutput(self):
-        return self._overwriteOutput
-
-    @overwriteOutput.setter
-    def overwriteOutput(self, value):
-        # Accepts True/False or "True"/"False" strings
-        val_bool = str(value).lower() == 'true'
-        logger.info(f"Global overwriteOutput set to: {val_bool}")
-        self._overwriteOutput = val_bool
-
-    @property
     def scratchWorkspace(self):
         return self._scratchWorkspace
 
     @scratchWorkspace.setter
     def scratchWorkspace(self, value):
+        logger.info(f"Global Scratch Workspace set to: {value}")
         self._scratchWorkspace = value
+
+    @property
+    def overwriteOutput(self):
+        return self._overwriteOutput
+
+    @overwriteOutput.setter
+    def overwriteOutput(self, value):
+        logger.info(f"Global overwriteOutput set to: {value}")
+        self._overwriteOutput = value
 
     @property
     def outputCoordinateSystem(self):
@@ -66,8 +73,18 @@ class ArcPyEnvironment:
 
     @outputCoordinateSystem.setter
     def outputCoordinateSystem(self, value):
+        # Value can be an integer (EPSG), string, or SpatialReference object
         logger.info(f"Global Output Coordinate System set to: {value}")
         self._outputCoordinateSystem = value
+        
+    @property
+    def cellSize(self):
+        return self._cellSize
+
+    @cellSize.setter
+    def cellSize(self, value):
+        logger.info(f"Global Raster Cell Size set to: {value}")
+        self._cellSize = value
 
     @property
     def extent(self):
@@ -75,34 +92,43 @@ class ArcPyEnvironment:
 
     @extent.setter
     def extent(self, value):
-        logger.info(f"Global Extent (Bounding Box) set to: {value}")
+        logger.info(f"Global Processing Extent set to: {value}")
         self._extent = value
-
-    @property
-    def cellSize(self):
-        return self._cell_size
-
-    @cellSize.setter
-    def cellSize(self, value):
-        self._cell_size = value
-
+        
     @property
     def mask(self):
         return self._mask
 
     @mask.setter
     def mask(self, value):
+        logger.info(f"Global Analysis Mask set to: {value}")
         self._mask = value
-        
-    @property
-    def parallelProcessingFactor(self):
-        return self._parallelProcessingFactor
-        
-    @parallelProcessingFactor.setter
-    def parallelProcessingFactor(self, value):
-        # This is where we will eventually tie into Airflow or multi-threading pools!
-        logger.info(f"Parallel Processing Factor requested: {value} (Not yet implemented in MVP)")
-        self._parallelProcessingFactor = value
 
-# Instantiate the singleton so it's ready the moment `import magpi as arcpy` is called
-env = ArcPyEnvironment()
+    # --- The Magic Catch-All Methods ---
+    # These intercept ANY property request. If it's not a core variable above,
+    # it safely stores/returns it without crashing the user's script.
+
+    def __getattr__(self, name):
+        """Intercepts requests for obscure environment variables."""
+        if name in self._unsupported_envs:
+            return self._unsupported_envs[name]
+        
+        logger.debug(f"Accessed unsupported arcpy.env.{name}. Returning None to prevent crash.")
+        return None
+
+    def __setattr__(self, name, value):
+        """Intercepts setting obscure environment variables."""
+        # Allow standard attributes (the ones starting with '_') to be set normally
+        if name.startswith('_'):
+            super().__setattr__(name, value)
+        # Allow properties (like 'workspace') to be routed through their setters
+        elif hasattr(self.__class__, name) and isinstance(getattr(self.__class__, name), property):
+            super().__setattr__(name, value)
+        else:
+            # Catch everything else (e.g., arcpy.env.XYResolution = "0.0001 Degrees")
+            logger.debug(f"Intercepted unsupported arcpy.env.{name} = {value}. Storing safely.")
+            self._unsupported_envs[name] = value
+
+# Initialize the Singleton Instance
+env = _Environment()
+logger.info("MagPI Global Environment (arcpy.env) Initialized.")
