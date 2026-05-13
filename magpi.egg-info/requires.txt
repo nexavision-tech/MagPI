@@ -1,0 +1,10 @@
+geopandas
+rasterio
+pandas
+numpy
+scipy
+laspy[lazrs]
+rasterstats
+libpysal
+esda
+requests

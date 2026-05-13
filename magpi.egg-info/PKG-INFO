@@ -1,0 +1,29 @@
+Metadata-Version: 2.4
+Name: magpi
+Version: 1.0.0
+Summary: An open-source, sovereign, drop-in replacement for arcpy.
+Author: Christopher Hanni & MagPI Team US
+Classifier: Programming Language :: Python :: 3
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Topic :: Scientific/Engineering :: GIS
+Requires-Python: >=3.8
+License-File: LICENSE
+Requires-Dist: geopandas
+Requires-Dist: rasterio
+Requires-Dist: pandas
+Requires-Dist: numpy
+Requires-Dist: scipy
+Requires-Dist: laspy[lazrs]
+Requires-Dist: rasterstats
+Requires-Dist: libpysal
+Requires-Dist: esda
+Requires-Dist: requests
+Dynamic: author
+Dynamic: classifier
+Dynamic: description
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+MagPI (Map Algebra & Geospatial Python Interface) intercepts proprietary ESRI arcpy calls and reroutes them through high-speed, open-source C-backends like GeoPandas, Rasterio, and PySAL.
