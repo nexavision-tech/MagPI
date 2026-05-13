@@ -20,7 +20,6 @@ from . import ddd
 from . import ia
 from . import stats
 from . import wfs
-from .db import ArcSDESQLExecute
 from . import mp
 from . import server
 from . import geocoding
@@ -30,6 +29,9 @@ from . import ga
 
 # 4. Expose the Global Environment
 from .env import env
+from .db import ArcSDESQLExecute
+from .core import ListFeatureClasses, ListRasters, ListFiles, Exists
+from .db import ArcSDESQLExecute
 
 # 5. Expose Core Objects & Classes
 from .objects import Result, Describe
