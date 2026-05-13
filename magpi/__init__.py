@@ -2,10 +2,10 @@
 import sys
 import logging
 
-# 1. The Trojan Horse: Inject MagPI into the Python sys.modules under the name 'arcpy'
+# 1. The Trojan Horse: Inject MagPI into Python's sys.modules as 'arcpy'
 sys.modules['arcpy'] = sys.modules[__name__]
 
-# 2. Initialize the Global Console Logger
+# 2. Initialize Global Console Logger
 logging.basicConfig(level=logging.INFO, format='MagPI 🧭 [%(levelname)s]: %(message)s')
 logger = logging.getLogger("MagPI_Core")
 logger.info("MagPI Translation Matrix Online. Bypassing legacy dependencies.")
@@ -16,6 +16,7 @@ from . import analysis
 from . import sa
 from . import da
 from . import conversion
+from . import ddd
 
 # 4. Expose the Global Environment
 from .env import env
@@ -27,17 +28,21 @@ from .classes import SpatialReference, Extent
 # 6. Expose Core Messaging Functions
 from .messages import AddMessage, AddWarning, AddError, GetMessages
 
-# 7. Core Root Functions
+# 7. Expose Data Enumerators (Listing)
+from .listing import ListFeatureClasses, ListRasters
+
+# 8. Expose Map Algebra Raster Class
+from .sa import Raster
+
+# 9. Core Root Functions
 def Exists(dataset):
     """MagPI equivalent of arcpy.Exists()"""
     import os
     return os.path.exists(dataset)
 
-# 8. The Ultimate Fallback Interceptor
+# 10. The Ultimate Fallback Interceptor
 def __getattr__(name):
-    """
-    Catches calls to unsupported legacy functions and prevents fatal crashes.
-    """
+    """Catches calls to unsupported legacy functions and prevents fatal crashes."""
     logger.warning(f"Unsupported legacy call intercepted: arcpy.{name}")
     
     class MockArcPyObject:
@@ -49,9 +54,3 @@ def __getattr__(name):
             return MockArcPyObject()
             
     return MockArcPyObject()
-
-# 9. Expose Data Enumerators (List Functions)
-from .listing import ListFeatureClasses, ListRasters
-
-# 10. Expose Map Algebra Raster Class
-from .sa import Raster
