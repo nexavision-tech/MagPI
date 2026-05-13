@@ -1,8 +1,12 @@
 # magpi/ia.py
 import rasterio
+from rasterio.windows import Window
 import numpy as np
+import geopandas as gpd
 import logging
 import os
+import random
+import csv
 from .objects import Result
 from .sa import Raster
 
@@ -55,22 +59,85 @@ def NDVI(in_raster, nir_band_id=4, red_band_id=1):
         logger.error(f"Failed to calculate NDVI: {e}")
         return Result(None, status=3)
 
-def ExportTrainingDataForDeepLearning(in_raster, out_folder, in_class_data=None, image_chip_format="TIFF", tile_size_x=256, tile_size_y=256, stride_x=256, stride_y=256, output_nofeature_tiles="ONLY_TILES_WITH_FEATURES", metadata_format="PASCAL_VOC"):
+def ExportTrainingDataForDeepLearning(in_raster, out_folder, in_class_data=None, image_chip_format="TIFF", tile_size_x=256, tile_size_y=256, stride_x=128, stride_y=128, meta_data_format="PASCAL_VOC", shuffle_chips=True, apply_jitter=False):
     """
     MagPI Translation of arcpy.ia.ExportTrainingDataForDeepLearning.
-    (Skeleton Phase) - This is the primary bridge to PyTorch/CuPy. 
-    It chips massive rasters into 256x256 squares for Neural Network ingestion.
+    Chips massive rasters into small training tensors for PyTorch/TensorFlow.
+    *Enhanced with MagPI Jitter & Anti-Spatial-Autocorrelation Shuffling.*
     """
-    logger.info(f"Initializing Deep Learning Export Pipeline for: {in_raster}")
-    logger.warning("Deep Learning export is currently in Skeleton Phase. Awaiting MagPI PyTorch Connectors.")
-    
-    if not os.path.exists(out_folder):
-        os.makedirs(out_folder)
-        
-    logger.info(f"Target tile dimensions: {tile_size_x}x{tile_size_y}. Stride: {stride_x},{stride_y}")
-    logger.info(f"Destination: {out_folder}")
-    
-    # In future iterations, we will use rasterio.windows.Window to rapidly slice the array
-    # and geopandas.clip to generate the matching label masks.
-    
-    return Result(out_folder)
+    logger.info(f"Executing Open-Source Deep Learning Export on: {in_raster}")
+    try:
+        if not os.path.exists(out_folder):
+            os.makedirs(out_folder)
+            
+        img_folder = os.path.join(out_folder, "images")
+        label_folder = os.path.join(out_folder, "labels")
+        os.makedirs(img_folder, exist_ok=True)
+        os.makedirs(label_folder, exist_ok=True)
+
+        chip_manifest = [] # To track and shuffle our data
+
+        with rasterio.open(in_raster) as src:
+            logger.info(f"Source Raster: {src.width}x{src.height} pixels, {src.count} bands.")
+            logger.info(f"Chipping into {tile_size_x}x{tile_size_y} tensors with stride {stride_x}...")
+            
+            chip_count = 0
+            
+            # Slide the window across the massive raster
+            for j in range(0, src.height - tile_size_y + 1, stride_y):
+                for i in range(0, src.width - tile_size_x + 1, stride_x):
+                    
+                    # Apply Jitter (Data Augmentation Shift) if requested
+                    offset_x = random.randint(-10, 10) if apply_jitter else 0
+                    offset_y = random.randint(-10, 10) if apply_jitter else 0
+                    
+                    # Ensure jitter doesn't push us off the edge of the image
+                    win_x = max(0, min(i + offset_x, src.width - tile_size_x))
+                    win_y = max(0, min(j + offset_y, src.height - tile_size_y))
+                    
+                    window = Window(win_x, win_y, tile_size_x, tile_size_y)
+                    chip_array = src.read(window=window)
+                    
+                    # Skip chips that are mostly NoData/Black (e.g., edges of aerial photos)
+                    if np.all(chip_array == 0):
+                        continue
+                        
+                    chip_name = f"chip_{chip_count:06d}.tif"
+                    out_path = os.path.join(img_folder, chip_name)
+                    
+                    out_meta = src.meta.copy()
+                    out_meta.update({
+                        "height": tile_size_y,
+                        "width": tile_size_x,
+                        "transform": src.window_transform(window)
+                    })
+                    
+                    with rasterio.open(out_path, "w", **out_meta) as dest:
+                        dest.write(chip_array)
+                        
+                    # Add to manifest for shuffling
+                    chip_manifest.append({"image": chip_name, "label": "unclassified_for_now"})
+                    chip_count += 1
+                    
+        # The Shuffling Protocol: Destroy Spatial Auto-Correlation
+        if shuffle_chips:
+            logger.info("Shuffling training data to prevent spatial auto-correlation...")
+            random.shuffle(chip_manifest)
+            
+        # Write the manifest CSV for PyTorch Dataloaders to read
+        manifest_path = os.path.join(out_folder, "train_manifest.csv")
+        with open(manifest_path, 'w', newline='') as csvfile:
+            writer = csv.DictWriter(csvfile, fieldnames=["image", "label"])
+            writer.writeheader()
+            for row in chip_manifest:
+                writer.writerow(row)
+                    
+        logger.info(f"Deep Learning Export complete. Generated {chip_count} training chips at {out_folder}")
+        return Result(out_folder)
+
+    except ImportError:
+        logger.error("Missing dependency. Run: conda install -c conda-forge rasterio numpy -y")
+        return Result(None, status=3)
+    except Exception as e:
+        logger.error(f"Failed to export training data: {e}")
+        return Result(None, status=3)

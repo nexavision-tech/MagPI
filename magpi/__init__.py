@@ -26,6 +26,8 @@ from . import geocoding
 from . import na
 from . import lr
 from . import ga
+from . import ia       # Image Analyst (Chipping)
+from . import geoai    # AI Training & Inference
 
 # 4. Expose the Global Environment
 from .env import env
