@@ -3,22 +3,22 @@ import {
   Database, Layers, Cpu, Settings, Image as ImageIcon, 
   Hexagon, Leaf, Grid, Crosshair, Scissors, CircleDashed, 
   ChevronDown, ChevronRight, MousePointer2, Trash2, 
-  SlidersHorizontal, Wrench, Check 
+  SlidersHorizontal, Wrench, Check, FolderOpen 
 } from 'lucide-react';
 
 const TOOLBOX_CATEGORIES = [
   {
     name: "Data Ingestion", icon: <Database size={18} className="text-emerald-500/70" />,
     tools: [
-      { id: 'load_raster', name: "Input Raster", type: 'input', icon: <ImageIcon size={14}/>, color: 'bg-blue-600', border: 'border-blue-500', params: { file_path: "./data/imagery.tif" } },
-      { id: 'load_vector', name: "Input Vector", type: 'input', icon: <Hexagon size={14}/>, color: 'bg-blue-600', border: 'border-blue-500', params: { file_path: "roads.shp" } },
+      { id: 'load_raster', name: "Input Raster", type: 'input', icon: <ImageIcon size={14}/>, color: 'bg-blue-600', border: 'border-blue-500', params: { file_path: "./test_data/noaa_florida/2021_4BandImagery_Florida_J1378560tR0_C0.tif" } },
+      { id: 'load_vector', name: "Input Vector", type: 'input', icon: <Hexagon size={14}/>, color: 'bg-blue-600', border: 'border-blue-500', params: { file_path: "./test_data/noaa_florida/Orange_County_Tracts_Clipped.shp" } },
     ]
   },
   {
     name: "Image Analyst (ia)", icon: <Layers size={18} className="text-emerald-500/70" />,
     tools: [
       { id: 'ia_ndvi', name: "NDVI Calculator", type: 'process', icon: <Leaf size={14}/>, color: 'bg-emerald-600', border: 'border-emerald-500', params: { nir_band: 4, red_band: 1 } },
-      { id: 'ia_export_dl', name: "Export DL Tensors", type: 'process', icon: <Grid size={14}/>, color: 'bg-emerald-600', border: 'border-emerald-500', params: { out_folder: "./dl_chips", tile_size: 256, stride: 128, shuffle: true } },
+      { id: 'ia_export_dl', name: "Export DL Tensors", type: 'process', icon: <Grid size={14}/>, color: 'bg-emerald-600', border: 'border-emerald-500', params: { out_folder: "./tmp_wksp/MagPI_DeepLearning_Chips", tile_size: 256, stride: 128, shuffle: true } },
     ]
   },
   {
@@ -122,7 +122,7 @@ export default function Toolbox({
                 {/* Node Title Header */}
                 <div className={`px-4 py-3 rounded-lg text-white font-bold text-sm ${selectedNode.color} border border-t-white/20 border-b-black/50 shadow-lg flex items-center justify-between`}>
                   <div className="flex items-center">
-                    <span className="mr-2 opacity-80">{/* Icon placeholder based on selectedNode.icon string mapping in future, or just generic */}</span>
+                    <span className="mr-2 opacity-80">{/* Icon Map Placeholder */}</span>
                     {selectedNode.name}
                   </div>
                   <button 
@@ -164,6 +164,19 @@ export default function Toolbox({
                           onChange={(e) => updateNodeParam(selectedNode.id, key, Number(e.target.value))} 
                           className="w-full bg-slate-800 border border-slate-600 rounded-md px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all font-mono"
                         />
+                      ) : key === 'file_path' || key === 'out_folder' ? (
+                         /* NEW DATA INJECTION PROTOCOL UI */
+                        <div className="flex items-center space-x-2">
+                           <input 
+                            type="text" 
+                            value={val} 
+                            onChange={(e) => updateNodeParam(selectedNode.id, key, e.target.value)} 
+                            className="flex-1 bg-slate-800 border border-slate-600 rounded-md px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all font-mono"
+                          />
+                          <button className="p-2 bg-slate-700 hover:bg-slate-600 rounded border border-slate-600 transition-colors text-slate-300">
+                             <FolderOpen size={16} />
+                          </button>
+                        </div>
                       ) : (
                         <input 
                           type="text" 
