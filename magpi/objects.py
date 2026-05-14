@@ -1,74 +1,86 @@
 # magpi/objects.py
-import logging
 import os
-from pathlib import Path
+import logging
 
 logger = logging.getLogger("MagPI_Objects")
 
 class Result:
-    """Duck-typed mimic of the arcpy.Result object."""
-    def __init__(self, output_value, status=4):
-        self._output = output_value
-        self.status = status
-        self.messageCount = 0
-
-    def __getitem__(self, index):
-        if index == 0: return self._output
-        else: return None
-
-    def getOutput(self, index):
-        return self.__getitem__(index)
-
-class DescribeObject:
     """
-    Duck-typed mimic of the arcpy.Describe object.
-    Now actually interrogates the real data using open-source libraries!
+    MagPI Translation of arcpy.Result.
+    Acts as a wrapper for tool outputs to maintain legacy compatibility.
     """
-    def __init__(self, dataset_path):
-        self.catalogPath = str(Path(dataset_path).resolve())
-        self.name = os.path.basename(dataset_path)
-        self.baseName = os.path.splitext(self.name)[0]
-        self.extension = os.path.splitext(self.name)[1].replace(".", "")
-        self.dataType = self._determine_data_type()
+    def __init__(self, output, status=0):
+        self.output = output
+        self.status = status # 0 = Success, 1 = Warning, 3 = Error
         
-        # Extended Properties
+    def getOutput(self, index=0):
+        """Mimics arcpy.Result.getOutput(0)"""
+        if isinstance(self.output, list):
+            return self.output[index] if index < len(self.output) else None
+        return self.output
+
+    def __str__(self):
+        return str(self.output)
+
+
+class Extent:
+    """MagPI Translation of arcpy.Extent."""
+    def __init__(self, XMin, YMin, XMax, YMax):
+        self.XMin = XMin
+        self.YMin = YMin
+        self.XMax = XMax
+        self.YMax = YMax
+        
+    def __str__(self):
+        return f"{self.XMin} {self.YMin} {self.XMax} {self.YMax}"
+
+
+class Describe:
+    """
+    MagPI Translation of arcpy.Describe.
+    Extracts metadata from geospatial datasets natively using GeoPandas and Rasterio.
+    """
+    def __init__(self, dataset):
+        self.dataset = str(dataset)
+        self.dataType = "Unknown"
         self.spatialReference = None
-        self.shapeType = None
-        self.bandCount = None
-
-        self._interrogate_data()
-
-    def _determine_data_type(self):
-        ext = self.extension.lower()
-        if ext in ['shp', 'gpkg', 'geojson']: return "FeatureClass"
-        elif ext in ['tif', 'png', 'jpg', 'img']: return "RasterDataset"
-        elif ext == 'gdb': return "Workspace"
-        return "Unknown"
-
-    def _interrogate_data(self):
-        from .classes import SpatialReference
+        self.extent = None
+        self.bandCount = 1
+        self.shapeType = "Unknown"
         
-        if self.dataType == "RasterDataset":
-            import rasterio
-            try:
-                with rasterio.open(self.catalogPath) as src:
-                    self.bandCount = src.count
-                    if src.crs:
-                        self.spatialReference = SpatialReference(src.crs.to_string())
-            except Exception as e:
-                logger.warning(f"Failed to read raster metadata: {e}")
+        try:
+            if not os.path.exists(self.dataset):
+                from .env import env
+                workspace_path = os.path.join(env.workspace if env.workspace else ".", self.dataset)
+                if os.path.exists(workspace_path):
+                    self.dataset = workspace_path
+                else:
+                    logger.warning(f"Describe: Dataset does not exist: {self.dataset}")
+                    return
                 
-        elif self.dataType == "FeatureClass":
-            import geopandas as gpd
-            try:
-                # Read just the first row to get the schema fast
-                gdf = gpd.read_file(self.catalogPath, rows=1) 
-                if not gdf.empty:
-                    self.shapeType = gdf.geom_type[0]
-                if gdf.crs:
-                    self.spatialReference = SpatialReference(gdf.crs.name)
-            except Exception as e:
-                logger.warning(f"Failed to read vector metadata: {e}")
-
-def Describe(dataset):
-    return DescribeObject(dataset)
+            # Check if Raster
+            if self.dataset.lower().endswith(('.tif', '.png', '.jpg', '.img', '.jp2')):
+                import rasterio
+                self.dataType = "RasterDataset"
+                with rasterio.open(self.dataset) as src:
+                    self.bandCount = src.count
+                    self.spatialReference = src.crs
+                    bounds = src.bounds
+                    self.extent = Extent(bounds.left, bounds.bottom, bounds.right, bounds.top)
+                    
+            # Check if Vector
+            elif self.dataset.lower().endswith(('.shp', '.geojson', '.gpkg', '.dbf')):
+                import geopandas as gpd
+                self.dataType = "FeatureClass"
+                # We read only 1 row to get the metadata instantly without loading the whole file into RAM
+                gdf = gpd.read_file(self.dataset, rows=1) 
+                self.spatialReference = gdf.crs
+                self.shapeType = gdf.geom_type[0] if not gdf.empty else "Unknown"
+                
+                # To get the true extent, we have to read the bounds. 
+                # (Can be optimized later with Fiona directly)
+                bounds = gpd.read_file(self.dataset).total_bounds
+                self.extent = Extent(bounds[0], bounds[1], bounds[2], bounds[3])
+                
+        except Exception as e:
+            logger.error(f"Describe failed for {self.dataset}: {e}")

@@ -4,6 +4,7 @@ __pycache__/
 
 # Ignore massive test data and raster formats
 test_data/
+tmp_wksp/
 *.zip
 *.tif
 *.tfw

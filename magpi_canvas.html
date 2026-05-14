@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MagPI Canvas - 0.0.1 Beta</title>
+    
+    <!-- Tailwind CSS (Styling) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- FontAwesome (Icons) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- Babel (Compiles JSX in the browser) -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #0f172a; }
+        /* Custom scrollbar for dark mode */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #1e293b; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useRef } = React;
+
+        // --- MOCK TOOLBOX DATA ---
+        const TOOLBOX_CATEGORIES = [
+        {
+            name: "Data Ingestion",
+            icon: "fas fa-database",
+            tools: [
+            { id: 'load_raster', name: "Input Raster (TIFF)", type: 'input', color: 'bg-blue-600' },
+            { id: 'load_vector', name: "Input Vector (SHP)", type: 'input', color: 'bg-blue-600' },
+            { id: 'wfs_pull', name: "WFS / REST Pull", type: 'input', color: 'bg-blue-600' },
+            ]
+        },
+        {
+            name: "Image Analyst (ia)",
+            icon: "fas fa-layer-group",
+            tools: [
+            { id: 'ia_ndvi', name: "NDVI Calculator", type: 'process', color: 'bg-emerald-600' },
+            { id: 'ia_composite', name: "Composite Bands", type: 'process', color: 'bg-emerald-600' },
+            { id: 'ia_export_dl', name: "Export DL Tensors", type: 'process', color: 'bg-emerald-600' },
+            ]
+        },
+        {
+            name: "GeoAI (geoai)",
+            icon: "fas fa-microchip",
+            tools: [
+            { id: 'ai_detect', name: "Detect Objects (ResNet50)", type: 'process', color: 'bg-purple-600' },
+            { id: 'ai_segment', name: "Classify Pixels (Mask2Former)", type: 'process', color: 'bg-purple-600' },
+            ]
+        },
+        {
+            name: "Data Management",
+            icon: "fas fa-cog",
+            tools: [
+            { id: 'mgt_clip', name: "Clip / Extract By Mask", type: 'process', color: 'bg-slate-600' },
+            { id: 'mgt_project', name: "Project (Change CRS)", type: 'process', color: 'bg-slate-600' },
+            { id: 'out_save', name: "Save Output", type: 'output', color: 'bg-orange-600' },
+            ]
+        }
+        ];
+
+        function MagPICanvas() {
+        // --- STATE ---
+        const [nodes, setNodes] = useState([
+            { id: 'node_1', toolId: 'load_raster', name: 'NOAA 4-Band Raster', x: 100, y: 150, color: 'bg-blue-600' },
+            { id: 'node_2', toolId: 'ia_ndvi', name: 'NDVI Calculator', x: 400, y: 150, color: 'bg-emerald-600' },
+            { id: 'node_3', toolId: 'ia_export_dl', name: 'Export DL Tensors', x: 700, y: 150, color: 'bg-emerald-600' }
+        ]);
+        const [connections, setConnections] = useState([
+            { from: 'node_1', to: 'node_2' },
+            { from: 'node_2', to: 'node_3' }
+        ]);
+        
+        const [expandedCategories, setExpandedCategories] = useState({ "Data Ingestion": true, "Image Analyst (ia)": true });
+        
+        // Canvas Viewport State
+        const [pan, setPan] = useState({ x: 0, y: 0 });
+        const [zoom, setZoom] = useState(1);
+        const canvasRef = useRef(null);
+        const [isPanning, setIsPanning] = useState(false);
+        const [draggedNode, setDraggedNode] = useState(null);
+
+        // Global Env State
+        const [crs, setCrs] = useState("EPSG:6438");
+        const [processingScope, setProcessingScope] = useState("Local Python");
+        
+        // Script Modal
+        const [showScript, setShowScript] = useState(false);
+
+        // --- CANVAS INTERACTIONS ---
+        const handleWheel = (e) => {
+            if (e.deltaY < 0) setZoom(z => Math.min(z + 0.1, 2));
+            else setZoom(z => Math.max(z - 0.1, 0.5));
+        };
+
+        const handlePointerDown = (e) => {
+            if (e.button === 1 || (e.button === 0 && e.altKey)) {
+                setIsPanning(true);
+                e.currentTarget.setPointerCapture(e.pointerId);
+            }
+        };
+
+        const handlePointerMove = (e) => {
+            if (isPanning) {
+                setPan(p => ({ x: p.x + e.movementX, y: p.y + e.movementY }));
+            }
+            if (draggedNode) {
+                setNodes(nds => nds.map(n => 
+                    n.id === draggedNode ? { ...n, x: n.x + e.movementX / zoom, y: n.y + e.movementY / zoom } : n
+                ));
+            }
+        };
+
+        const handlePointerUp = (e) => {
+            setIsPanning(false);
+            setDraggedNode(null);
+            e.currentTarget.releasePointerCapture(e.pointerId);
+        };
+
+        // --- TOOLBOX INTERACTIONS ---
+        const toggleCategory = (catName) => {
+            setExpandedCategories(prev => ({ ...prev, [catName]: !prev[catName] }));
+        };
+
+        const addNode = (tool) => {
+            const newNode = {
+            id: `node_${Date.now()}`,
+            toolId: tool.id,
+            name: tool.name,
+            x: -pan.x / zoom + 200 + Math.random() * 50,
+            y: -pan.y / zoom + 200 + Math.random() * 50,
+            color: tool.color
+            };
+            setNodes([...nodes, newNode]);
+        };
+
+        // --- SCRIPT GENERATION ---
+        const generateScript = () => {
+            let script = `# Generated by MagPI Canvas (v0.0.1 Beta)\n`;
+            script += `import magpi as arcpy\n`;
+            script += `import os\n\n`;
+            script += `# --- Global Environment ---\n`;
+            script += `arcpy.env.workspace = "./tmp_wksp"\n`;
+            script += `arcpy.env.outputCoordinateSystem = ${crs.split(':')[1] || `"${crs}"`}\n`;
+            script += `arcpy.env.overwriteOutput = True\n\n`;
+            
+            script += `# --- MagPI Execution Pipeline ---\n`;
+            script += `arcpy.AddMessage("Initiating MagPI Visual Model execution...")\n\n`;
+
+            nodes.forEach((n, i) => {
+            let funcCall = "";
+            if (n.toolId === 'load_raster') funcCall = `raster_${i} = os.path.join(arcpy.env.workspace, "input_data.tif")`;
+            else if (n.toolId === 'ia_ndvi') funcCall = `ndvi_${i} = arcpy.ia.NDVI(raster_${i-1}, nir_band_id=4, red_band_id=1)`;
+            else if (n.toolId === 'ia_export_dl') funcCall = `chips_${i} = arcpy.ia.ExportTrainingDataForDeepLearning(ndvi_${i-1}.name, "./tmp_wksp/dl_chips", tile_size_x=256, tile_size_y=256, shuffle_chips=True)`;
+            else if (n.toolId === 'ai_detect') funcCall = `pools_${i} = arcpy.geoai.DetectObjectsUsingDeepLearning(raster_${i-1}, "out_pools.shp", "facebook/detr-resnet-50")`;
+            else funcCall = `# Execute ${n.name}`;
+            
+            script += `${funcCall}\n`;
+            });
+            
+            if (processingScope === "Apache Airflow") {
+            script = `from airflow.decorators import dag, task\nfrom datetime import datetime\n\n@dag(start_date=datetime(2026, 1, 1), schedule=None)\ndef magpi_pipeline():\n    @task\n    def run_magpi():\n` + script.split('\n').map(line => '        ' + line).join('\n') + `\n\n    run_magpi()\nmagpi_pipeline()`;
+            }
+            
+            return script;
+        };
+
+        return (
+            <div className="flex flex-col h-screen bg-slate-900 text-slate-200 font-sans overflow-hidden select-none">
+            
+            {/* 1. TOP RIBBON */}
+            <div className="flex flex-col bg-slate-800 border-b border-slate-700 shadow-md z-20">
+                <div className="flex items-center justify-between px-4 py-1 bg-slate-950 text-xs text-slate-400">
+                <div className="flex items-center space-x-4">
+                    <span className="font-bold text-emerald-500 tracking-wider">MAGPI CANVAS</span>
+                    <span>Project: Orange_County_Pilot.mpjx</span>
+                </div>
+                <div className="flex items-center space-x-3">
+                    <span className="flex items-center"><i className="fas fa-server mr-1"></i> Daemon Online</span>
+                </div>
+                </div>
+                
+                <div className="flex space-x-1 px-2 pt-2 text-sm border-b border-slate-700">
+                <button className="px-4 py-1 bg-slate-700 rounded-t-md text-emerald-400 font-medium">Model Builder</button>
+                <button className="px-4 py-1 hover:bg-slate-700/50 rounded-t-md text-slate-300">Map</button>
+                </div>
+
+                <div className="flex items-center px-4 py-2 space-x-6">
+                {/* Action Group */}
+                <div className="flex items-center space-x-2 border-r border-slate-700 pr-6">
+                    <button 
+                    onClick={() => setShowScript(true)}
+                    className="flex flex-col items-center justify-center p-2 hover:bg-slate-700 rounded text-emerald-400 transition-colors"
+                    >
+                    <i className="fas fa-code text-xl"></i>
+                    <span className="text-xs mt-1">Export Python</span>
+                    </button>
+                    <button className="flex flex-col items-center justify-center p-2 hover:bg-slate-700 rounded text-slate-400">
+                    <i className="fas fa-save text-xl"></i>
+                    <span className="text-xs mt-1">Save Model</span>
+                    </button>
+                </div>
+
+                {/* Environment Variables Group */}
+                <div className="flex flex-col space-y-1">
+                    <span className="text-[10px] text-slate-400 uppercase tracking-wider font-bold">Global Environment</span>
+                    <div className="flex space-x-4">
+                    <div className="flex items-center space-x-2 bg-slate-900 px-2 py-1 rounded text-sm border border-slate-700">
+                        <i className="fas fa-globe text-blue-400"></i>
+                        <select 
+                        className="bg-transparent outline-none cursor-pointer text-slate-200"
+                        value={crs} onChange={(e) => setCrs(e.target.value)}
+                        >
+                        <option value="EPSG:4326">WGS 84 (EPSG:4326)</option>
+                        <option value="EPSG:3857">Web Mercator (EPSG:3857)</option>
+                        <option value="EPSG:6438">FL State Plane E (EPSG:6438)</option>
+                        </select>
+                    </div>
+                    <div className="flex items-center space-x-2 bg-slate-900 px-2 py-1 rounded text-sm border border-slate-700">
+                        <i className="fas fa-microchip text-purple-400"></i>
+                        <select 
+                        className="bg-transparent outline-none cursor-pointer text-slate-200"
+                        value={processingScope} onChange={(e) => setProcessingScope(e.target.value)}
+                        >
+                        <option value="Local Python">Local Backend (Conda)</option>
+                        <option value="Apache Airflow">Remote (Apache Airflow)</option>
+                        </select>
+                    </div>
+                    </div>
+                </div>
+                </div>
+            </div>
+
+            {/* 2. MAIN WORKSPACE */}
+            <div className="flex flex-1 overflow-hidden">
+                
+                {/* LEFT: Node Canvas */}
+                <div 
+                className="flex-1 relative bg-[#1e1e24] overflow-hidden border-r border-slate-800 cursor-grab active:cursor-grabbing"
+                ref={canvasRef}
+                onWheel={handleWheel}
+                onPointerDown={handlePointerDown}
+                onPointerMove={handlePointerMove}
+                onPointerUp={handlePointerUp}
+                onPointerLeave={handlePointerUp}
+                style={{ backgroundImage: 'radial-gradient(#333 1px, transparent 1px)', backgroundSize: `${20 * zoom}px ${20 * zoom}px`, backgroundPosition: `${pan.x}px ${pan.y}px` }}
+                >
+                <div className="absolute top-4 left-4 flex space-x-2 z-10 bg-slate-800/80 p-1 rounded backdrop-blur-sm border border-slate-700">
+                    <button className="p-1.5 bg-slate-700 rounded text-emerald-400" title="Select"><i className="fas fa-mouse-pointer"></i></button>
+                    <button className="p-1.5 hover:bg-slate-700 rounded text-slate-400" title="Pan (Middle Click/Alt+Drag)"><i className="fas fa-arrows-alt"></i></button>
+                    <div className="w-px bg-slate-600 mx-1"></div>
+                    <button className="p-1.5 hover:bg-slate-700 rounded text-slate-400" title="Zoom In"><i className="fas fa-search-plus"></i></button>
+                    <span className="text-xs flex items-center px-2 text-slate-400">{Math.round(zoom * 100)}%</span>
+                </div>
+
+                <div style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: '0 0', width: '100%', height: '100%', position: 'absolute' }}>
+                    
+                    {/* SVG Connections */}
+                    <svg className="absolute inset-0 w-full h-full pointer-events-none overflow-visible">
+                    {connections.map((conn, i) => {
+                        const fromNode = nodes.find(n => n.id === conn.from);
+                        const toNode = nodes.find(n => n.id === conn.to);
+                        if(!fromNode || !toNode) return null;
+                        
+                        const startX = fromNode.x + 180;
+                        const startY = fromNode.y + 25;
+                        const endX = toNode.x;
+                        const endY = toNode.y + 25;
+                        
+                        return (
+                        <path 
+                            key={i}
+                            d={`M ${startX} ${startY} C ${startX + 50} ${startY}, ${endX - 50} ${endY}, ${endX} ${endY}`}
+                            fill="none"
+                            stroke="#10b981"
+                            strokeWidth="3"
+                            className="opacity-70"
+                        />
+                        );
+                    })}
+                    </svg>
+
+                    {/* Nodes */}
+                    {nodes.map(node => (
+                    <div 
+                        key={node.id}
+                        onPointerDown={(e) => { e.stopPropagation(); setDraggedNode(node.id); }}
+                        className={`absolute w-[180px] h-[50px] rounded-md shadow-lg flex items-center px-3 border border-slate-600/50 cursor-pointer hover:border-slate-400 transition-colors ${node.color}`}
+                        style={{ left: node.x, top: node.y }}
+                    >
+                        <div className="absolute -left-1.5 top-1/2 transform -translate-y-1/2 w-3 h-3 bg-slate-300 rounded-full border-2 border-slate-800"></div>
+                        
+                        <div className="flex-1 truncate pointer-events-none">
+                        <div className="text-[10px] uppercase tracking-wider text-slate-300 opacity-80">{node.toolId.split('_')[0]}</div>
+                        <div className="text-sm font-semibold text-white truncate">{node.name}</div>
+                        </div>
+
+                        <div className="absolute -right-1.5 top-1/2 transform -translate-y-1/2 w-3 h-3 bg-emerald-400 rounded-full border-2 border-slate-800"></div>
+                    </div>
+                    ))}
+                </div>
+                </div>
+
+                {/* MIDDLE RIGHT: Live Map Viewport */}
+                <div className="w-[300px] border-r border-slate-800 bg-[#0f172a] relative flex flex-col hidden lg:flex">
+                <div className="px-3 py-2 bg-slate-800 text-xs font-semibold tracking-wider text-slate-400 flex items-center justify-between border-b border-slate-700">
+                    <span className="flex items-center"><i className="fas fa-map mr-2"></i> MAP VIEWPORT</span>
+                    <i className="fas fa-crosshairs cursor-pointer hover:text-emerald-400"></i>
+                </div>
+                <div className="flex-1 relative bg-[#111827] overflow-hidden flex items-center justify-center p-4">
+                    <div className="relative w-full h-full border border-slate-700/50 bg-[#1f2937] rounded overflow-hidden">
+                        <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'linear-gradient(#374151 1px, transparent 1px), linear-gradient(90deg, #374151 1px, transparent 1px)', backgroundSize: '20px 20px' }}></div>
+                        
+                        <svg className="absolute inset-0 w-full h-full opacity-30" viewBox="0 0 100 100" preserveAspectRatio="none">
+                        <path d="M 20 10 L 80 10 L 90 50 L 70 90 L 50 90 L 40 40 Z" fill="#10b981" />
+                        </svg>
+                        
+                        <div className="absolute top-[30%] left-[40%] w-[80px] h-[60px] border-2 border-dashed border-red-500 bg-red-500/10 flex items-center justify-center shadow-[0_0_15px_rgba(239,68,68,0.3)]">
+                        <span className="text-[8px] text-red-400 bg-slate-900/80 px-1 rounded font-bold tracking-wider">ACTIVE AOI</span>
+                        </div>
+                    </div>
+                </div>
+                <div className="h-28 bg-slate-800 p-2 border-t border-slate-700 text-xs text-slate-400 overflow-y-auto font-mono leading-tight">
+                    <p className="text-emerald-400 mb-1">[SYSTEM] Map Extent Synchronized.</p>
+                    <p>XMin: 480500.00 YMin: 1422000.00</p>
+                    <p>XMax: 485500.00 YMax: 1425000.00</p>
+                    <p className="mt-1 text-slate-300">Active Layer: 2022_480536.tif</p>
+                </div>
+                </div>
+
+                {/* RIGHT: Toolbox */}
+                <div className="w-[280px] bg-slate-800 flex flex-col shadow-[-4px_0_15px_rgba(0,0,0,0.2)] z-10">
+                <div className="px-4 py-3 bg-slate-900 border-b border-slate-700 text-sm font-semibold flex items-center text-slate-200">
+                    <i className="fas fa-tools mr-2 text-slate-400"></i>
+                    GEOPROCESSING TOOLBOX
+                </div>
+                
+                <div className="flex-1 overflow-y-auto p-2 space-y-2">
+                    {TOOLBOX_CATEGORIES.map((cat, idx) => (
+                    <div key={idx} className="bg-slate-900/50 rounded border border-slate-700/50 overflow-hidden">
+                        <button 
+                        onClick={() => toggleCategory(cat.name)}
+                        className="w-full flex items-center justify-between px-3 py-2 bg-slate-800 hover:bg-slate-700 transition-colors"
+                        >
+                        <div className="flex items-center space-x-2 text-sm text-slate-300">
+                            <i className={cat.icon}></i>
+                            <span>{cat.name}</span>
+                        </div>
+                        <i className={`fas ${expandedCategories[cat.name] ? 'fa-chevron-down' : 'fa-chevron-right'} text-xs text-slate-500`}></i>
+                        </button>
+                        
+                        {expandedCategories[cat.name] && (
+                        <div className="p-2 space-y-1">
+                            {cat.tools.map(tool => (
+                            <div 
+                                key={tool.id}
+                                onClick={() => addNode(tool)}
+                                className="flex items-center px-3 py-2 text-xs bg-slate-800/80 hover:bg-slate-700 rounded cursor-pointer border border-transparent hover:border-emerald-500/50 transition-all group"
+                            >
+                                <div className={`w-2 h-2 rounded-full mr-3 ${tool.color}`}></div>
+                                <span className="flex-1 text-slate-300 group-hover:text-white">{tool.name}</span>
+                            </div>
+                            ))}
+                        </div>
+                        )}
+                    </div>
+                    ))}
+                </div>
+                </div>
+            </div>
+
+            {/* SCRIPT GENERATION MODAL */}
+            {showScript && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-8">
+                <div className="bg-slate-800 rounded-lg shadow-2xl w-full max-w-3xl border border-slate-600 flex flex-col overflow-hidden">
+                    <div className="flex items-center justify-between px-4 py-3 bg-slate-900 border-b border-slate-700">
+                    <h3 className="font-semibold text-emerald-400 flex items-center"><i className="fas fa-code mr-2"></i> Generated Python Script</h3>
+                    <button onClick={() => setShowScript(false)} className="text-slate-400 hover:text-white"><i className="fas fa-times text-lg"></i></button>
+                    </div>
+                    <div className="p-4 bg-[#1e1e1e] flex-1">
+                    <pre className="text-sm font-mono text-slate-300 overflow-auto h-[400px] whitespace-pre-wrap">
+                        {generateScript()}
+                    </pre>
+                    </div>
+                    <div className="p-3 bg-slate-900 border-t border-slate-700 flex justify-end space-x-3">
+                    <button onClick={() => setShowScript(false)} className="px-4 py-2 rounded text-sm text-slate-300 hover:bg-slate-700 transition-colors">Close</button>
+                    <button className="px-4 py-2 rounded text-sm bg-emerald-600 hover:bg-emerald-500 text-white font-medium flex items-center transition-colors">
+                        <i className="fas fa-play mr-2"></i> Deploy to {processingScope}
+                    </button>
+                    </div>
+                </div>
+                </div>
+            )}
+            
+            </div>
+        );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<MagPICanvas />);
+    </script>
+</body>
+</html>
