@@ -5,6 +5,7 @@ __pycache__/
 # Ignore massive test data and raster formats
 test_data/
 tmp_wksp/
+
 *.zip
 *.tif
 *.tfw
@@ -20,3 +21,6 @@ tmp_wksp/
 .conda/
 venv/
 env/
+
+# Ignore massive modules
+node_modules/
