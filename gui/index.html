@@ -3,259 +3,204 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MagPI Canvas - 0.0.2 Beta</title>
+    <title>MagPI Canvas - 0.0.3 Beta</title>
     
-    <!-- Tailwind CSS (Styling) -->
     <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- FontAwesome (Icons) -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
-    <!-- Leaflet JS & CSS (Live Map Engine) -->
+    <!-- Leaflet JS & CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
     
-    <!-- React & ReactDOM -->
+    <!-- Leaflet Draw Plugin (For drawing the AOI Box) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css"/>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+    
+    <!-- React & Babel -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    
-    <!-- Babel (Compiles JSX in the browser) -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
     <style>
         body { margin: 0; overflow: hidden; background-color: #0f172a; }
-        /* Custom scrollbar for dark mode */
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: #1e293b; }
         ::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
         ::-webkit-scrollbar-thumb:hover { background: #64748b; }
         
-        /* Darken Leaflet Map to fit UI */
-        .leaflet-layer,
-        .leaflet-control-zoom-in,
-        .leaflet-control-zoom-out,
-        .leaflet-control-attribution {
+        .leaflet-layer, .leaflet-control-zoom-in, .leaflet-control-zoom-out, .leaflet-control-attribution {
             filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
         }
+        /* Customizing the draw toolbar for dark mode */
+        .leaflet-draw-toolbar a { filter: invert(80%); }
     </style>
 </head>
 <body>
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useRef, useEffect } = React;
+        const { useState, useRef, useEffect, useCallback } = React;
 
-        // --- LIVE MAP COMPONENT (LEAFLET) ---
-        function LiveMap() {
+        // --- LIVE MAP COMPONENT WITH DRAWING TOOLS ---
+        function LiveMap({ onAoiDrawn }) {
             const mapRef = useRef(null);
             
             useEffect(() => {
                 if (!mapRef.current) return;
                 
-                // Initialize map centered on Orange County, FL
                 const map = L.map(mapRef.current, { zoomControl: false }).setView([28.5383, -81.3792], 10);
                 
-                // Add OpenStreetMap tiles
                 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                     attribution: '© OpenStreetMap'
                 }).addTo(map);
 
-                // Add Zoom control to top right
                 L.control.zoom({ position: 'topright' }).addTo(map);
                 
-                // Draw a mock AOI Bounding Box for the 2022_480536.tif footprint
-                const bounds = [[28.45, -81.45], [28.60, -81.25]];
-                L.rectangle(bounds, {color: "#ef4444", weight: 2, fillOpacity: 0.1, dashArray: '5, 5'}).addTo(map);
-                
-                // Add a marker for center datum
-                L.marker([28.5383, -81.3792]).addTo(map)
-                 .bindPopup("<b>Orange County Core Datum</b><br>EPSG:6438");
+                // --- Initialize Leaflet Draw ---
+                const drawnItems = new L.FeatureGroup();
+                map.addLayer(drawnItems);
+
+                const drawControl = new L.Control.Draw({
+                    position: 'topleft',
+                    draw: {
+                        polyline: false, polygon: false, circle: false, marker: false, circlemarker: false,
+                        rectangle: { shapeOptions: { color: '#ef4444', weight: 2, fillOpacity: 0.1 } }
+                    },
+                    edit: { featureGroup: drawnItems, remove: true }
+                });
+                map.addControl(drawControl);
+
+                // --- Capture the Drawn AOI ---
+                map.on(L.Draw.Event.CREATED, function (e) {
+                    const layer = e.layer;
+                    drawnItems.addLayer(layer);
+                    
+                    const bounds = layer.getBounds();
+                    const aoiData = {
+                        xmin: bounds.getWest().toFixed(5),
+                        ymin: bounds.getSouth().toFixed(5),
+                        xmax: bounds.getEast().toFixed(5),
+                        ymax: bounds.getNorth().toFixed(5)
+                    };
+                    
+                    // Send the coordinates back to the React Canvas!
+                    if(onAoiDrawn) onAoiDrawn(aoiData);
+                });
 
                 return () => map.remove();
-            }, []);
+            }, [onAoiDrawn]);
 
             return <div ref={mapRef} style={{width: '100%', height: '100%', backgroundColor: '#1f2937'}}></div>;
         }
 
-        // --- MOCK TOOLBOX DATA WITH DEFAULT PARAMS ---
+        // --- TOOLBOX DATA ---
         const TOOLBOX_CATEGORIES = [
         {
-            name: "Data Ingestion",
-            icon: "fas fa-database",
+            name: "Data Ingestion", icon: "fas fa-database",
             tools: [
-            { id: 'load_raster', name: "Input Raster (TIFF)", type: 'input', color: 'bg-blue-600', params: { file_path: "./test_data/noaa_florida/2021_4BandImagery_Florida_J1378560tR0_C0.tif" } },
-            { id: 'load_vector', name: "Input Vector (SHP)", type: 'input', color: 'bg-blue-600', params: { file_path: "roads.shp" } },
+            { id: 'load_raster', name: "Input Raster", type: 'input', color: 'bg-blue-600', params: { file_path: "./test_data/noaa_florida/2021_4BandImagery.tif" } },
+            { id: 'load_vector', name: "Input Vector", type: 'input', color: 'bg-blue-600', params: { file_path: "roads.shp" } },
             ]
         },
         {
-            name: "Image Analyst (ia)",
-            icon: "fas fa-layer-group",
+            name: "Image Analyst (ia)", icon: "fas fa-layer-group",
             tools: [
-            { id: 'ia_ndvi', name: "NDVI Calculator", type: 'process', color: 'bg-emerald-600', params: { nir_band_id: 4, red_band_id: 1 } },
-            { id: 'ia_export_dl', name: "Export DL Tensors", type: 'process', color: 'bg-emerald-600', params: { out_folder: "./dl_chips", tile_size_x: 256, tile_size_y: 256, stride: 128, shuffle: true } },
+            { id: 'ia_ndvi', name: "NDVI Calculator", type: 'process', color: 'bg-emerald-600', params: { nir_band: 4, red_band: 1 } },
+            { id: 'ia_export_dl', name: "Export DL Tensors", type: 'process', color: 'bg-emerald-600', params: { out_folder: "./dl_chips", tile_x: 256, tile_y: 256, stride: 128, shuffle: true } },
             ]
         },
         {
-            name: "GeoAI (geoai)",
-            icon: "fas fa-microchip",
+            name: "GeoAI (geoai)", icon: "fas fa-microchip",
             tools: [
-            { id: 'ai_detect', name: "Detect Objects (ResNet)", type: 'process', color: 'bg-purple-600', params: { out_shp: "pools.shp", model: "facebook/detr-resnet-50", confidence: 0.7 } },
+            { id: 'ai_detect', name: "Detect Objects", type: 'process', color: 'bg-purple-600', params: { out_shp: "pools.shp", model: "facebook/detr-resnet-50" } },
             ]
         },
         {
-            name: "Data Management",
-            icon: "fas fa-cog",
+            name: "Data Management", icon: "fas fa-cog",
             tools: [
+            { id: 'mgt_clip', name: "Clip to AOI", type: 'process', color: 'bg-slate-600', params: { xmin: "", ymin: "", xmax: "", ymax: "" } },
             { id: 'mgt_buffer', name: "Buffer", type: 'process', color: 'bg-slate-600', params: { distance: "50 METERS" } },
             ]
         }
         ];
 
         function MagPICanvas() {
-        // --- STATE ---
         const [nodes, setNodes] = useState([
-            { id: 'node_1', toolId: 'load_raster', name: 'NOAA 4-Band Raster', x: 100, y: 150, color: 'bg-blue-600', params: { file_path: "./test_data/noaa_florida/2021_4BandImagery.tif" } },
-            { id: 'node_2', toolId: 'ia_ndvi', name: 'NDVI Calculator', x: 400, y: 150, color: 'bg-emerald-600', params: { nir_band_id: 4, red_band_id: 1 } },
-            { id: 'node_3', toolId: 'ia_export_dl', name: 'Export DL Tensors', x: 700, y: 150, color: 'bg-emerald-600', params: { out_folder: "./dl_chips", tile_size_x: 256, tile_size_y: 256, stride: 128, shuffle: true } }
+            { id: 'node_1', toolId: 'load_raster', name: 'NOAA 4-Band Raster', x: 100, y: 150, color: 'bg-blue-600', params: { file_path: "./test_data/noaa_florida/2021_4BandImagery.tif" } }
         ]);
-        const [connections, setConnections] = useState([
-            { from: 'node_1', to: 'node_2' },
-            { from: 'node_2', to: 'node_3' }
-        ]);
-        
-        const [expandedCategories, setExpandedCategories] = useState({ "Data Ingestion": true, "Image Analyst (ia)": true });
-        
-        // Canvas Viewport State
+        const [connections, setConnections] = useState([]);
+        const [expandedCategories, setExpandedCategories] = useState({ "Data Ingestion": true, "Image Analyst (ia)": true, "Data Management": true });
         const [pan, setPan] = useState({ x: 0, y: 0 });
         const [zoom, setZoom] = useState(1);
         const canvasRef = useRef(null);
         const [isPanning, setIsPanning] = useState(false);
         const [draggedNode, setDraggedNode] = useState(null);
-
-        // Right Panel Tab State
-        const [activeRightTab, setActiveRightTab] = useState('toolbox'); // 'toolbox' or 'inspector'
+        const [activeRightTab, setActiveRightTab] = useState('toolbox');
         const [selectedNodeId, setSelectedNodeId] = useState(null);
-
-        // Global Env State
         const [crs, setCrs] = useState("EPSG:6438");
         const [processingScope, setProcessingScope] = useState("Local Python");
         const [showScript, setShowScript] = useState(false);
 
-        // --- CANVAS INTERACTIONS ---
+        // --- MAP TO CANVAS BRIDGE ---
+        const handleAoiDrawn = useCallback((aoiData) => {
+            // When a box is drawn on the map, automatically spawn a "Clip to AOI" node
+            const newNodeId = `node_${Date.now()}`;
+            const newNode = {
+                id: newNodeId,
+                toolId: 'mgt_clip',
+                name: 'Clip to AOI (Map Draw)',
+                x: -pan.x / zoom + 300,
+                y: -pan.y / zoom + 300,
+                color: 'bg-slate-600',
+                params: { xmin: aoiData.xmin, ymin: aoiData.ymin, xmax: aoiData.xmax, ymax: aoiData.ymax }
+            };
+            setNodes(prev => [...prev, newNode]);
+            setSelectedNodeId(newNodeId);
+            setActiveRightTab('inspector');
+        }, [pan, zoom]);
+
         const handleWheel = (e) => {
             if (e.deltaY < 0) setZoom(z => Math.min(z + 0.1, 2));
             else setZoom(z => Math.max(z - 0.1, 0.5));
         };
-
         const handlePointerDown = (e) => {
             if (e.button === 1 || (e.button === 0 && e.altKey)) {
                 setIsPanning(true);
                 e.currentTarget.setPointerCapture(e.pointerId);
             } else if (e.target === canvasRef.current) {
-                // Clicked empty canvas, deselect node
                 setSelectedNodeId(null);
                 setActiveRightTab('toolbox');
             }
         };
-
         const handlePointerMove = (e) => {
-            if (isPanning) {
-                setPan(p => ({ x: p.x + e.movementX, y: p.y + e.movementY }));
-            }
-            if (draggedNode) {
-                setNodes(nds => nds.map(n => 
-                    n.id === draggedNode ? { ...n, x: n.x + e.movementX / zoom, y: n.y + e.movementY / zoom } : n
-                ));
-            }
+            if (isPanning) setPan(p => ({ x: p.x + e.movementX, y: p.y + e.movementY }));
+            if (draggedNode) setNodes(nds => nds.map(n => n.id === draggedNode ? { ...n, x: n.x + e.movementX / zoom, y: n.y + e.movementY / zoom } : n));
         };
-
-        const handlePointerUp = (e) => {
-            setIsPanning(false);
-            setDraggedNode(null);
-            e.currentTarget.releasePointerCapture(e.pointerId);
-        };
-
-        // --- NODE INTERACTIONS ---
-        const selectNode = (nodeId, e) => {
-            e.stopPropagation();
-            setSelectedNodeId(nodeId);
-            setActiveRightTab('inspector');
-        };
-
-        const updateNodeParam = (nodeId, paramKey, value) => {
-            setNodes(nds => nds.map(n => {
-                if (n.id === nodeId) {
-                    return { ...n, params: { ...n.params, [paramKey]: value } };
-                }
-                return n;
-            }));
-        };
-
-        const toggleCategory = (catName) => {
-            setExpandedCategories(prev => ({ ...prev, [catName]: !prev[catName] }));
-        };
-
+        const handlePointerUp = (e) => { setIsPanning(false); setDraggedNode(null); e.currentTarget.releasePointerCapture(e.pointerId); };
+        const selectNode = (nodeId, e) => { e.stopPropagation(); setSelectedNodeId(nodeId); setActiveRightTab('inspector'); };
+        const updateNodeParam = (nodeId, paramKey, value) => { setNodes(nds => nds.map(n => n.id === nodeId ? { ...n, params: { ...n.params, [paramKey]: value } } : n)); };
+        const toggleCategory = (catName) => { setExpandedCategories(prev => ({ ...prev, [catName]: !prev[catName] })); };
+        
         const addNode = (tool) => {
-            const newNode = {
-                id: `node_${Date.now()}`,
-                toolId: tool.id,
-                name: tool.name,
-                x: -pan.x / zoom + 200 + Math.random() * 50,
-                y: -pan.y / zoom + 200 + Math.random() * 50,
-                color: tool.color,
-                params: { ...tool.params } // Deep copy default params
-            };
+            const newNode = { id: `node_${Date.now()}`, toolId: tool.id, name: tool.name, x: -pan.x / zoom + 200, y: -pan.y / zoom + 200, color: tool.color, params: { ...tool.params } };
             setNodes([...nodes, newNode]);
             setSelectedNodeId(newNode.id);
             setActiveRightTab('inspector');
         };
 
-        // --- SCRIPT GENERATION (DYNAMIC PARAMS) ---
         const generateScript = () => {
-            let script = `# Generated by MagPI Canvas (v0.0.2 Beta)\n`;
-            script += `import magpi as arcpy\n`;
-            script += `import os\n\n`;
-            script += `# --- Global Environment ---\n`;
-            script += `arcpy.env.workspace = "./tmp_wksp"\n`;
-            script += `arcpy.env.outputCoordinateSystem = ${crs.split(':')[1] || `"${crs}"`}\n`;
-            script += `arcpy.env.overwriteOutput = True\n\n`;
-            
-            script += `# --- MagPI Execution Pipeline ---\n`;
-            script += `arcpy.AddMessage("Initiating MagPI Visual Model execution...")\n\n`;
-
+            let script = `# Generated by MagPI Canvas (v0.0.3 Beta)\nimport magpi as arcpy\nimport os\n\n# --- Global Environment ---\narcpy.env.workspace = "./tmp_wksp"\narcpy.env.outputCoordinateSystem = ${crs.split(':')[1]}\narcpy.env.overwriteOutput = True\n\n`;
             nodes.forEach((n, i) => {
                 let funcCall = "";
                 const p = n.params || {};
-
-                if (n.toolId === 'load_raster') {
-                    funcCall = `raster_${i} = "${p.file_path}"`;
-                }
-                else if (n.toolId === 'load_vector') {
-                    funcCall = `vector_${i} = "${p.file_path}"`;
-                }
-                else if (n.toolId === 'ia_ndvi') {
-                    funcCall = `ndvi_${i} = arcpy.ia.NDVI(raster_${i-1}, nir_band_id=${p.nir_band_id}, red_band_id=${p.red_band_id})`;
-                }
-                else if (n.toolId === 'ia_export_dl') {
-                    funcCall = `chips_${i} = arcpy.ia.ExportTrainingDataForDeepLearning(ndvi_${i-1}.name, "${p.out_folder}", tile_size_x=${p.tile_size_x}, tile_size_y=${p.tile_size_y}, stride_x=${p.stride}, stride_y=${p.stride}, shuffle_chips=${p.shuffle ? 'True' : 'False'})`;
-                }
-                else if (n.toolId === 'ai_detect') {
-                    funcCall = `pools_${i} = arcpy.geoai.DetectObjectsUsingDeepLearning(raster_${i-1}, "${p.out_shp}", "${p.model}")`;
-                }
-                else if (n.toolId === 'mgt_buffer') {
-                    funcCall = `buf_${i} = arcpy.analysis.Buffer(vector_${i-1}, "out_buf.shp", "${p.distance}")`;
-                }
-                else {
-                    funcCall = `# Execute ${n.name}`;
-                }
-                
+                if (n.toolId === 'load_raster') funcCall = `raster_${i} = "${p.file_path}"`;
+                else if (n.toolId === 'ia_ndvi') funcCall = `ndvi_${i} = arcpy.ia.NDVI(raster_${i-1}, nir_band_id=${p.nir_band}, red_band_id=${p.red_band})`;
+                else if (n.toolId === 'ia_export_dl') funcCall = `chips_${i} = arcpy.ia.ExportTrainingDataForDeepLearning(ndvi_${i-1}.name, "${p.out_folder}", tile_size_x=${p.tile_x}, tile_size_y=${p.tile_y}, shuffle_chips=${p.shuffle ? 'True' : 'False'})`;
+                else if (n.toolId === 'ai_detect') funcCall = `pools_${i} = arcpy.geoai.DetectObjectsUsingDeepLearning(raster_${i-1}, "${p.out_shp}", "${p.model}")`;
+                else if (n.toolId === 'mgt_clip') funcCall = `extent_poly = arcpy.Extent(${p.xmin}, ${p.ymin}, ${p.xmax}, ${p.ymax})\nclip_${i} = arcpy.management.Clip(raster_${i-1}, extent_poly, "aoi_clip.tif")`;
+                else funcCall = `# Execute ${n.name}`;
                 script += `${funcCall}\n`;
             });
-            
-            if (processingScope === "Apache Airflow") {
-                script = `from airflow.decorators import dag, task\nfrom datetime import datetime\n\n@dag(start_date=datetime(2026, 1, 1), schedule=None)\ndef magpi_pipeline():\n    @task\n    def run_magpi():\n` + script.split('\n').map(line => '        ' + line).join('\n') + `\n\n    run_magpi()\nmagpi_pipeline()`;
-            }
-            
             return script;
         };
 
@@ -264,293 +209,143 @@
         return (
             <div className="flex flex-col h-screen bg-slate-900 text-slate-200 font-sans overflow-hidden select-none">
             
-            {/* 1. TOP RIBBON */}
+            {/* TOP RIBBON */}
             <div className="flex flex-col bg-slate-800 border-b border-slate-700 shadow-md z-20">
                 <div className="flex items-center justify-between px-4 py-1 bg-slate-950 text-xs text-slate-400">
-                <div className="flex items-center space-x-4">
-                    <span className="font-bold text-emerald-500 tracking-wider">MAGPI CANVAS</span>
-                    <span>Project: Orange_County_Pilot.mpjx</span>
-                </div>
-                <div className="flex items-center space-x-3">
-                    <span className="flex items-center"><i className="fas fa-server mr-1 text-emerald-500"></i> Daemon Online</span>
-                </div>
+                    <div className="flex items-center space-x-4">
+                        <span className="font-bold text-emerald-500 tracking-wider">MAGPI CANVAS</span>
+                        <span>Project: Local_Daemon_Active</span>
+                    </div>
+                    <div className="flex items-center space-x-3"><span className="flex items-center"><i className="fas fa-server mr-1 text-emerald-500"></i> Localhost:8080</span></div>
                 </div>
                 
                 <div className="flex space-x-1 px-2 pt-2 text-sm border-b border-slate-700">
-                <button className="px-4 py-1 bg-slate-700 rounded-t-md text-emerald-400 font-medium border-t-2 border-emerald-500">Model Builder</button>
-                <button className="px-4 py-1 hover:bg-slate-700/50 rounded-t-md text-slate-300 transition">Map</button>
+                    <button className="px-4 py-1 bg-slate-700 rounded-t-md text-emerald-400 font-medium border-t-2 border-emerald-500">Model Builder</button>
                 </div>
 
                 <div className="flex items-center px-4 py-2 space-x-6">
-                {/* Action Group */}
-                <div className="flex items-center space-x-2 border-r border-slate-700 pr-6">
-                    <button 
-                    onClick={() => setShowScript(true)}
-                    className="flex flex-col items-center justify-center p-2 hover:bg-slate-700 rounded text-emerald-400 transition-colors"
-                    >
-                    <i className="fas fa-code text-xl"></i>
-                    <span className="text-xs mt-1">Export Python</span>
-                    </button>
-                    <button className="flex flex-col items-center justify-center p-2 hover:bg-slate-700 rounded text-slate-400">
-                    <i className="fas fa-save text-xl"></i>
-                    <span className="text-xs mt-1">Save Model</span>
-                    </button>
-                </div>
-
-                {/* Environment Variables Group */}
-                <div className="flex flex-col space-y-1">
-                    <span className="text-[10px] text-slate-400 uppercase tracking-wider font-bold">Global Environment</span>
-                    <div className="flex space-x-4">
-                    <div className="flex items-center space-x-2 bg-slate-900 px-2 py-1 rounded text-sm border border-slate-700">
-                        <i className="fas fa-globe text-blue-400"></i>
-                        <select 
-                        className="bg-transparent outline-none cursor-pointer text-slate-200"
-                        value={crs} onChange={(e) => setCrs(e.target.value)}
-                        >
-                        <option value="EPSG:4326">WGS 84 (EPSG:4326)</option>
-                        <option value="EPSG:3857">Web Mercator (EPSG:3857)</option>
-                        <option value="EPSG:6438">FL State Plane E (EPSG:6438)</option>
-                        </select>
+                    <div className="flex items-center space-x-2 border-r border-slate-700 pr-6">
+                        <button onClick={() => setShowScript(true)} className="flex flex-col items-center justify-center p-2 hover:bg-slate-700 rounded text-emerald-400 transition-colors">
+                            <i className="fas fa-code text-xl"></i><span className="text-xs mt-1">Export Python</span>
+                        </button>
                     </div>
-                    <div className="flex items-center space-x-2 bg-slate-900 px-2 py-1 rounded text-sm border border-slate-700">
-                        <i className="fas fa-microchip text-purple-400"></i>
-                        <select 
-                        className="bg-transparent outline-none cursor-pointer text-slate-200"
-                        value={processingScope} onChange={(e) => setProcessingScope(e.target.value)}
-                        >
-                        <option value="Local Python">Local Backend (Conda)</option>
-                        <option value="Apache Airflow">Remote (Apache Airflow)</option>
-                        </select>
+                    <div className="flex flex-col space-y-1">
+                        <span className="text-[10px] text-slate-400 uppercase tracking-wider font-bold">Global Environment</span>
+                        <div className="flex space-x-4">
+                            <div className="flex items-center space-x-2 bg-slate-900 px-2 py-1 rounded text-sm border border-slate-700">
+                                <i className="fas fa-globe text-blue-400"></i>
+                                <select className="bg-transparent outline-none cursor-pointer text-slate-200" value={crs} onChange={(e) => setCrs(e.target.value)}>
+                                    <option value="EPSG:4326">WGS 84 (EPSG:4326)</option>
+                                    <option value="EPSG:6438">FL State Plane E (EPSG:6438)</option>
+                                </select>
+                            </div>
+                        </div>
                     </div>
-                    </div>
-                </div>
                 </div>
             </div>
 
-            {/* 2. MAIN WORKSPACE */}
+            {/* MAIN WORKSPACE */}
             <div className="flex flex-1 overflow-hidden">
-                
-                {/* LEFT: Node Canvas */}
-                <div 
-                className="flex-1 relative bg-[#1e1e24] overflow-hidden border-r border-slate-800 cursor-grab active:cursor-grabbing"
-                ref={canvasRef}
-                onWheel={handleWheel}
-                onPointerDown={handlePointerDown}
-                onPointerMove={handlePointerMove}
-                onPointerUp={handlePointerUp}
-                onPointerLeave={handlePointerUp}
-                style={{ backgroundImage: 'radial-gradient(#333 1px, transparent 1px)', backgroundSize: `${20 * zoom}px ${20 * zoom}px`, backgroundPosition: `${pan.x}px ${pan.y}px` }}
-                >
-                <div className="absolute top-4 left-4 flex space-x-2 z-10 bg-slate-800/80 p-1 rounded backdrop-blur-sm border border-slate-700 shadow-md">
-                    <button className="p-1.5 bg-slate-700 rounded text-emerald-400" title="Select"><i className="fas fa-mouse-pointer"></i></button>
-                    <button className="p-1.5 hover:bg-slate-700 rounded text-slate-400" title="Pan (Middle Click/Alt+Drag)"><i className="fas fa-arrows-alt"></i></button>
-                    <div className="w-px bg-slate-600 mx-1"></div>
-                    <button className="p-1.5 hover:bg-slate-700 rounded text-slate-400" title="Zoom In"><i className="fas fa-search-plus"></i></button>
-                    <span className="text-xs flex items-center px-2 text-slate-400">{Math.round(zoom * 100)}%</span>
-                </div>
-
-                <div style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: '0 0', width: '100%', height: '100%', position: 'absolute' }}>
+                {/* NODE CANVAS */}
+                <div className="flex-1 relative bg-[#1e1e24] overflow-hidden border-r border-slate-800 cursor-grab active:cursor-grabbing"
+                    ref={canvasRef} onWheel={handleWheel} onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerLeave={handlePointerUp}
+                    style={{ backgroundImage: 'radial-gradient(#333 1px, transparent 1px)', backgroundSize: `${20 * zoom}px ${20 * zoom}px`, backgroundPosition: `${pan.x}px ${pan.y}px` }}>
                     
-                    {/* SVG Connections */}
-                    <svg className="absolute inset-0 w-full h-full pointer-events-none overflow-visible">
-                    {connections.map((conn, i) => {
-                        const fromNode = nodes.find(n => n.id === conn.from);
-                        const toNode = nodes.find(n => n.id === conn.to);
-                        if(!fromNode || !toNode) return null;
-                        
-                        const startX = fromNode.x + 180;
-                        const startY = fromNode.y + 25;
-                        const endX = toNode.x;
-                        const endY = toNode.y + 25;
-                        
-                        return (
-                        <path 
-                            key={i}
-                            d={`M ${startX} ${startY} C ${startX + 50} ${startY}, ${endX - 50} ${endY}, ${endX} ${endY}`}
-                            fill="none"
-                            stroke={selectedNodeId === fromNode.id || selectedNodeId === toNode.id ? "#10b981" : "#475569"}
-                            strokeWidth={selectedNodeId === fromNode.id || selectedNodeId === toNode.id ? "3" : "2"}
-                            className="transition-colors duration-200"
-                        />
-                        );
-                    })}
-                    </svg>
-
-                    {/* Nodes */}
-                    {nodes.map(node => {
-                        const isSelected = selectedNodeId === node.id;
-                        return (
-                        <div 
-                            key={node.id}
-                            onPointerDown={(e) => { setDraggedNode(node.id); selectNode(node.id, e); }}
-                            className={`absolute w-[180px] h-[50px] rounded-md shadow-lg flex items-center px-3 border-2 cursor-pointer transition-colors ${node.color} ${isSelected ? 'border-white shadow-[0_0_15px_rgba(16,185,129,0.5)]' : 'border-slate-800 hover:border-slate-500'}`}
-                            style={{ left: node.x, top: node.y }}
-                        >
-                            <div className="absolute -left-1.5 top-1/2 transform -translate-y-1/2 w-3 h-3 bg-slate-300 rounded-full border-2 border-slate-800"></div>
-                            
-                            <div className="flex-1 truncate pointer-events-none">
-                            <div className="text-[10px] uppercase tracking-wider text-slate-300 opacity-80">{node.toolId.split('_')[0]}</div>
-                            <div className="text-sm font-semibold text-white truncate">{node.name}</div>
+                    <div style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: '0 0', width: '100%', height: '100%', position: 'absolute' }}>
+                        {nodes.map(node => {
+                            const isSelected = selectedNodeId === node.id;
+                            return (
+                            <div key={node.id} onPointerDown={(e) => { setDraggedNode(node.id); selectNode(node.id, e); }}
+                                className={`absolute w-[180px] h-[50px] rounded-md shadow-lg flex items-center px-3 border-2 cursor-pointer transition-colors ${node.color} ${isSelected ? 'border-white shadow-[0_0_15px_rgba(16,185,129,0.5)]' : 'border-slate-800 hover:border-slate-500'}`}
+                                style={{ left: node.x, top: node.y }}>
+                                <div className="absolute -left-1.5 top-1/2 transform -translate-y-1/2 w-3 h-3 bg-slate-300 rounded-full border-2 border-slate-800"></div>
+                                <div className="flex-1 truncate pointer-events-none">
+                                    <div className="text-[10px] uppercase tracking-wider text-slate-300 opacity-80">{node.toolId.split('_')[0]}</div>
+                                    <div className="text-sm font-semibold text-white truncate">{node.name}</div>
+                                </div>
+                                <div className="absolute -right-1.5 top-1/2 transform -translate-y-1/2 w-3 h-3 bg-emerald-400 rounded-full border-2 border-slate-800"></div>
                             </div>
-
-                            <div className="absolute -right-1.5 top-1/2 transform -translate-y-1/2 w-3 h-3 bg-emerald-400 rounded-full border-2 border-slate-800"></div>
-                        </div>
-                        );
-                    })}
-                </div>
-                </div>
-
-                {/* MIDDLE RIGHT: LIVE LEAFLET MAP VIEWPORT */}
-                <div className="w-[350px] border-r border-slate-800 bg-[#0f172a] relative flex flex-col hidden lg:flex">
-                <div className="px-3 py-2 bg-slate-800 text-xs font-semibold tracking-wider text-slate-400 flex items-center justify-between border-b border-slate-700 shadow-sm z-10">
-                    <span className="flex items-center"><i className="fas fa-map mr-2"></i> MAP VIEWPORT</span>
-                    <div className="flex space-x-2">
-                        <i className="fas fa-draw-polygon cursor-pointer hover:text-emerald-400" title="Draw AOI"></i>
-                        <i className="fas fa-layer-group cursor-pointer hover:text-emerald-400" title="Layers"></i>
+                            );
+                        })}
                     </div>
                 </div>
-                
-                {/* LEAFLET CONTAINER */}
-                <div className="flex-1 relative bg-[#111827] overflow-hidden z-0">
-                     <LiveMap />
-                </div>
-                
-                <div className="h-32 bg-slate-800 p-2 border-t border-slate-700 text-xs text-slate-400 overflow-y-auto font-mono leading-tight shadow-[0_-4px_10px_rgba(0,0,0,0.2)] z-10">
-                    <p className="text-emerald-400 mb-1"><i className="fas fa-terminal mr-1"></i> [SYSTEM] Map Extent Synchronized.</p>
-                    <p className="pl-4">XMin: -81.450 YMin: 28.450</p>
-                    <p className="pl-4">XMax: -81.250 YMax: 28.600</p>
-                    <p className="mt-1 text-slate-300"><i className="fas fa-satellite mr-1"></i> Active: NOAA_2021_4Band</p>
-                    {selectedNode && (
-                        <p className="mt-1 text-purple-400"><i className="fas fa-check-circle mr-1"></i> Node Selected: {selectedNode.name}</p>
-                    )}
-                </div>
+
+                {/* LIVE LEAFLET MAP VIEWPORT */}
+                <div className="w-[350px] border-r border-slate-800 bg-[#0f172a] relative flex flex-col hidden lg:flex">
+                    <div className="px-3 py-2 bg-slate-800 text-xs font-semibold tracking-wider text-slate-400 flex items-center justify-between border-b border-slate-700 shadow-sm z-10">
+                        <span className="flex items-center"><i className="fas fa-map mr-2"></i> MAP VIEWPORT</span>
+                    </div>
+                    <div className="flex-1 relative bg-[#111827] overflow-hidden z-0">
+                         <LiveMap onAoiDrawn={handleAoiDrawn} />
+                    </div>
+                    <div className="h-32 bg-slate-800 p-3 border-t border-slate-700 text-xs text-slate-400 font-mono leading-relaxed shadow-[0_-4px_10px_rgba(0,0,0,0.2)] z-10">
+                        <p className="text-emerald-400 font-bold"><i className="fas fa-info-circle mr-1"></i> Quick Action:</p>
+                        <p className="text-slate-300">Use the rectangle tool on the map to draw a bounding box.</p>
+                        <p className="text-slate-300 mt-2">MagPI will automatically generate a <span className="bg-slate-600 px-1 rounded text-white">Clip to AOI</span> node mapped to your GPS coordinates.</p>
+                    </div>
                 </div>
 
-                {/* RIGHT: Toolbox / Inspector Tabs */}
+                {/* RIGHT TOOLBOX / INSPECTOR */}
                 <div className="w-[300px] bg-slate-800 flex flex-col shadow-[-4px_0_15px_rgba(0,0,0,0.2)] z-10">
-                
-                {/* Right Panel Tabs */}
-                <div className="flex bg-slate-900 border-b border-slate-700">
-                    <button 
-                        onClick={() => setActiveRightTab('toolbox')}
-                        className={`flex-1 py-3 text-xs font-semibold uppercase tracking-wider transition-colors ${activeRightTab === 'toolbox' ? 'text-emerald-400 border-b-2 border-emerald-400 bg-slate-800' : 'text-slate-500 hover:text-slate-300'}`}
-                    >
-                        <i className="fas fa-tools mr-2"></i>Toolbox
-                    </button>
-                    <button 
-                        onClick={() => setActiveRightTab('inspector')}
-                        className={`flex-1 py-3 text-xs font-semibold uppercase tracking-wider transition-colors ${activeRightTab === 'inspector' ? 'text-emerald-400 border-b-2 border-emerald-400 bg-slate-800' : 'text-slate-500 hover:text-slate-300'}`}
-                    >
-                        <i className="fas fa-sliders-h mr-2"></i>Parameters
-                    </button>
-                </div>
-                
-                <div className="flex-1 overflow-y-auto bg-slate-800">
-                    {/* TAB CONTENT: TOOLBOX */}
-                    {activeRightTab === 'toolbox' && (
-                        <div className="p-2 space-y-2">
-                            {TOOLBOX_CATEGORIES.map((cat, idx) => (
-                            <div key={idx} className="bg-slate-900/50 rounded border border-slate-700/50 overflow-hidden">
-                                <button 
-                                onClick={() => toggleCategory(cat.name)}
-                                className="w-full flex items-center justify-between px-3 py-2 bg-slate-800 hover:bg-slate-700 transition-colors"
-                                >
-                                <div className="flex items-center space-x-2 text-sm text-slate-300">
-                                    <i className={cat.icon}></i>
-                                    <span>{cat.name}</span>
-                                </div>
-                                <i className={`fas ${expandedCategories[cat.name] ? 'fa-chevron-down' : 'fa-chevron-right'} text-xs text-slate-500`}></i>
-                                </button>
-                                
-                                {expandedCategories[cat.name] && (
-                                <div className="p-2 space-y-1">
-                                    {cat.tools.map(tool => (
-                                    <div 
-                                        key={tool.id}
-                                        onClick={() => addNode(tool)}
-                                        className="flex items-center px-3 py-2 text-xs bg-slate-800/80 hover:bg-slate-700 rounded cursor-pointer border border-transparent hover:border-emerald-500/50 transition-all group"
-                                    >
-                                        <div className={`w-2 h-2 rounded-full mr-3 ${tool.color}`}></div>
-                                        <span className="flex-1 text-slate-300 group-hover:text-white">{tool.name}</span>
-                                        <i className="fas fa-plus text-slate-600 opacity-0 group-hover:opacity-100 transition-opacity"></i>
+                    <div className="flex bg-slate-900 border-b border-slate-700">
+                        <button onClick={() => setActiveRightTab('toolbox')} className={`flex-1 py-3 text-xs font-semibold uppercase tracking-wider transition-colors ${activeRightTab === 'toolbox' ? 'text-emerald-400 border-b-2 border-emerald-400 bg-slate-800' : 'text-slate-500 hover:text-slate-300'}`}><i className="fas fa-tools mr-2"></i>Toolbox</button>
+                        <button onClick={() => setActiveRightTab('inspector')} className={`flex-1 py-3 text-xs font-semibold uppercase tracking-wider transition-colors ${activeRightTab === 'inspector' ? 'text-emerald-400 border-b-2 border-emerald-400 bg-slate-800' : 'text-slate-500 hover:text-slate-300'}`}><i className="fas fa-sliders-h mr-2"></i>Parameters</button>
+                    </div>
+                    
+                    <div className="flex-1 overflow-y-auto bg-slate-800">
+                        {activeRightTab === 'toolbox' && (
+                            <div className="p-2 space-y-2">
+                                {TOOLBOX_CATEGORIES.map((cat, idx) => (
+                                <div key={idx} className="bg-slate-900/50 rounded border border-slate-700/50 overflow-hidden">
+                                    <button onClick={() => toggleCategory(cat.name)} className="w-full flex items-center justify-between px-3 py-2 bg-slate-800 hover:bg-slate-700 transition-colors">
+                                        <div className="flex items-center space-x-2 text-sm text-slate-300"><i className={cat.icon}></i><span>{cat.name}</span></div>
+                                        <i className={`fas ${expandedCategories[cat.name] ? 'fa-chevron-down' : 'fa-chevron-right'} text-xs text-slate-500`}></i>
+                                    </button>
+                                    {expandedCategories[cat.name] && (
+                                    <div className="p-2 space-y-1">
+                                        {cat.tools.map(tool => (
+                                        <div key={tool.id} onClick={() => addNode(tool)} className="flex items-center px-3 py-2 text-xs bg-slate-800/80 hover:bg-slate-700 rounded cursor-pointer border border-transparent hover:border-emerald-500/50 transition-all group">
+                                            <div className={`w-2 h-2 rounded-full mr-3 ${tool.color}`}></div><span className="flex-1 text-slate-300 group-hover:text-white">{tool.name}</span>
+                                        </div>
+                                        ))}
                                     </div>
-                                    ))}
+                                    )}
                                 </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {activeRightTab === 'inspector' && (
+                            <div className="p-4">
+                                {!selectedNode ? (
+                                    <div className="text-center text-slate-500 mt-10"><i className="fas fa-mouse-pointer text-3xl mb-3 opacity-50"></i><p className="text-sm">Select a node on the canvas.</p></div>
+                                ) : (
+                                    <div className="space-y-4">
+                                        <div className={`px-3 py-2 rounded text-white font-bold text-sm ${selectedNode.color} border border-slate-600 shadow-inner flex items-center`}><i className="fas fa-cog mr-2"></i> {selectedNode.name}</div>
+                                        <div className="bg-slate-900 p-3 rounded border border-slate-700 shadow-inner">
+                                            <h4 className="text-[10px] uppercase tracking-widest text-slate-400 mb-3 border-b border-slate-700 pb-1">Node Properties</h4>
+                                            {Object.entries(selectedNode.params || {}).map(([key, val]) => (
+                                                <div key={key} className="mb-3">
+                                                    <label className="block text-xs font-medium text-slate-300 mb-1 capitalize">{key.replace(/_/g, ' ')}</label>
+                                                    {typeof val === 'boolean' ? (
+                                                        <div className="flex items-center"><input type="checkbox" checked={val} onChange={(e) => updateNodeParam(selectedNode.id, key, e.target.checked)} className="w-4 h-4 text-emerald-500 bg-slate-800 border-slate-600 rounded focus:ring-emerald-500"/><span className="ml-2 text-xs text-slate-400">{val ? "Enabled" : "Disabled"}</span></div>
+                                                    ) : typeof val === 'number' ? (
+                                                        <input type="number" value={val} onChange={(e) => updateNodeParam(selectedNode.id, key, Number(e.target.value))} className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 transition-colors"/>
+                                                    ) : (
+                                                        <input type="text" value={val} onChange={(e) => updateNodeParam(selectedNode.id, key, e.target.value)} className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 transition-colors"/>
+                                                    )}
+                                                </div>
+                                            ))}
+                                            {Object.keys(selectedNode.params || {}).length === 0 && <p className="text-xs text-slate-500 italic">No configurable parameters.</p>}
+                                        </div>
+                                    </div>
                                 )}
                             </div>
-                            ))}
-                        </div>
-                    )}
-
-                    {/* TAB CONTENT: INSPECTOR (PARAMETERS) */}
-                    {activeRightTab === 'inspector' && (
-                        <div className="p-4">
-                            {!selectedNode ? (
-                                <div className="text-center text-slate-500 mt-10">
-                                    <i className="fas fa-mouse-pointer text-3xl mb-3 opacity-50"></i>
-                                    <p className="text-sm">Select a node on the canvas to configure its parameters.</p>
-                                </div>
-                            ) : (
-                                <div className="space-y-4">
-                                    <div className={`px-3 py-2 rounded text-white font-bold text-sm ${selectedNode.color} border border-slate-600 shadow-inner flex items-center`}>
-                                        <i className="fas fa-cog mr-2"></i> {selectedNode.name}
-                                    </div>
-                                    
-                                    <div className="bg-slate-900 p-3 rounded border border-slate-700 shadow-inner">
-                                        <h4 className="text-[10px] uppercase tracking-widest text-slate-400 mb-3 border-b border-slate-700 pb-1">Node Properties</h4>
-                                        
-                                        {/* Dynamic Parameter Rendering based on node params object */}
-                                        {Object.entries(selectedNode.params || {}).map(([key, val]) => (
-                                            <div key={key} className="mb-3">
-                                                <label className="block text-xs font-medium text-slate-300 mb-1 capitalize">
-                                                    {key.replace(/_/g, ' ')}
-                                                </label>
-                                                
-                                                {typeof val === 'boolean' ? (
-                                                    <div className="flex items-center">
-                                                        <input 
-                                                            type="checkbox" 
-                                                            checked={val} 
-                                                            onChange={(e) => updateNodeParam(selectedNode.id, key, e.target.checked)}
-                                                            className="w-4 h-4 text-emerald-500 bg-slate-800 border-slate-600 rounded focus:ring-emerald-500"
-                                                        />
-                                                        <span className="ml-2 text-xs text-slate-400">{val ? "Enabled" : "Disabled"}</span>
-                                                    </div>
-                                                ) : typeof val === 'number' ? (
-                                                    <input 
-                                                        type="number" 
-                                                        value={val} 
-                                                        onChange={(e) => updateNodeParam(selectedNode.id, key, Number(e.target.value))}
-                                                        className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 transition-colors"
-                                                    />
-                                                ) : (
-                                                    <input 
-                                                        type="text" 
-                                                        value={val} 
-                                                        onChange={(e) => updateNodeParam(selectedNode.id, key, e.target.value)}
-                                                        className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 transition-colors"
-                                                    />
-                                                )}
-                                            </div>
-                                        ))}
-                                        
-                                        {Object.keys(selectedNode.params || {}).length === 0 && (
-                                            <p className="text-xs text-slate-500 italic">No configurable parameters for this tool.</p>
-                                        )}
-                                    </div>
-                                    
-                                    <button className="w-full py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs rounded border border-slate-600 transition-colors">
-                                        <i className="fas fa-book-open mr-2"></i> View Documentation
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-                    )}
-                </div>
+                        )}
+                    </div>
                 </div>
             </div>
 
-            {/* SCRIPT GENERATION MODAL */}
             {showScript && (
                 <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-8">
                 <div className="bg-slate-800 rounded-lg shadow-2xl w-full max-w-3xl border border-slate-600 flex flex-col overflow-hidden">
@@ -558,25 +353,13 @@
                     <h3 className="font-semibold text-emerald-400 flex items-center"><i className="fas fa-code mr-2"></i> Generated Python Script</h3>
                     <button onClick={() => setShowScript(false)} className="text-slate-400 hover:text-white transition-colors"><i className="fas fa-times text-lg"></i></button>
                     </div>
-                    <div className="p-4 bg-[#1e1e1e] flex-1">
-                    <pre className="text-sm font-mono text-emerald-400/90 overflow-auto h-[400px] whitespace-pre-wrap selection:bg-emerald-900">
-                        {generateScript()}
-                    </pre>
-                    </div>
-                    <div className="p-3 bg-slate-900 border-t border-slate-700 flex justify-end space-x-3">
-                    <button onClick={() => setShowScript(false)} className="px-4 py-2 rounded text-sm font-medium text-slate-300 hover:bg-slate-700 border border-slate-600 transition-colors">Close</button>
-                    <button className="px-4 py-2 rounded text-sm bg-emerald-600 hover:bg-emerald-500 text-white font-bold shadow-lg flex items-center transition-all hover:scale-105 active:scale-95">
-                        <i className="fas fa-rocket mr-2"></i> Deploy to {processingScope}
-                    </button>
-                    </div>
+                    <div className="p-4 bg-[#1e1e1e] flex-1"><pre className="text-sm font-mono text-emerald-400/90 overflow-auto h-[400px] whitespace-pre-wrap selection:bg-emerald-900">{generateScript()}</pre></div>
                 </div>
                 </div>
             )}
-            
             </div>
         );
         }
-
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<MagPICanvas />);
     </script>
