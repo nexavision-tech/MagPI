@@ -1,0 +1,47 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Base Body Styles */
+body {
+  margin: 0;
+  padding: 0;
+  background-color: #0f172a; /* matches Tailwind slate-900 */
+}
+
+/* Custom scrollbar for dark mode */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: #1e293b; }
+::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #64748b; }
+
+/* MagPI Dark Mode Map Filter (Leaflet Hack) */
+.leaflet-dark-mode-container .leaflet-layer, 
+.leaflet-dark-mode-container .leaflet-control-zoom-in, 
+.leaflet-dark-mode-container .leaflet-control-zoom-out, 
+.leaflet-dark-mode-container .leaflet-control-attribution { 
+    filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%); 
+}
+
+.leaflet-dark-mode-container .leaflet-draw-toolbar a { 
+    filter: invert(80%); 
+}
+
+/* Wiring Animation for Node Canvas */
+.wire-pulse { 
+  animation: pulse-wire 2s infinite; 
+}
+@keyframes pulse-wire { 
+  0% { opacity: 0.6; } 
+  50% { opacity: 1; stroke-width: 4px; } 
+  100% { opacity: 0.6; } 
+}
+
+/* Smooth Fades */
+.animate-fadeIn {
+  animation: fadeIn 0.3s ease-in-out;
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
