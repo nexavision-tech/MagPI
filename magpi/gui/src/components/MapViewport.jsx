@@ -73,8 +73,6 @@ const MapViewport = React.memo(({ onAoiDrawn, selectedNode }) => {
         };
     }, [onAoiDrawn]);
 
-    // OPTIMIZATION: We extract ONLY the ID and Parameters. 
-    // We ignore X/Y canvas coordinates entirely so dragging doesn't flash the map!
     const selectedNodeId = selectedNode?.id;
     const selectedNodeParamsString = JSON.stringify(selectedNode?.params || {});
 
@@ -105,7 +103,6 @@ const MapViewport = React.memo(({ onAoiDrawn, selectedNode }) => {
                 }
             }
         }
-    // CRITICAL DEPENDENCY ARRAY FIX: Only run this effect if the ID or the Parameters change!
     }, [selectedNodeId, selectedNodeParamsString]);
 
     const activateDrawTool = () => {
@@ -117,7 +114,8 @@ const MapViewport = React.memo(({ onAoiDrawn, selectedNode }) => {
     };
 
     return (
-        <div className="w-[320px] border-r border-slate-800 bg-[#0f172a] relative flex flex-col hidden lg:flex shadow-[-10px_0_20px_rgba(0,0,0,0.3)] z-10">
+        // CRITICAL FIX: Removed the redundant "flex" class. Now it perfectly states "hidden lg:flex flex-col"
+        <div className="w-[320px] border-r border-slate-800 bg-[#0f172a] relative hidden lg:flex flex-col shadow-[-10px_0_20px_rgba(0,0,0,0.3)] z-10">
             <div className="px-4 py-3 bg-slate-800 text-xs font-bold tracking-widest text-slate-300 flex items-center justify-between border-b border-slate-700">
                 <div className="flex items-center">
                     <MapIcon size={14} className="mr-2 text-emerald-500" /> LIVE VIEWPORT

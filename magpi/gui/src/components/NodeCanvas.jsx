@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { MousePointer2, Hand, Settings, LocateFixed } from 'lucide-react';
 
 export default function NodeCanvas({ 
@@ -18,6 +18,16 @@ export default function NodeCanvas({
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   
   const [panMode, setPanMode] = useState(false);
+
+  // OPTIMIZATION: Kinetic Isolator (With Titanium Armor Fallbacks)
+  const [localNodes, setLocalNodes] = useState(nodes || []);
+
+  // Sync global nodes to local nodes (ONLY when we aren't actively dragging)
+  useEffect(() => {
+    if (!draggedNode) {
+      setLocalNodes(nodes || []);
+    }
+  }, [nodes, draggedNode]);
 
   const handleDragOver = (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; };
   const handleDrop = (e) => {
@@ -49,17 +59,36 @@ export default function NodeCanvas({
   };
 
   const handlePointerMove = (e) => {
-    if (isPanning) setPan(p => ({ x: p.x + e.movementX, y: p.y + e.movementY }));
-    if (draggedNode && !panMode) setNodes(nds => nds.map(n => n.id === draggedNode ? { ...n, x: n.x + e.movementX / zoom, y: n.y + e.movementY / zoom } : n));
+    if (isPanning) {
+        setPan(p => ({ x: p.x + e.movementX, y: p.y + e.movementY }));
+    }
+    
+    // Bulletproof map function ensures it never crashes if nds is undefined
+    if (draggedNode && !panMode) {
+        setLocalNodes(nds => (nds || []).map(n => 
+            n.id === draggedNode ? { ...n, x: n.x + e.movementX / zoom, y: n.y + e.movementY / zoom } : n
+        ));
+    }
+    
     if (connectingFrom && canvasRef.current && !panMode) {
-      const rect = canvasRef.current.getBoundingClientRect();
-      setMousePos({ x: (e.clientX - rect.left - pan.x) / zoom, y: (e.clientY - rect.top - pan.y) / zoom });
+        const rect = canvasRef.current.getBoundingClientRect();
+        setMousePos({ x: (e.clientX - rect.left - pan.x) / zoom, y: (e.clientY - rect.top - pan.y) / zoom });
     }
   };
 
   const handlePointerUp = (e) => { 
-    setIsPanning(false); setDraggedNode(null); e.currentTarget.releasePointerCapture(e.pointerId);
-    if(connectingFrom && !e.target.classList.contains('input-port')) setConnectingFrom(null);
+    // Flush the final coordinates to the global App state ONLY when we let go!
+    if (draggedNode) {
+        setNodes(localNodes || []);
+    }
+    
+    setIsPanning(false); 
+    setDraggedNode(null); 
+    e.currentTarget.releasePointerCapture(e.pointerId);
+    
+    if(connectingFrom && !e.target.classList.contains('input-port')) {
+        setConnectingFrom(null);
+    }
   };
 
   const startWire = (nodeId, e) => {
@@ -72,8 +101,8 @@ export default function NodeCanvas({
   const completeWire = (nodeId, e) => {
     if (panMode) return;
     e.stopPropagation();
-    if (connectingFrom && connectingFrom !== nodeId && !connections.find(c => c.from === connectingFrom && c.to === nodeId)) {
-        setConnections(prev => [...prev, { from: connectingFrom, to: nodeId }]);
+    if (connectingFrom && connectingFrom !== nodeId && !(connections || []).find(c => c.from === connectingFrom && c.to === nodeId)) {
+        setConnections(prev => [...(prev || []), { from: connectingFrom, to: nodeId }]);
     }
     setConnectingFrom(null);
   };
@@ -96,7 +125,6 @@ export default function NodeCanvas({
     >
       <style>{`.wire-pulse { animation: pulse-wire 2s infinite; } @keyframes pulse-wire { 0% { opacity: 0.6; } 50% { opacity: 1; stroke-width: 4px; } 100% { opacity: 0.6; } }`}</style>
 
-      {/* ENHANCED OVERLAY CONTROLS - Added stopPropagation to act as a shield! */}
       <div 
         className="absolute top-4 left-4 flex space-x-2 z-10 bg-slate-800/90 p-1.5 rounded-lg backdrop-blur-md border border-slate-600 shadow-xl"
         onPointerDown={(e) => e.stopPropagation()} 
@@ -123,13 +151,16 @@ export default function NodeCanvas({
       <div style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: '0 0', width: '100%', height: '100%', position: 'absolute' }}>
         <svg className="absolute inset-0 w-full h-full pointer-events-none overflow-visible">
           {connectingFrom && (() => { 
-            const fromNode = nodes.find(n => n.id === connectingFrom); if(!fromNode) return null; 
+            const fromNode = (localNodes || []).find(n => n.id === connectingFrom); if(!fromNode) return null; 
             const startX = fromNode.x + 200; const startY = fromNode.y + 30;  
             return <path d={`M ${startX} ${startY} C ${startX + 60} ${startY}, ${mousePos.x - 60} ${mousePos.y}, ${mousePos.x} ${mousePos.y}`} fill="none" stroke="#10b981" strokeWidth="4" strokeDasharray="6,6" className="wire-pulse" />;
           })()}
 
-          {connections.map((conn, i) => { 
-            const fromNode = nodes.find(n => n.id === conn.from); const toNode = nodes.find(n => n.id === conn.to); if(!fromNode || !toNode) return null; 
+          {(connections || []).map((conn, i) => { 
+            const fromNode = (localNodes || []).find(n => n.id === conn.from); 
+            const toNode = (localNodes || []).find(n => n.id === conn.to); 
+            if(!fromNode || !toNode) return null; 
+            
             const startX = fromNode.x + 200; const startY = fromNode.y + 30; const endX = toNode.x; const endY = toNode.y + 30; 
             const isHighlighted = selectedNodeId === fromNode.id || selectedNodeId === toNode.id; 
             const wireClass = nodeStatuses[fromNode.id] === 'processing' ? 'wire-pulse pointer-events-none' : 'transition-all duration-300 hover:stroke-red-500 cursor-pointer pointer-events-auto';
@@ -138,7 +169,8 @@ export default function NodeCanvas({
           })}
         </svg>
 
-        {nodes.map(node => {
+        {/* Use bulletproof mapping over localNodes */}
+        {(localNodes || []).map(node => {
           const isSelected = selectedNodeId === node.id;
           const status = nodeStatuses[node.id];
           
