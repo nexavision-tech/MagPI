@@ -25,9 +25,7 @@ const MapViewport = React.memo(({ onAoiDrawn, selectedNode }) => {
 
         L.control.zoom({ position: 'topright' }).addTo(map);
 
-        const drawnItems = new L.FeatureGroup();
-        map.addLayer(drawnItems);
-        
+        // We only use the highlightGroup now. The map doesn't save its own drawings.
         highlightGroup.current = new L.FeatureGroup();
         map.addLayer(highlightGroup.current);
 
@@ -36,7 +34,8 @@ const MapViewport = React.memo(({ onAoiDrawn, selectedNode }) => {
                 polyline: false, polygon: false, circle: false, marker: false, circlemarker: false,
                 rectangle: { shapeOptions: { color: '#f69d3c', weight: 2, fillOpacity: 0.1 } }
             },
-            edit: { featureGroup: drawnItems, remove: true }
+            // Disabled the Leaflet Edit Toolbar entirely. MagPI Nodes are the source of truth.
+            edit: false 
         });
         map.addControl(drawControl);
 
@@ -45,9 +44,8 @@ const MapViewport = React.memo(({ onAoiDrawn, selectedNode }) => {
         document.head.appendChild(style);
 
         map.on(L.Draw.Event.CREATED, function (e) {
-            drawnItems.clearLayers(); 
-            drawnItems.addLayer(e.layer);
-            
+            // CRITICAL FIX: We do NOT add the layer to the map here. 
+            // We just extract the math, send it to the Canvas, and let the Canvas highlight logic draw the box!
             const bounds = e.layer.getBounds();
             if (onAoiDrawn) {
                 onAoiDrawn({
@@ -114,7 +112,6 @@ const MapViewport = React.memo(({ onAoiDrawn, selectedNode }) => {
     };
 
     return (
-        // CRITICAL FIX: Removed the redundant "flex" class. Now it perfectly states "hidden lg:flex flex-col"
         <div className="w-[320px] border-r border-slate-800 bg-[#0f172a] relative hidden lg:flex flex-col shadow-[-10px_0_20px_rgba(0,0,0,0.3)] z-10">
             <div className="px-4 py-3 bg-slate-800 text-xs font-bold tracking-widest text-slate-300 flex items-center justify-between border-b border-slate-700">
                 <div className="flex items-center">

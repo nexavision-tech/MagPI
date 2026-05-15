@@ -123,14 +123,12 @@ export default function App() {
     setShowScript(true);
   };
 
-  // ENHANCED: The True Execution Engine Bridge
   const handleDeploy = async () => {
     setShowScript(false); 
     setShowTerminal(true); 
     setIsProcessing(true); 
     setNodeStatuses({});
     
-    // Set all nodes to 'processing' state (yellow pulse)
     const processingStates = {};
     nodes.forEach(n => processingStates[n.id] = 'processing');
     setNodeStatuses(processingStates);
@@ -150,7 +148,6 @@ export default function App() {
         const data = await response.json();
         
         if (response.ok) {
-            // Parse the physical stdout text returned by Python!
             const rawLogs = data.logs.split('\n').filter(l => l.trim() !== '');
             const parsedLogs = rawLogs.map(line => {
                 let logType = 'info';
@@ -161,7 +158,6 @@ export default function App() {
             
             setLogs(prev => [...prev, ...parsedLogs, { type: data.status === 'success' ? 'success' : 'error', msg: `Matrix Execution ${data.status.toUpperCase()}.` }]);
             
-            // Set nodes to success or clear based on result
             const finalStates = {};
             nodes.forEach(n => finalStates[n.id] = data.status === 'success' ? 'success' : null);
             setNodeStatuses(finalStates);
@@ -209,24 +205,24 @@ export default function App() {
         <Terminal showTerminal={showTerminal} setShowTerminal={setShowTerminal} logs={logs} isProcessing={isProcessing} />
       </div>
       
-      {/* VS-CODE STYLE PERSISTENT FOOTER */}
-      <div className="flex-none shrink-0 bg-[#007acc] text-[10.5px] text-white flex items-center justify-between px-3 py-1 z-50 font-sans shadow-[0_-2px_5px_rgba(0,0,0,0.3)]">
+      {/* MAGPI THEME PERSISTENT FOOTER */}
+      <div className="flex-none shrink-0 bg-slate-950 border-t border-slate-800 text-[10.5px] text-slate-400 flex items-center justify-between px-3 py-1.5 z-50 font-sans shadow-[0_-2px_5px_rgba(0,0,0,0.5)]">
         <div className="flex items-center space-x-4">
-          <span className="flex items-center cursor-pointer hover:bg-white/20 px-1 rounded transition-colors"><GitBranch size={11} className="mr-1" /> main*</span>
-          <span className="flex items-center cursor-pointer hover:bg-white/20 px-1 rounded transition-colors"><XCircle size={11} className="mr-1" />0 <AlertTriangle size={11} className="ml-2 mr-1" />0</span>
+          <span className="flex items-center cursor-pointer hover:text-slate-200 transition-colors"><GitBranch size={11} className="mr-1 text-emerald-500" /> main*</span>
+          <span className="flex items-center cursor-pointer hover:text-slate-200 transition-colors"><XCircle size={11} className="mr-1" />0 <AlertTriangle size={11} className="ml-2 mr-1" />0</span>
           
           <span 
-            className="flex items-center cursor-pointer hover:bg-white/20 px-1 rounded transition-colors" 
+            className="flex items-center cursor-pointer hover:text-slate-200 transition-colors" 
             onClick={() => setShowTerminal(!showTerminal)}
             title="Toggle MagPI Console"
           >
-            <TerminalSquare size={11} className="mr-1" /> {showTerminal ? "Hide Console" : "Show Console"}
+            <TerminalSquare size={11} className="mr-1 text-blue-400" /> {showTerminal ? "Hide Console" : "Show Console"}
           </span>
         </div>
-        <div className="flex items-center space-x-4">
-          <span className="cursor-pointer hover:bg-white/20 px-1 rounded transition-colors hidden sm:block">UTF-8</span>
-          <span className="cursor-pointer hover:bg-white/20 px-1 rounded transition-colors">Python 3.10 (magpi-env)</span>
-          <span className="cursor-pointer hover:bg-white/20 px-1 rounded transition-colors"><Bell size={11} /></span>
+        <div className="flex items-center space-x-4 font-mono">
+          <span className="cursor-pointer hover:text-slate-200 transition-colors hidden sm:block">UTF-8</span>
+          <span className="cursor-pointer hover:text-slate-200 transition-colors">Python 3.10 <span className="text-emerald-500 font-bold ml-1">(magpi-env)</span></span>
+          <span className="cursor-pointer hover:text-emerald-400 transition-colors"><Bell size={11} /></span>
         </div>
       </div>
       

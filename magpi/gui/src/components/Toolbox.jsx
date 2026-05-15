@@ -64,7 +64,6 @@ export default function Toolbox({
   const [hoveredTool, setHoveredTool] = useState(null);
   const [mouseY, setMouseY] = useState(0);
 
-  // NEW: Dataset Intelligence State
   const [metadata, setMetadata] = useState({});
   const [loadingMeta, setLoadingMeta] = useState(false);
 
@@ -81,7 +80,6 @@ export default function Toolbox({
     ...cat, tools: cat.tools.filter(t => t.name.toLowerCase().includes(searchQuery.toLowerCase()) || t.id.toLowerCase().includes(searchQuery.toLowerCase()))
   })).filter(cat => cat.tools.length > 0);
 
-  // NEW: Function to interrogate the Python Daemon for Raster/Shapefile Headers
   const fetchMetadata = async (filePath, nodeId) => {
     setLoadingMeta(true);
     try {
@@ -154,7 +152,10 @@ export default function Toolbox({
                             key={tool.id} 
                             draggable="true" 
                             onDragStart={(e) => handleDragStart(e, tool)} 
-                            onClick={() => addNode(tool)} 
+                            
+                            // CRITICAL FIX: Destroy the tooltip on click!
+                            onClick={() => { addNode(tool); setHoveredTool(null); }} 
+                            
                             onMouseEnter={() => setHoveredTool(tool)}
                             onMouseLeave={() => setHoveredTool(null)}
                             className="flex items-center px-3 py-2.5 text-xs bg-slate-800 hover:bg-slate-700 rounded-md cursor-grab active:cursor-grabbing border border-transparent hover:border-emerald-500/50 transition-all group shadow-sm"
@@ -226,7 +227,6 @@ export default function Toolbox({
                   )})}
                 </div>
 
-                {/* ENHANCED: DATASET INTELLIGENCE BRIDGE */}
                 {selectedNode.params && selectedNode.params.file_path && (
                   <div className="bg-slate-900 p-4 rounded-lg border border-slate-700 shadow-inner mt-4 animate-fadeIn">
                     <h4 className="text-[10px] uppercase tracking-widest text-blue-400 font-bold mb-3 flex items-center">
@@ -242,7 +242,6 @@ export default function Toolbox({
                       {loadingMeta ? "Scanning Headers..." : "Scan File Headers"}
                     </button>
 
-                    {/* Display Results */}
                     {metadata[selectedNode.id] && metadata[selectedNode.id].data && (
                       <div className="bg-black/50 p-3 rounded border border-slate-800 font-mono text-[10px] space-y-2 text-slate-300">
                          <div className="flex justify-between border-b border-slate-800 pb-1">
