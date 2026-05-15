@@ -1,229 +1,159 @@
-import React, { useState, useRef } from 'react';
-import { MousePointer2, Hand, ZoomIn, Settings } from 'lucide-react';
+import React, { useState } from 'react';
 
-export default function NodeCanvas({ 
-  nodes, setNodes, 
-  connections, setConnections, 
-  selectedNodeId, setSelectedNodeId, 
-  setActiveRightTab, nodeStatuses = {},
-  removeConnection, addNode // <-- ENHANCED: Receiving addNode
-}) {
-  const [pan, setPan] = useState({ x: 0, y: 0 });
-  const [zoom, setZoom] = useState(1);
-  const canvasRef = useRef(null);
+// Imported Modular Components
+import TopRibbon from './components/TopRibbon';
+import Terminal from './components/Terminal';
+import Toolbox from './components/Toolbox';
+import NodeCanvas from './components/NodeCanvas';
+import MapViewport from './components/MapViewport';
+import ScriptModal from './components/ScriptModal';
+
+// Utilities
+import { generatePythonScript } from './utils/scriptGen';
+import { saveProject, loadProject } from './utils/fileOps';
+
+export default function App() {
+  // Global Application State
+  const [crs, setCrs] = useState("EPSG:6438");
+  const [processingScope, setProcessingScope] = useState("Local Python");
   
-  const [isPanning, setIsPanning] = useState(false);
-  const [draggedNode, setDraggedNode] = useState(null);
-  const [connectingFrom, setConnectingFrom] = useState(null);
-  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  // Pipeline State (The Nodes & Wires)
+  const [nodes, setNodes] = useState([
+    { id: 'node_1', toolId: 'load_raster', name: 'NOAA 4-Band Raster', icon: 'fa-image', x: 200, y: 150, color: 'bg-blue-600', border: 'border-blue-500', params: { file_path: "./test_data/noaa_florida/2021_4BandImagery_Florida_J1378560tR0_C0.tif" } }
+  ]);
+  const [connections, setConnections] = useState([]);
+  
+  // UI Interaction State
+  const [activeRightTab, setActiveRightTab] = useState('toolbox');
+  const [selectedNodeId, setSelectedNodeId] = useState(null);
 
-  // --- HTML5 DRAG AND DROP HANDLERS ---
-  const handleDragOver = (e) => {
-    e.preventDefault(); // Required to allow a drop
-    e.dataTransfer.dropEffect = 'copy';
+  // Terminal, Script & Execution State
+  const [showScript, setShowScript] = useState(false);
+  const [generatedCode, setGeneratedCode] = useState("");
+  const [showTerminal, setShowTerminal] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [logs, setLogs] = useState([]);
+  const [nodeStatuses, setNodeStatuses] = useState({});
+
+  // --- MAP TO CANVAS BRIDGE ---
+  const handleAoiDrawn = (aoiData) => {
+    const newNode = { 
+      id: `node_${Date.now()}`, toolId: 'mgt_clip', name: 'Clip to AOI (Map Draw)', icon: 'fa-cut', 
+      x: 400 + Math.random() * 50, y: 200 + Math.random() * 50, color: 'bg-slate-600', border: 'border-slate-500', 
+      params: { xmin: aoiData.xmin, ymin: aoiData.ymin, xmax: aoiData.xmax, ymax: aoiData.ymax } 
+    };
+    setNodes(prev => [...prev, newNode]);
+    setSelectedNodeId(newNode.id);
+    setActiveRightTab('inspector');
   };
 
-  const handleDrop = (e) => {
-    e.preventDefault();
-    const toolDataStr = e.dataTransfer.getData("application/json");
-    if (toolDataStr) {
-      const toolData = JSON.parse(toolDataStr);
-      
-      // Calculate the exact drop position, adjusting for pan, zoom, and container offset!
-      const rect = canvasRef.current.getBoundingClientRect();
-      const dropX = (e.clientX - rect.left - pan.x) / zoom;
-      const dropY = (e.clientY - rect.top - pan.y) / zoom;
-      
-      // We offset slightly so the mouse cursor is in the middle of the node (width:210, height:60)
-      const centerX = dropX - 105; 
-      const centerY = dropY - 30;
-
-      if(addNode) addNode(toolData, centerX, centerY);
-    }
+  // --- NODE LOGIC METHODS ---
+  // ENHANCED: Now accepts specific X and Y coordinates!
+  const addNode = (tool, dropX = null, dropY = null) => {
+    const newNode = { 
+      id: `node_${Date.now()}`, 
+      toolId: tool.id, 
+      name: tool.name, 
+      icon: tool.icon, 
+      x: dropX !== null ? dropX : 300 + Math.random() * 50, 
+      y: dropY !== null ? dropY : 200 + Math.random() * 50, 
+      color: tool.color, 
+      border: tool.border, 
+      params: { ...tool.params } 
+    };
+    setNodes([...nodes, newNode]);
+    setSelectedNodeId(newNode.id);
+    setActiveRightTab('inspector');
   };
 
-  // --- CANVAS INTERACTIONS ---
-  const handleWheel = (e) => {
-    if (e.deltaY < 0) setZoom(z => Math.min(z + 0.1, 2));
-    else setZoom(z => Math.max(z - 0.1, 0.5));
+  const updateNodeParam = (nodeId, paramKey, value) => {
+    setNodes(nds => nds.map(n => n.id === nodeId ? { ...n, params: { ...n.params, [paramKey]: value } } : n));
   };
 
-  const handlePointerDown = (e) => {
-    if (e.button === 1 || (e.button === 0 && e.altKey)) {
-      setIsPanning(true);
-      e.currentTarget.setPointerCapture(e.pointerId);
-    } else if (e.target === canvasRef.current) {
-      setSelectedNodeId(null);
-      setActiveRightTab('toolbox');
-      setConnectingFrom(null); 
-    }
+  const deleteNode = (nodeId) => {
+    setNodes(nds => nds.filter(n => n.id !== nodeId));
+    setConnections(cx => cx.filter(c => c.from !== nodeId && c.to !== nodeId));
+    setSelectedNodeId(null);
+    setActiveRightTab('toolbox');
   };
 
-  const handlePointerMove = (e) => {
-    if (isPanning) {
-      setPan(p => ({ x: p.x + e.movementX, y: p.y + e.movementY }));
-    }
-    if (draggedNode) {
-      setNodes(nds => nds.map(n => 
-        n.id === draggedNode ? { ...n, x: n.x + e.movementX / zoom, y: n.y + e.movementY / zoom } : n
-      ));
-    }
-    if (connectingFrom && canvasRef.current) {
-      const rect = canvasRef.current.getBoundingClientRect();
-      setMousePos({
-        x: (e.clientX - rect.left - pan.x) / zoom,
-        y: (e.clientY - rect.top - pan.y) / zoom
-      });
-    }
+  const removeConnection = (index) => {
+    setConnections(cx => cx.filter((_, i) => i !== index));
   };
 
-  const handlePointerUp = (e) => { 
-    setIsPanning(false); 
-    setDraggedNode(null); 
-    e.currentTarget.releasePointerCapture(e.pointerId);
-    if(connectingFrom && !e.target.classList.contains('input-port')) {
-      setConnectingFrom(null);
-    }
+  const selectedNode = nodes.find(n => n.id === selectedNodeId);
+
+  // --- PROJECT SAVE/LOAD ---
+  const handleSave = () => {
+    saveProject(nodes, connections, crs, "MagPI_Active_Pipeline");
+    setLogs([{ type: 'success', msg: 'Project saved to disk as .mpjx format.' }]);
+    setShowTerminal(true);
   };
 
-  const startWire = (nodeId, e) => {
-    e.stopPropagation();
-    setConnectingFrom(nodeId);
-    const rect = canvasRef.current.getBoundingClientRect();
-    setMousePos({ x: (e.clientX - rect.left - pan.x) / zoom, y: (e.clientY - rect.top - pan.y) / zoom });
+  const handleLoad = (file) => {
+    loadProject(file, setNodes, setConnections, setCrs, (msg) => {
+        setLogs([msg]);
+        setShowTerminal(true);
+        setNodeStatuses({});
+    });
   };
 
-  const completeWire = (nodeId, e) => {
-    e.stopPropagation();
-    if (connectingFrom && connectingFrom !== nodeId) {
-      if (!connections.find(c => c.from === connectingFrom && c.to === nodeId)) {
-        setConnections(prev => [...prev, { from: connectingFrom, to: nodeId }]);
-      }
-    }
-    setConnectingFrom(null);
+  // --- EXECUTION PIPELINE ---
+  const handleGenerate = () => {
+    const code = generatePythonScript(nodes, connections, crs, processingScope);
+    setGeneratedCode(code);
+    setShowScript(true);
   };
 
-  const selectNode = (nodeId, e) => { 
-    e.stopPropagation(); 
-    setSelectedNodeId(nodeId); 
-    setActiveRightTab('inspector'); 
+  const handleDeploy = () => {
+    setShowScript(false);
+    setShowTerminal(true);
+    setIsProcessing(true);
+    setLogs([]);
+    setNodeStatuses({});
+    
+    const sortedNodes = [...nodes].sort((a, b) => a.x - b.x);
+    const simulatedLogs = [
+        { type: 'info', msg: 'MagPI Translation Matrix Online. Bypassing legacy dependencies.', delay: 500 },
+        { type: 'info', msg: `Global Workspace set to: ./tmp_wksp`, delay: 500 }
+    ];
+    
+    sortedNodes.forEach((n) => {
+        simulatedLogs.push({ type: 'info', msg: `[${n.name}] Initialization starting...`, nodeId: n.id, status: 'processing', delay: 1000 });
+        simulatedLogs.push({ type: 'success', msg: `[PASS] ${n.name} execution complete.`, nodeId: n.id, status: 'success', delay: 1000 });
+    });
+    
+    simulatedLogs.push({ type: 'success', msg: `--- MAGPI PIPELINE EXECUTION COMPLETE ---`, delay: 500, isEnd: true });
+
+    let currentLogIndex = 0;
+    const processNextLog = () => {
+        if (currentLogIndex >= simulatedLogs.length) return;
+        const log = simulatedLogs[currentLogIndex];
+        if (log.isEnd) setIsProcessing(false);
+        if (log.nodeId && log.status) setNodeStatuses(prev => ({ ...prev, [log.nodeId]: log.status }));
+        setLogs(prev => [...prev, log]);
+        setTimeout(() => { currentLogIndex++; processNextLog(); }, log.delay || 300);
+    };
+    processNextLog();
   };
 
   return (
-    <div 
-      className="flex-1 relative bg-[#151b2b] overflow-hidden border-r border-slate-800 cursor-grab active:cursor-grabbing"
-      ref={canvasRef} 
-      onWheel={handleWheel} 
-      onPointerDown={handlePointerDown} 
-      onPointerMove={handlePointerMove} 
-      onPointerUp={handlePointerUp} 
-      onPointerLeave={handlePointerUp}
-      onDragOver={handleDragOver}  // <-- ENHANCED: Intercept drag
-      onDrop={handleDrop}          // <-- ENHANCED: Process drop
-      style={{ 
-        backgroundImage: 'radial-gradient(#2a3441 1.5px, transparent 1.5px)', 
-        backgroundSize: `${25 * zoom}px ${25 * zoom}px`, 
-        backgroundPosition: `${pan.x}px ${pan.y}px` 
-      }}
-    >
-      <style>{`
-        .wire-pulse { animation: pulse-wire 2s infinite; }
-        @keyframes pulse-wire { 0% { opacity: 0.6; } 50% { opacity: 1; stroke-width: 4px; } 100% { opacity: 0.6; } }
-      `}</style>
-
-      <div className="absolute top-4 left-4 flex space-x-2 z-10 bg-slate-800/90 p-1.5 rounded-lg backdrop-blur-md border border-slate-600 shadow-xl">
-        <button className="w-8 h-8 flex items-center justify-center bg-slate-700 rounded text-emerald-400" title="Select">
-          <MousePointer2 size={16} />
-        </button>
-        <button className="w-8 h-8 flex items-center justify-center hover:bg-slate-700 rounded text-slate-400 transition-colors" title="Pan (Middle Click or Alt+Drag)">
-          <Hand size={16} />
-        </button>
-        <div className="w-px bg-slate-600 mx-1"></div>
-        <span className="text-xs font-bold flex items-center px-2 text-slate-300 w-12 justify-center">
-          {Math.round(zoom * 100)}%
-        </span>
+    <div className="flex flex-col h-screen bg-slate-900 text-slate-200 font-sans overflow-hidden select-none">
+      <TopRibbon crs={crs} setCrs={setCrs} processingScope={processingScope} setProcessingScope={setProcessingScope} onGenerate={handleGenerate} onSave={handleSave} onLoad={handleLoad} />
+      <div className={`flex flex-1 overflow-hidden transition-all duration-500 ${showTerminal ? 'h-[65vh]' : 'h-full'}`}>
+        <NodeCanvas 
+          nodes={nodes} setNodes={setNodes}
+          connections={connections} setConnections={setConnections}
+          selectedNodeId={selectedNodeId} setSelectedNodeId={setSelectedNodeId}
+          setActiveRightTab={setActiveRightTab} nodeStatuses={nodeStatuses} 
+          removeConnection={removeConnection} 
+          addNode={addNode} // <-- ENHANCED: Passed addNode into the canvas!
+        />
+        <MapViewport onAoiDrawn={handleAoiDrawn} />
+        <Toolbox activeRightTab={activeRightTab} setActiveRightTab={setActiveRightTab} selectedNode={selectedNode} updateNodeParam={updateNodeParam} deleteNode={deleteNode} addNode={addNode} />
       </div>
-
-      <div style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: '0 0', width: '100%', height: '100%', position: 'absolute' }}>
-        
-        <svg className="absolute inset-0 w-full h-full pointer-events-none overflow-visible">
-          {connectingFrom && (() => { 
-            const fromNode = nodes.find(n => n.id === connectingFrom); 
-            if(!fromNode) return null; 
-            const startX = fromNode.x + 200; 
-            const startY = fromNode.y + 30;  
-            return (
-              <path d={`M ${startX} ${startY} C ${startX + 60} ${startY}, ${mousePos.x - 60} ${mousePos.y}, ${mousePos.x} ${mousePos.y}`} fill="none" stroke="#10b981" strokeWidth="4" strokeDasharray="6,6" className="wire-pulse" />
-            );
-          })()}
-
-          {connections.map((conn, i) => { 
-            const fromNode = nodes.find(n => n.id === conn.from); 
-            const toNode = nodes.find(n => n.id === conn.to); 
-            if(!fromNode || !toNode) return null; 
-            
-            const startX = fromNode.x + 200; 
-            const startY = fromNode.y + 30; 
-            const endX = toNode.x; 
-            const endY = toNode.y + 30; 
-            const isHighlighted = selectedNodeId === fromNode.id || selectedNodeId === toNode.id; 
-            
-            const wireClass = nodeStatuses[fromNode.id] === 'processing' ? 'wire-pulse pointer-events-none' : 'transition-all duration-300 hover:stroke-red-500 cursor-pointer pointer-events-auto';
-            const wireColor = nodeStatuses[fromNode.id] === 'success' ? '#10b981' : (isHighlighted ? "#10b981" : "#475569");
-
-            return (
-              <path 
-                key={i} 
-                d={`M ${startX} ${startY} C ${startX + 60} ${startY}, ${endX - 60} ${endY}, ${endX} ${endY}`} 
-                fill="none" stroke={wireColor} strokeWidth={isHighlighted || nodeStatuses[fromNode.id] ? "6" : "4"} 
-                className={wireClass} 
-                onPointerDown={(e) => { e.stopPropagation(); if(removeConnection) removeConnection(i); }}
-              />
-            );
-          })}
-        </svg>
-
-        {nodes.map(node => {
-          const isSelected = selectedNodeId === node.id;
-          const status = nodeStatuses[node.id];
-          
-          let statusClasses = '';
-          if (status === 'processing') statusClasses = 'ring-2 ring-yellow-400 shadow-[0_0_20px_rgba(250,204,21,0.6)] animate-pulse z-20';
-          else if (status === 'success') statusClasses = 'ring-2 ring-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.4)] z-10';
-          else if (isSelected) statusClasses = 'ring-2 ring-white shadow-[0_0_20px_rgba(255,255,255,0.3)] scale-105 z-10';
-          else statusClasses = 'border border-t-white/20 border-b-black/50 hover:border-slate-400 z-0';
-
-          let IconElement = <Settings size={18} className="text-white/70" />; // Fallback
-          if (typeof node.icon === 'string') IconElement = <i className={`fas ${node.icon} text-white/70 text-lg`}></i>;
-          else if (node._icon_key === 'ImageIcon') IconElement = <i className="fas fa-image text-white/70 text-lg"></i>;
-          else if (node._icon_key === 'Hexagon') IconElement = <i className="fas fa-draw-polygon text-white/70 text-lg"></i>;
-          else if (node._icon_key === 'Leaf') IconElement = <i className="fas fa-leaf text-white/70 text-lg"></i>;
-          else if (node._icon_key === 'Grid') IconElement = <i className="fas fa-th text-white/70 text-lg"></i>;
-          else if (node._icon_key === 'Crosshair') IconElement = <i className="fas fa-crosshairs text-white/70 text-lg"></i>;
-          else if (node._icon_key === 'Scissors') IconElement = <i className="fas fa-cut text-white/70 text-lg"></i>;
-          else if (node._icon_key === 'CircleDashed') IconElement = <i className="fas fa-circle-notch text-white/70 text-lg"></i>;
-
-          return (
-            <div 
-              key={node.id} 
-              onPointerDown={(e) => { setDraggedNode(node.id); selectNode(node.id, e); }} 
-              className={`absolute w-[210px] h-[60px] rounded-lg shadow-xl flex items-center px-4 cursor-pointer transition-all duration-300 ${node.color} ${statusClasses}`} 
-              style={{ left: node.x, top: node.y }}
-            >
-              <div className="input-port absolute -left-2 top-1/2 transform -translate-y-1/2 w-4 h-4 bg-slate-300 rounded-full border-2 border-slate-800 hover:scale-150 transition-transform cursor-crosshair z-30" onPointerUp={(e) => completeWire(node.id, e)}></div>
-              
-              <div className="mr-3 pointer-events-none flex items-center justify-center">{IconElement}</div>
-
-              <div className="flex-1 truncate pointer-events-none">
-                <div className="text-[9px] uppercase tracking-widest text-white/70 font-bold">{node.toolId.split('_')[0]}</div>
-                <div className="text-sm font-bold text-white truncate drop-shadow-md">{node.name}</div>
-              </div>
-
-              <div className="output-port absolute -right-2 top-1/2 transform -translate-y-1/2 w-4 h-4 bg-emerald-400 rounded-full border-2 border-slate-800 hover:scale-150 transition-transform cursor-crosshair z-30 shadow-[0_0_8px_#10b981]" onPointerDown={(e) => startWire(node.id, e)}></div>
-            </div>
-          );
-        })}
-      </div>
+      <Terminal showTerminal={showTerminal} setShowTerminal={setShowTerminal} logs={logs} isProcessing={isProcessing} />
+      <ScriptModal showScript={showScript} setShowScript={setShowScript} generatedCode={generatedCode} processingScope={processingScope} onDeploy={handleDeploy} />
     </div>
   );
 }
