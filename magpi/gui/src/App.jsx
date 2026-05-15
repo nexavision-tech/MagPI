@@ -31,7 +31,6 @@ export default function App() {
   const [logs, setLogs] = useState([]);
   const [nodeStatuses, setNodeStatuses] = useState({});
 
-  // --- MAP TO CANVAS BRIDGE ---
   const handleAoiDrawn = (aoiData) => {
     const newNode = { 
       id: `node_${Date.now()}`, toolId: 'mgt_clip', name: 'Clip to AOI (Map Draw)', icon: 'fa-cut', 
@@ -43,7 +42,6 @@ export default function App() {
     setActiveRightTab('inspector');
   };
 
-  // --- NODE LOGIC METHODS ---
   const addNode = (tool, dropX = null, dropY = null) => {
     const newNode = { 
       id: `node_${Date.now()}`, toolId: tool.id, name: tool.name, icon: tool.icon, 
@@ -58,6 +56,11 @@ export default function App() {
 
   const updateNodeParam = (nodeId, paramKey, value) => {
     setNodes(nds => nds.map(n => n.id === nodeId ? { ...n, params: { ...n.params, [paramKey]: value } } : n));
+  };
+
+  // NEW: Update Node Name function!
+  const updateNodeName = (nodeId, newName) => {
+    setNodes(nds => nds.map(n => n.id === nodeId ? { ...n, name: newName } : n));
   };
 
   const deleteNode = (nodeId) => {
@@ -86,7 +89,6 @@ export default function App() {
     setConnections(cx => cx.filter((_, i) => i !== index));
   };
 
-  // NEW: The Matrix Wipe
   const handleClear = () => {
     setNodes([]);
     setConnections([]);
@@ -99,7 +101,6 @@ export default function App() {
 
   const selectedNode = nodes.find(n => n.id === selectedNodeId);
 
-  // --- PROJECT SAVE/LOAD ---
   const handleSave = () => {
     saveProject(nodes, connections, crs, "MagPI_Active_Pipeline");
     setLogs([{ type: 'success', msg: 'Project saved to disk as .mpjx format.' }]);
@@ -114,7 +115,6 @@ export default function App() {
     });
   };
 
-  // --- EXECUTION PIPELINE ---
   const handleGenerate = () => {
     const code = generatePythonScript(nodes, connections, crs, processingScope);
     setGeneratedCode(code);
@@ -157,8 +157,7 @@ export default function App() {
     <div className="flex flex-col h-screen bg-slate-900 text-slate-200 font-sans overflow-hidden select-none">
       <TopRibbon 
         crs={crs} setCrs={setCrs} processingScope={processingScope} setProcessingScope={setProcessingScope} 
-        onGenerate={handleGenerate} onSave={handleSave} onLoad={handleLoad} 
-        onClear={handleClear} // <-- NEW: Pass the wipe function to the ribbon
+        onGenerate={handleGenerate} onSave={handleSave} onLoad={handleLoad} onClear={handleClear} 
       />
       <div className={`flex flex-1 overflow-hidden transition-all duration-500 ${showTerminal ? 'h-[65vh]' : 'h-full'}`}>
         <NodeCanvas 
@@ -170,7 +169,7 @@ export default function App() {
         <MapViewport onAoiDrawn={handleAoiDrawn} />
         <Toolbox 
           activeRightTab={activeRightTab} setActiveRightTab={setActiveRightTab} 
-          selectedNode={selectedNode} updateNodeParam={updateNodeParam} 
+          selectedNode={selectedNode} updateNodeParam={updateNodeParam} updateNodeName={updateNodeName} 
           deleteNode={deleteNode} addNode={addNode} duplicateNode={duplicateNode} 
         />
       </div>
