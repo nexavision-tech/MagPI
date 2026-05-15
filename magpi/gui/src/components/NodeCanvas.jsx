@@ -5,22 +5,42 @@ export default function NodeCanvas({
   nodes, setNodes, 
   connections, setConnections, 
   selectedNodeId, setSelectedNodeId, 
-  setActiveRightTab,
-  nodeStatuses = {}, // Receives the execution states!
-  removeConnection   // NEW: Receives the wire severance function!
+  setActiveRightTab, nodeStatuses = {},
+  removeConnection, addNode // <-- ENHANCED: Receiving addNode
 }) {
-  // Local Canvas State
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const canvasRef = useRef(null);
   
-  // Interaction State
   const [isPanning, setIsPanning] = useState(false);
   const [draggedNode, setDraggedNode] = useState(null);
-  
-  // Wiring State
   const [connectingFrom, setConnectingFrom] = useState(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+
+  // --- HTML5 DRAG AND DROP HANDLERS ---
+  const handleDragOver = (e) => {
+    e.preventDefault(); // Required to allow a drop
+    e.dataTransfer.dropEffect = 'copy';
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    const toolDataStr = e.dataTransfer.getData("application/json");
+    if (toolDataStr) {
+      const toolData = JSON.parse(toolDataStr);
+      
+      // Calculate the exact drop position, adjusting for pan, zoom, and container offset!
+      const rect = canvasRef.current.getBoundingClientRect();
+      const dropX = (e.clientX - rect.left - pan.x) / zoom;
+      const dropY = (e.clientY - rect.top - pan.y) / zoom;
+      
+      // We offset slightly so the mouse cursor is in the middle of the node (width:210, height:60)
+      const centerX = dropX - 105; 
+      const centerY = dropY - 30;
+
+      if(addNode) addNode(toolData, centerX, centerY);
+    }
+  };
 
   // --- CANVAS INTERACTIONS ---
   const handleWheel = (e) => {
@@ -66,7 +86,6 @@ export default function NodeCanvas({
     }
   };
 
-  // --- WIRING LOGIC ---
   const startWire = (nodeId, e) => {
     e.stopPropagation();
     setConnectingFrom(nodeId);
@@ -99,6 +118,8 @@ export default function NodeCanvas({
       onPointerMove={handlePointerMove} 
       onPointerUp={handlePointerUp} 
       onPointerLeave={handlePointerUp}
+      onDragOver={handleDragOver}  // <-- ENHANCED: Intercept drag
+      onDrop={handleDrop}          // <-- ENHANCED: Process drop
       style={{ 
         backgroundImage: 'radial-gradient(#2a3441 1.5px, transparent 1.5px)', 
         backgroundSize: `${25 * zoom}px ${25 * zoom}px`, 
@@ -147,8 +168,6 @@ export default function NodeCanvas({
             const endY = toNode.y + 30; 
             const isHighlighted = selectedNodeId === fromNode.id || selectedNodeId === toNode.id; 
             
-            // If the "from" node is currently processing, pulse the wire!
-            // NEW: Added pointer-events-auto and hover:stroke-red-500 so you can click it!
             const wireClass = nodeStatuses[fromNode.id] === 'processing' ? 'wire-pulse pointer-events-none' : 'transition-all duration-300 hover:stroke-red-500 cursor-pointer pointer-events-auto';
             const wireColor = nodeStatuses[fromNode.id] === 'success' ? '#10b981' : (isHighlighted ? "#10b981" : "#475569");
 
@@ -156,14 +175,9 @@ export default function NodeCanvas({
               <path 
                 key={i} 
                 d={`M ${startX} ${startY} C ${startX + 60} ${startY}, ${endX - 60} ${endY}, ${endX} ${endY}`} 
-                fill="none" 
-                stroke={wireColor} 
-                strokeWidth={isHighlighted || nodeStatuses[fromNode.id] ? "6" : "4"} 
+                fill="none" stroke={wireColor} strokeWidth={isHighlighted || nodeStatuses[fromNode.id] ? "6" : "4"} 
                 className={wireClass} 
-                onPointerDown={(e) => { 
-                  e.stopPropagation(); 
-                  if(removeConnection) removeConnection(i); 
-                }}
+                onPointerDown={(e) => { e.stopPropagation(); if(removeConnection) removeConnection(i); }}
               />
             );
           })}
@@ -173,34 +187,21 @@ export default function NodeCanvas({
           const isSelected = selectedNodeId === node.id;
           const status = nodeStatuses[node.id];
           
-          // DYNAMIC VISUAL STYLING BASED ON EXECUTION STATUS
           let statusClasses = '';
-          if (status === 'processing') {
-            statusClasses = 'ring-2 ring-yellow-400 shadow-[0_0_20px_rgba(250,204,21,0.6)] animate-pulse z-20';
-          } else if (status === 'success') {
-            statusClasses = 'ring-2 ring-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.4)] z-10';
-          } else if (isSelected) {
-            statusClasses = 'ring-2 ring-white shadow-[0_0_20px_rgba(255,255,255,0.3)] scale-105 z-10';
-          } else {
-            statusClasses = 'border border-t-white/20 border-b-black/50 hover:border-slate-400 z-0';
-          }
+          if (status === 'processing') statusClasses = 'ring-2 ring-yellow-400 shadow-[0_0_20px_rgba(250,204,21,0.6)] animate-pulse z-20';
+          else if (status === 'success') statusClasses = 'ring-2 ring-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.4)] z-10';
+          else if (isSelected) statusClasses = 'ring-2 ring-white shadow-[0_0_20px_rgba(255,255,255,0.3)] scale-105 z-10';
+          else statusClasses = 'border border-t-white/20 border-b-black/50 hover:border-slate-400 z-0';
 
-          // SAFE ICON RENDERING ENGINE
-          // Protects against mangled JSON loads while maintaining UI polish
-          let IconElement;
-          if (typeof node.icon === 'string') {
-            // Renders legacy FontAwesome strings safely
-            IconElement = <i className={`fas ${node.icon} text-white/70 text-lg`}></i>;
-          } else if (node.icon && typeof node.icon === 'object' && !node.icon.$$typeof) {
-            // Catches the mangled JSON object from your .mpjx load
-            IconElement = <Settings size={18} className="text-white/70" />;
-          } else if (node.icon) {
-            // Renders live lucide-react components
-            IconElement = <div className="text-white/70">{node.icon}</div>;
-          } else {
-            // Default fallback
-            IconElement = <Settings size={18} className="text-white/70" />;
-          }
+          let IconElement = <Settings size={18} className="text-white/70" />; // Fallback
+          if (typeof node.icon === 'string') IconElement = <i className={`fas ${node.icon} text-white/70 text-lg`}></i>;
+          else if (node._icon_key === 'ImageIcon') IconElement = <i className="fas fa-image text-white/70 text-lg"></i>;
+          else if (node._icon_key === 'Hexagon') IconElement = <i className="fas fa-draw-polygon text-white/70 text-lg"></i>;
+          else if (node._icon_key === 'Leaf') IconElement = <i className="fas fa-leaf text-white/70 text-lg"></i>;
+          else if (node._icon_key === 'Grid') IconElement = <i className="fas fa-th text-white/70 text-lg"></i>;
+          else if (node._icon_key === 'Crosshair') IconElement = <i className="fas fa-crosshairs text-white/70 text-lg"></i>;
+          else if (node._icon_key === 'Scissors') IconElement = <i className="fas fa-cut text-white/70 text-lg"></i>;
+          else if (node._icon_key === 'CircleDashed') IconElement = <i className="fas fa-circle-notch text-white/70 text-lg"></i>;
 
           return (
             <div 
@@ -211,9 +212,7 @@ export default function NodeCanvas({
             >
               <div className="input-port absolute -left-2 top-1/2 transform -translate-y-1/2 w-4 h-4 bg-slate-300 rounded-full border-2 border-slate-800 hover:scale-150 transition-transform cursor-crosshair z-30" onPointerUp={(e) => completeWire(node.id, e)}></div>
               
-              <div className="mr-3 pointer-events-none flex items-center justify-center">
-                {IconElement}
-              </div>
+              <div className="mr-3 pointer-events-none flex items-center justify-center">{IconElement}</div>
 
               <div className="flex-1 truncate pointer-events-none">
                 <div className="text-[9px] uppercase tracking-widest text-white/70 font-bold">{node.toolId.split('_')[0]}</div>
