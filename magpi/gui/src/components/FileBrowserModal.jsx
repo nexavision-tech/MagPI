@@ -45,10 +45,10 @@ export default function FileBrowserModal({ isOpen, onClose, onSelect, initialPat
 
   return (
     <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4 sm:p-8 animate-fadeIn">
-      <div className="bg-slate-800 rounded-xl shadow-[0_0_50px_rgba(0,0,0,0.5)] w-full max-w-2xl border border-slate-600 flex flex-col overflow-hidden h-[80vh]">
+      <div className="bg-slate-800 rounded-xl shadow-[0_0_50px_rgba(0,0,0,0.5)] w-full max-w-4xl border border-slate-600 flex flex-col overflow-hidden h-[85vh]">
         
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 bg-slate-900 border-b border-slate-700">
+        <div className="flex items-center justify-between px-4 py-3 bg-slate-900 border-b border-slate-700 shrink-0">
           <h3 className="font-bold text-slate-200 flex items-center tracking-wide">
             <HardDrive size={16} className="mr-2 text-emerald-500" /> NATIVE OS FILE BROWSER
           </h3>
@@ -58,32 +58,32 @@ export default function FileBrowserModal({ isOpen, onClose, onSelect, initialPat
         </div>
 
         {/* Address Bar and Folder Selection */}
-        <div className="bg-slate-950 px-4 py-2 flex items-center space-x-2 border-b border-slate-700">
+        <div className="bg-slate-950 px-4 py-2 flex items-center space-x-2 border-b border-slate-700 shrink-0">
             <button 
                 onClick={() => fetchDirectory(parentPath)}
-                className="p-1.5 rounded hover:bg-slate-700 text-slate-300 transition-colors"
+                className="p-1.5 rounded hover:bg-slate-700 text-slate-300 transition-colors shrink-0"
                 title="Go Up One Level"
             >
                 <ArrowLeft size={16} />
             </button>
             <button 
                 onClick={() => fetchDirectory("~")}
-                className="p-1.5 rounded hover:bg-slate-700 text-slate-300 transition-colors"
+                className="p-1.5 rounded hover:bg-slate-700 text-slate-300 transition-colors shrink-0"
                 title="Go to Home Directory"
             >
                 <Home size={16} />
             </button>
-            <div className="flex-1 bg-slate-800 px-3 py-1.5 rounded border border-slate-700 font-mono text-xs text-emerald-400 truncate shadow-inner">
+            <div className="flex-1 bg-slate-800 px-3 py-1.5 rounded border border-slate-700 font-mono text-xs text-emerald-400 overflow-x-auto whitespace-nowrap shadow-inner custom-scrollbar">
                 {currentPath}
             </div>
             
-            {/* NEW BUTTON: Select current folder for output parameters */}
+            {/* BUTTON: Select current folder for output parameters */}
             <button 
                 onClick={() => {
                     onSelect(currentPath);
                     onClose();
                 }}
-                className="ml-2 bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded text-xs font-bold flex items-center shadow-md transition-colors"
+                className="ml-2 bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded text-xs font-bold flex items-center shadow-md transition-colors shrink-0"
                 title="Use this folder as output destination"
             >
                 <CheckSquare size={14} className="mr-2" /> Select this Folder
@@ -91,7 +91,7 @@ export default function FileBrowserModal({ isOpen, onClose, onSelect, initialPat
         </div>
         
         {/* File and Folder List */}
-        <div className="flex-1 overflow-y-auto bg-[#0d1117] p-2">
+        <div className="flex-1 overflow-y-auto bg-[#0d1117] p-4">
             {loading ? (
                 <div className="h-full flex flex-col items-center justify-center text-slate-500">
                     <Loader2 size={24} className="animate-spin mb-2 text-emerald-500" />
@@ -105,22 +105,23 @@ export default function FileBrowserModal({ isOpen, onClose, onSelect, initialPat
                     <p className="text-xs text-slate-500 mt-2">Error: {error}</p>
                 </div>
             ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     {/* Render Folders */}
                     {folders.map(folder => (
                         <div 
                             key={folder} 
                             onClick={() => fetchDirectory(`${currentPath}/${folder}`)}
-                            className="flex items-center p-2 rounded cursor-pointer hover:bg-slate-800 border border-transparent hover:border-slate-600 transition-colors group"
+                            title={folder}
+                            className="flex items-start p-3 rounded cursor-pointer bg-slate-900/50 hover:bg-slate-800 border border-slate-700/50 hover:border-slate-600 transition-colors group"
                         >
-                            <Folder size={18} className="text-blue-400 mr-3 group-hover:scale-110 transition-transform" />
-                            <span className="text-sm text-slate-300 truncate font-medium">{folder}</span>
+                            <Folder size={18} className="text-blue-400 mr-3 mt-0.5 shrink-0 group-hover:scale-110 transition-transform" />
+                            <span className="text-sm text-slate-300 break-all font-medium leading-snug">{folder}</span>
                         </div>
                     ))}
 
                     {/* Render Files */}
                     {files.map(file => {
-                        const isGIS = file.endsWith('.tif') || file.endsWith('.shp') || file.endsWith('.geojson') || file.endsWith('.gdb');
+                        const isGIS = file.endsWith('.tif') || file.endsWith('.shp') || file.endsWith('.geojson') || file.endsWith('.gdb') || file.endsWith('.h5');
                         return (
                         <div 
                             key={file} 
@@ -128,10 +129,11 @@ export default function FileBrowserModal({ isOpen, onClose, onSelect, initialPat
                                 onSelect(`${currentPath}/${file}`);
                                 onClose();
                             }}
-                            className="flex items-center p-2 rounded cursor-pointer hover:bg-emerald-900/30 border border-transparent hover:border-emerald-500/50 transition-colors group"
+                            title={file}
+                            className="flex items-start p-3 rounded cursor-pointer bg-slate-900/30 hover:bg-emerald-900/20 border border-transparent hover:border-emerald-500/30 transition-colors group"
                         >
-                            <FileIcon size={18} className={`${isGIS ? 'text-emerald-400' : 'text-slate-500'} mr-3 group-hover:scale-110 transition-transform`} />
-                            <span className={`text-sm truncate font-mono ${isGIS ? 'text-emerald-200' : 'text-slate-400'}`}>{file}</span>
+                            <FileIcon size={18} className={`${isGIS ? 'text-emerald-400' : 'text-slate-500'} mr-3 mt-0.5 shrink-0 group-hover:scale-110 transition-transform`} />
+                            <span className={`text-sm break-all font-mono leading-snug ${isGIS ? 'text-emerald-200' : 'text-slate-400'}`}>{file}</span>
                         </div>
                     )})}
 

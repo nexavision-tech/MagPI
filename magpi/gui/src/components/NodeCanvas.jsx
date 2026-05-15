@@ -16,6 +16,9 @@ export default function NodeCanvas({
   const [draggedNode, setDraggedNode] = useState(null);
   const [connectingFrom, setConnectingFrom] = useState(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  
+  // NEW: Explicit Pan Mode Toggle
+  const [panMode, setPanMode] = useState(false);
 
   const handleDragOver = (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; };
   const handleDrop = (e) => {
@@ -36,7 +39,8 @@ export default function NodeCanvas({
   };
 
   const handlePointerDown = (e) => {
-    if (e.button === 1 || (e.button === 0 && e.altKey)) {
+    // UPDATED: Now also triggers if panMode is actively toggled on
+    if (panMode || e.button === 1 || (e.button === 0 && e.altKey)) {
       setIsPanning(true);
       e.currentTarget.setPointerCapture(e.pointerId);
     } else if (e.target === canvasRef.current) {
@@ -48,8 +52,8 @@ export default function NodeCanvas({
 
   const handlePointerMove = (e) => {
     if (isPanning) setPan(p => ({ x: p.x + e.movementX, y: p.y + e.movementY }));
-    if (draggedNode) setNodes(nds => nds.map(n => n.id === draggedNode ? { ...n, x: n.x + e.movementX / zoom, y: n.y + e.movementY / zoom } : n));
-    if (connectingFrom && canvasRef.current) {
+    if (draggedNode && !panMode) setNodes(nds => nds.map(n => n.id === draggedNode ? { ...n, x: n.x + e.movementX / zoom, y: n.y + e.movementY / zoom } : n));
+    if (connectingFrom && canvasRef.current && !panMode) {
       const rect = canvasRef.current.getBoundingClientRect();
       setMousePos({ x: (e.clientX - rect.left - pan.x) / zoom, y: (e.clientY - rect.top - pan.y) / zoom });
     }
@@ -61,12 +65,14 @@ export default function NodeCanvas({
   };
 
   const startWire = (nodeId, e) => {
+    if (panMode) return; // Prevent wiring if in pan mode
     e.stopPropagation(); setConnectingFrom(nodeId);
     const rect = canvasRef.current.getBoundingClientRect();
     setMousePos({ x: (e.clientX - rect.left - pan.x) / zoom, y: (e.clientY - rect.top - pan.y) / zoom });
   };
 
   const completeWire = (nodeId, e) => {
+    if (panMode) return;
     e.stopPropagation();
     if (connectingFrom && connectingFrom !== nodeId && !connections.find(c => c.from === connectingFrom && c.to === nodeId)) {
         setConnections(prev => [...prev, { from: connectingFrom, to: nodeId }]);
@@ -74,9 +80,11 @@ export default function NodeCanvas({
     setConnectingFrom(null);
   };
 
-  const selectNode = (nodeId, e) => { e.stopPropagation(); setSelectedNodeId(nodeId); setActiveRightTab('inspector'); };
+  const selectNode = (nodeId, e) => { 
+    if (panMode) return;
+    e.stopPropagation(); setSelectedNodeId(nodeId); setActiveRightTab('inspector'); 
+  };
 
-  // ENHANCED: Radar Reset
   const centerView = () => {
     setPan({ x: 0, y: 0 });
     setZoom(1);
@@ -84,7 +92,7 @@ export default function NodeCanvas({
 
   return (
     <div 
-      className="flex-1 relative bg-[#151b2b] overflow-hidden border-r border-slate-800 cursor-grab active:cursor-grabbing"
+      className={`flex-1 relative bg-[#151b2b] overflow-hidden border-r border-slate-800 ${panMode ? 'cursor-grab active:cursor-grabbing' : ''}`}
       ref={canvasRef} onWheel={handleWheel} onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerLeave={handlePointerUp} onDragOver={handleDragOver} onDrop={handleDrop}
       style={{ backgroundImage: 'radial-gradient(#2a3441 1.5px, transparent 1.5px)', backgroundSize: `${25 * zoom}px ${25 * zoom}px`, backgroundPosition: `${pan.x}px ${pan.y}px` }}
     >
@@ -92,9 +100,21 @@ export default function NodeCanvas({
 
       {/* ENHANCED OVERLAY CONTROLS */}
       <div className="absolute top-4 left-4 flex space-x-2 z-10 bg-slate-800/90 p-1.5 rounded-lg backdrop-blur-md border border-slate-600 shadow-xl">
-        <button className="w-8 h-8 flex items-center justify-center bg-slate-700 rounded text-emerald-400" title="Select"><MousePointer2 size={16} /></button>
-        <button className="w-8 h-8 flex items-center justify-center hover:bg-slate-700 rounded text-slate-400 transition-colors" title="Pan (Middle Click or Alt+Drag)"><Hand size={16} /></button>
-        <button onClick={centerView} className="w-8 h-8 flex items-center justify-center hover:bg-slate-700 rounded text-blue-400 transition-colors" title="Center Canvas View"><LocateFixed size={16} /></button>
+        <button 
+            onClick={() => setPanMode(false)}
+            className={`w-8 h-8 flex items-center justify-center rounded transition-colors ${!panMode ? 'bg-slate-700 text-emerald-400' : 'text-slate-400 hover:bg-slate-700'}`} 
+            title="Select & Wire Tool"
+        >
+            <MousePointer2 size={16} />
+        </button>
+        <button 
+            onClick={() => setPanMode(true)}
+            className={`w-8 h-8 flex items-center justify-center rounded transition-colors ${panMode ? 'bg-blue-600/50 text-blue-400 border border-blue-500/50' : 'text-slate-400 hover:bg-slate-700'}`} 
+            title="Pan Canvas Mode"
+        >
+            <Hand size={16} />
+        </button>
+        <button onClick={centerView} className="w-8 h-8 flex items-center justify-center hover:bg-slate-700 rounded text-slate-400 transition-colors" title="Center Canvas View"><LocateFixed size={16} /></button>
         <div className="w-px bg-slate-600 mx-1"></div>
         <span className="text-xs font-bold flex items-center px-2 text-slate-300 w-12 justify-center">{Math.round(zoom * 100)}%</span>
       </div>
@@ -138,13 +158,11 @@ export default function NodeCanvas({
           else if (node._icon_key === 'CircleDashed') IconElement = <i className="fas fa-circle-notch text-white/70 text-lg"></i>;
 
           return (
-            <div key={node.id} onPointerDown={(e) => { setDraggedNode(node.id); selectNode(node.id, e); }} className={`absolute w-[210px] h-[60px] rounded-lg shadow-xl flex items-center px-4 cursor-pointer transition-all duration-300 ${node.color} ${statusClasses}`} style={{ left: node.x, top: node.y }}>
+            <div key={node.id} onPointerDown={(e) => { if(!panMode){ setDraggedNode(node.id); selectNode(node.id, e); } }} className={`absolute w-[210px] h-[60px] rounded-lg shadow-xl flex items-center px-4 transition-all duration-300 ${node.color} ${statusClasses} ${panMode ? '' : 'cursor-pointer'}`} style={{ left: node.x, top: node.y }}>
               <div className="input-port absolute -left-2 top-1/2 transform -translate-y-1/2 w-4 h-4 bg-slate-300 rounded-full border-2 border-slate-800 hover:scale-150 transition-transform cursor-crosshair z-30" onPointerUp={(e) => completeWire(node.id, e)}></div>
               <div className="mr-3 pointer-events-none flex items-center justify-center">{IconElement}</div>
               <div className="flex-1 truncate pointer-events-none">
                 <div className="text-[9px] uppercase tracking-widest text-white/70 font-bold">{node.toolId.split('_')[0]}</div>
-                
-                {/* ENHANCED: Node Title dynamically updates from Inspector! */}
                 <div className="text-sm font-bold text-white truncate drop-shadow-md">{node.name}</div>
               </div>
               <div className="output-port absolute -right-2 top-1/2 transform -translate-y-1/2 w-4 h-4 bg-emerald-400 rounded-full border-2 border-slate-800 hover:scale-150 transition-transform cursor-crosshair z-30 shadow-[0_0_8px_#10b981]" onPointerDown={(e) => startWire(node.id, e)}></div>
