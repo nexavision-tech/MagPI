@@ -146,13 +146,16 @@ export default function App() {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-slate-900 text-slate-200 font-sans overflow-hidden select-none">
+    // CRITICAL FIX: "absolute inset-0 w-full h-full" bolts the app to the screen frame. No more jumping!
+    <div className="absolute inset-0 w-full h-full flex flex-col bg-slate-900 text-slate-200 font-sans overflow-hidden select-none">
       
-      <TopRibbon crs={crs} setCrs={setCrs} processingScope={processingScope} setProcessingScope={setProcessingScope} onGenerate={handleGenerate} onSave={handleSave} onLoad={handleLoad} onClear={handleClear} />
+      {/* TOP RIBBON - flex-none prevents it from shrinking or hiding */}
+      <div className="flex-none z-40 shadow-md">
+        <TopRibbon crs={crs} setCrs={setCrs} processingScope={processingScope} setProcessingScope={setProcessingScope} onGenerate={handleGenerate} onSave={handleSave} onLoad={handleLoad} onClear={handleClear} />
+      </div>
       
-      {/* CRITICAL FIX: Removed rigid heights, allowing flexbox to naturally absorb the Terminal push! */}
-      <div className="flex flex-1 overflow-hidden min-h-0">
-        
+      {/* MAIN WORKSPACE - flex-1 min-h-0 seamlessly absorbs the terminal animation */}
+      <div className="flex-1 flex overflow-hidden min-h-0 relative z-0">
         <NodeCanvas 
           nodes={nodes} setNodes={setNodes} connections={connections} setConnections={setConnections}
           selectedNodeId={selectedNodeId} setSelectedNodeId={setSelectedNodeId}
@@ -169,7 +172,10 @@ export default function App() {
         />
       </div>
 
-      <Terminal showTerminal={showTerminal} setShowTerminal={setShowTerminal} logs={logs} isProcessing={isProcessing} />
+      {/* TERMINAL WRAPPER - Controlled entirely by Terminal component height */}
+      <div className="flex-none z-30">
+        <Terminal showTerminal={showTerminal} setShowTerminal={setShowTerminal} logs={logs} isProcessing={isProcessing} />
+      </div>
       
       <ScriptModal showScript={showScript} setShowScript={setShowScript} generatedCode={generatedCode} processingScope={processingScope} onDeploy={handleDeploy} />
       

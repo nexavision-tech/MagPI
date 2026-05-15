@@ -12,10 +12,11 @@ export default function Terminal({ showTerminal, setShowTerminal, logs = [], isP
   }, [logs, showTerminal]);
 
   return (
-    <div className={`bg-black border-t-2 border-slate-700 transition-all duration-500 flex flex-col ${showTerminal ? 'h-[30vh]' : 'h-0 border-transparent opacity-0'}`}>
+    // CRITICAL FIX: Added overflow-hidden and border-t-0 when closed so it completely vanishes!
+    <div className={`bg-black transition-all duration-300 ease-in-out flex flex-col overflow-hidden ${showTerminal ? 'h-[35vh] border-t-2 border-slate-700 opacity-100' : 'h-0 border-t-0 border-transparent opacity-0'}`}>
       
       {/* Terminal Header */}
-      <div className="bg-slate-900 px-4 py-2 border-b border-slate-800 flex justify-between items-center text-xs font-bold text-slate-400 tracking-wider">
+      <div className="bg-slate-900 px-4 py-2 border-b border-slate-800 flex justify-between items-center text-xs font-bold text-slate-400 tracking-wider shrink-0">
         <div className="flex items-center">
           <TerminalIcon size={14} className="mr-2 text-emerald-500" /> MAGPI EXECUTION LOG
         </div>
