@@ -1,172 +1,78 @@
-import React, { useState } from 'react';
-import { 
-  Database, Layers, Cpu, Settings, Image as ImageIcon, 
-  Hexagon, Leaf, Grid, Crosshair, Scissors, CircleDashed, 
-  ChevronDown, ChevronRight, MousePointer2, Trash2, 
-  SlidersHorizontal, Wrench, Check, FolderOpen, ListFilter,
-  Search, Copy 
-} from 'lucide-react';
+import React from 'react';
+import { Code, X, Copy, Rocket, CheckCircle, Download } from 'lucide-react';
 
-const TOOLBOX_CATEGORIES = [
-  {
-    name: "Data Ingestion", icon: <Database size={18} className="text-emerald-500/70" />,
-    tools: [
-      { id: 'load_raster', name: "Input Raster", type: 'input', icon: <ImageIcon size={14}/>, color: 'bg-blue-600', border: 'border-blue-500', params: { file_path: "./test_data/noaa_florida/2021_4BandImagery.tif" } },
-      { id: 'load_vector', name: "Input Vector", type: 'input', icon: <Hexagon size={14}/>, color: 'bg-blue-600', border: 'border-blue-500', params: { file_path: "./test_data/Orange_County_Tracts.shp" } },
-    ]
-  },
-  {
-    name: "Image Analyst (ia)", icon: <Layers size={18} className="text-emerald-500/70" />,
-    tools: [
-      { id: 'ia_ndvi', name: "NDVI Calculator", type: 'process', icon: <Leaf size={14}/>, color: 'bg-emerald-600', border: 'border-emerald-500', params: { nir_band: 4, red_band: 1 } },
-      { id: 'ia_export_dl', name: "Export DL Tensors", type: 'process', icon: <Grid size={14}/>, color: 'bg-emerald-600', border: 'border-emerald-500', params: { out_folder: "./dl_chips", tile_size: 256, stride: 128, shuffle: true } },
-    ]
-  },
-  {
-    name: "GeoAI (geoai)", icon: <Cpu size={18} className="text-emerald-500/70" />,
-    tools: [
-      { id: 'ai_detect', name: "Detect Objects", type: 'process', icon: <Crosshair size={14}/>, color: 'bg-purple-600', border: 'border-purple-500', 
-        params: { out_shp: "pools.shp", model: { value: "facebook/detr-resnet-50", type: "select", options: ["facebook/detr-resnet-50", "facebook/mask2former-swin", "nvidia/segformer-b0"] } } 
-      },
-    ]
-  },
-  {
-    name: "Data Management", icon: <Settings size={18} className="text-emerald-500/70" />,
-    tools: [
-      { id: 'mgt_clip', name: "Clip to AOI", type: 'process', icon: <Scissors size={14}/>, color: 'bg-slate-600', border: 'border-slate-500', params: { xmin: "", ymin: "", xmax: "", ymax: "" } },
-      { id: 'mgt_buffer', name: "Buffer", type: 'process', icon: <CircleDashed size={14}/>, color: 'bg-slate-600', border: 'border-slate-500', 
-        params: { distance: 50, unit: { value: "Meters", type: "select", options: ["Meters", "Kilometers", "Feet", "Miles"] } } 
-      },
-    ]
-  }
-];
-
-export default function Toolbox({ 
-  activeRightTab, setActiveRightTab, 
-  selectedNode, updateNodeParam, updateNodeName, deleteNode, addNode, duplicateNode 
+export default function ScriptModal({ 
+  showScript, setShowScript, 
+  generatedCode, processingScope, onDeploy 
 }) {
-  const [expandedCategories, setExpandedCategories] = useState({ "Data Ingestion": true, "Image Analyst (ia)": true, "GeoAI (geoai)": true, "Data Management": true });
-  const [searchQuery, setSearchQuery] = useState('');
+  if (!showScript) return null;
 
-  const toggleCategory = (name) => setExpandedCategories(prev => ({ ...prev, [name]: !prev[name] }));
-
-  const handleDragStart = (e, tool) => {
-    const dragPayload = { ...tool, _icon_key: tool.icon.type.name || 'Settings' };
-    e.dataTransfer.setData("application/json", JSON.stringify(dragPayload));
-    e.dataTransfer.effectAllowed = 'copy';
+  const copyToClipboard = () => {
+    navigator.clipboard.writeText(generatedCode);
   };
 
-  const filteredCategories = TOOLBOX_CATEGORIES.map(cat => ({
-    ...cat, tools: cat.tools.filter(t => t.name.toLowerCase().includes(searchQuery.toLowerCase()) || t.id.toLowerCase().includes(searchQuery.toLowerCase()))
-  })).filter(cat => cat.tools.length > 0);
+  // ENHANCED: Physical .py file generator
+  const downloadPythonScript = () => {
+    const element = document.createElement("a");
+    const file = new Blob([generatedCode], {type: 'text/x-python'});
+    element.href = URL.createObjectURL(file);
+    element.download = "magpi_pipeline.py";
+    document.body.appendChild(element); // Required for Firefox
+    element.click();
+    document.body.removeChild(element);
+  };
 
   return (
-    <div className="w-[320px] bg-slate-800 flex flex-col shadow-[-10px_0_20px_rgba(0,0,0,0.5)] z-20">
-      <div className="flex bg-slate-900 border-b border-slate-700">
-        <button onClick={() => setActiveRightTab('toolbox')} className={`flex-1 py-4 text-xs font-bold uppercase tracking-widest transition-all flex items-center justify-center ${activeRightTab === 'toolbox' ? 'text-emerald-400 border-b-2 border-emerald-400 bg-slate-800' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/50'}`}><Wrench size={14} className="mr-2" /> Tools</button>
-        <button onClick={() => setActiveRightTab('inspector')} className={`flex-1 py-4 text-xs font-bold uppercase tracking-widest transition-all flex items-center justify-center ${activeRightTab === 'inspector' ? 'text-emerald-400 border-b-2 border-emerald-400 bg-slate-800' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/50'}`}><SlidersHorizontal size={14} className="mr-2" /> Params</button>
-      </div>
-      
-      <div className="flex-1 overflow-y-auto bg-slate-800 flex flex-col">
-        {activeRightTab === 'toolbox' && (
-          <>
-            <div className="p-3 pb-1 shrink-0">
-              <div className="relative">
-                <Search size={14} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-500" />
-                <input type="text" placeholder="Search tools..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-md pl-9 pr-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-500 transition-colors placeholder:text-slate-600" />
-              </div>
-            </div>
-            <div className="p-3 space-y-3 flex-1 overflow-y-auto">
-              {filteredCategories.length === 0 ? ( <div className="text-center text-slate-500 text-xs mt-4">No tools found for "{searchQuery}"</div> ) : (
-                filteredCategories.map((cat, idx) => (
-                  <div key={idx} className="bg-slate-900/80 rounded-lg border border-slate-700/80 overflow-hidden shadow-sm">
-                    <button onClick={() => toggleCategory(cat.name)} className="w-full flex items-center justify-between px-4 py-3 bg-slate-800/80 hover:bg-slate-700 transition-colors">
-                      <div className="flex items-center space-x-3 text-sm font-bold text-slate-200">{cat.icon}<span>{cat.name}</span></div>
-                      {expandedCategories[cat.name] || searchQuery !== '' ? <ChevronDown size={14} className="text-slate-500"/> : <ChevronRight size={14} className="text-slate-500"/>}
-                    </button>
-                    {(expandedCategories[cat.name] || searchQuery !== '') && (
-                      <div className="p-2 space-y-1 bg-slate-900/50">
-                        {cat.tools.map(tool => (
-                          <div key={tool.id} draggable="true" onDragStart={(e) => handleDragStart(e, tool)} onClick={() => addNode(tool)} className="flex items-center px-3 py-2.5 text-xs bg-slate-800 hover:bg-slate-700 rounded-md cursor-grab active:cursor-grabbing border border-transparent hover:border-emerald-500/50 transition-all group shadow-sm">
-                            <div className={`w-3 h-3 rounded-full mr-3 ${tool.color} shadow-inner`}></div>
-                            <span className="flex-1 text-slate-300 font-medium group-hover:text-white transition-colors">{tool.name}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ))
-              )}
-            </div>
-          </>
-        )}
-
-        {activeRightTab === 'inspector' && (
-          <div className="p-3">
-            {!selectedNode ? (
-              <div className="text-center text-slate-500 mt-16 flex flex-col items-center">
-                <div className="w-16 h-16 rounded-full bg-slate-900 border border-slate-700 flex items-center justify-center mb-4 shadow-inner"><MousePointer2 size={24} className="opacity-50" /></div>
-                <p className="text-sm font-medium">Select a node on the canvas to configure.</p>
-              </div>
-            ) : (
-              <div className="space-y-4 animate-fadeIn">
-                <div className={`px-2 py-2 rounded-lg text-white font-bold text-sm ${selectedNode.color} border border-t-white/20 border-b-black/50 shadow-lg flex items-center justify-between`}>
-                  
-                  {/* ENHANCED: Editable Node Name */}
-                  <div className="flex items-center flex-1 mr-2">
-                    <input 
-                      type="text" 
-                      value={selectedNode.name} 
-                      onChange={(e) => updateNodeName(selectedNode.id, e.target.value)}
-                      className="bg-transparent border-none text-white font-bold text-sm outline-none w-full focus:ring-1 focus:ring-white/50 rounded px-2 py-1 placeholder-white/50"
-                      placeholder="Node Name"
-                    />
-                  </div>
-                  
-                  <div className="flex space-x-2 shrink-0 pr-2">
-                    <button onClick={() => duplicateNode(selectedNode.id)} className="w-7 h-7 rounded bg-black/20 hover:bg-emerald-500/80 flex items-center justify-center transition-colors shadow-sm" title="Duplicate Node"><Copy size={13} /></button>
-                    <button onClick={() => deleteNode(selectedNode.id)} className="w-7 h-7 rounded bg-black/20 hover:bg-red-500/80 flex items-center justify-center transition-colors shadow-sm" title="Delete Node"><Trash2 size={13} /></button>
-                  </div>
-                </div>
-
-                <div className="bg-slate-900 p-4 rounded-lg border border-slate-700 shadow-inner">
-                  <h4 className="text-[10px] uppercase tracking-widest text-emerald-500 font-bold mb-4 flex items-center"><SlidersHorizontal size={12} className="mr-2" /> Parameters</h4>
-                  {Object.entries(selectedNode.params || {}).map(([key, val]) => {
-                    const isComplexObj = val && typeof val === 'object' && val.type === 'select';
-                    const displayVal = isComplexObj ? val.value : val;
-                    return (
-                    <div key={key} className="mb-4">
-                      <label className="block text-[11px] font-bold text-slate-400 mb-1.5 uppercase tracking-wide">{key.replace(/_/g, ' ')}</label>
-                      {typeof displayVal === 'boolean' ? (
-                        <div className="flex items-center bg-slate-800 px-3 py-2 rounded-md border border-slate-700 cursor-pointer" onClick={() => updateNodeParam(selectedNode.id, key, !displayVal)}>
-                          <div className={`w-4 h-4 rounded-sm flex items-center justify-center mr-3 transition-colors ${displayVal ? 'bg-emerald-500' : 'bg-slate-700 border border-slate-600'}`}>{displayVal && <Check size={10} className="text-white" />}</div>
-                          <span className={`text-sm font-medium ${displayVal ? 'text-white' : 'text-slate-400'}`}>{displayVal ? "Enabled" : "Disabled"}</span>
-                        </div>
-                      ) : isComplexObj ? (
-                        <div className="relative">
-                            <ListFilter size={14} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-500" />
-                            <select value={displayVal} onChange={(e) => updateNodeParam(selectedNode.id, key, { ...val, value: e.target.value })} className="w-full bg-slate-800 border border-slate-600 rounded-md pl-9 pr-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all font-mono appearance-none cursor-pointer">
-                                {val.options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                            </select>
-                            <ChevronDown size={14} className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-500 pointer-events-none" />
-                        </div>
-                      ) : typeof displayVal === 'number' ? (
-                        <input type="number" value={displayVal} onChange={(e) => updateNodeParam(selectedNode.id, key, Number(e.target.value))} className="w-full bg-slate-800 border border-slate-600 rounded-md px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all font-mono"/>
-                      ) : key === 'file_path' || key === 'out_folder' ? (
-                        <div className="flex items-center space-x-2">
-                           <input type="text" value={displayVal} onChange={(e) => updateNodeParam(selectedNode.id, key, e.target.value)} className="flex-1 bg-slate-800 border border-slate-600 rounded-md px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all font-mono"/>
-                          <button className="p-2 bg-slate-700 hover:bg-slate-600 rounded border border-slate-600 transition-colors text-slate-300"><FolderOpen size={16} /></button>
-                        </div>
-                      ) : (
-                        <input type="text" value={displayVal} onChange={(e) => updateNodeParam(selectedNode.id, key, e.target.value)} className="w-full bg-slate-800 border border-slate-600 rounded-md px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all font-mono"/>
-                      )}
-                    </div>
-                  )})}
-                </div>
-              </div>
-            )}
+    <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-8 animate-fadeIn">
+      <div className="bg-slate-800 rounded-xl shadow-[0_0_50px_rgba(0,0,0,0.5)] w-full max-w-4xl border border-slate-600 flex flex-col overflow-hidden transform transition-all">
+        
+        <div className="flex items-center justify-between px-6 py-4 bg-slate-900 border-b border-slate-700">
+          <h3 className="font-bold text-emerald-400 flex items-center tracking-wide">
+            <Code size={18} className="mr-3 text-lg" /> GENERATED PIPELINE SCRIPT
+          </h3>
+          <button 
+            onClick={() => setShowScript(false)} 
+            className="text-slate-400 hover:text-white transition-colors bg-slate-800 w-8 h-8 rounded-full flex items-center justify-center hover:bg-red-500/80"
+          >
+            <X size={14} />
+          </button>
+        </div>
+        
+        <div className="p-6 bg-[#0d1117] flex-1 relative group">
+          <pre className="text-[13px] font-mono text-emerald-400/90 overflow-auto h-[500px] whitespace-pre-wrap selection:bg-emerald-900 selection:text-white leading-relaxed">
+            {generatedCode}
+          </pre>
+          
+          <div className="absolute top-4 right-4 flex space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
+            <button 
+              onClick={downloadPythonScript}
+              className="bg-slate-800 hover:bg-slate-700 text-emerald-400 px-3 py-1.5 rounded-md text-xs font-bold border border-emerald-900 shadow-md flex items-center transition-colors" 
+            >
+              <Download size={14} className="mr-2" /> Download .py
+            </button>
+            <button 
+              onClick={copyToClipboard}
+              className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-md text-xs font-bold border border-slate-600 shadow-md flex items-center transition-colors" 
+            >
+              <Copy size={12} className="mr-2" /> Copy
+            </button>
           </div>
-        )}
+        </div>
+        
+        <div className="p-4 bg-slate-900 border-t border-slate-700 flex justify-between items-center">
+          <span className="text-xs text-slate-500 font-mono flex items-center">
+            <CheckCircle size={14} className="text-emerald-600 mr-2" /> Python 3.8+ Compatible
+          </span>
+          <div className="flex space-x-3">
+            <button onClick={() => setShowScript(false)} className="px-5 py-2.5 rounded-md text-sm font-bold text-slate-300 hover:bg-slate-700 hover:text-white border border-transparent hover:border-slate-600 transition-all">
+              Close
+            </button>
+            <button onClick={onDeploy} className="px-5 py-2.5 rounded-md text-sm bg-emerald-600 hover:bg-emerald-500 text-white font-bold shadow-lg flex items-center transition-all hover:scale-105 active:scale-95">
+              <Rocket size={14} className="mr-2" /> Deploy to {processingScope}
+            </button>
+          </div>
+        </div>
+
       </div>
     </div>
   );
