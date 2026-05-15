@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Folder, File as FileIcon, ArrowLeft, Home, HardDrive, AlertTriangle, Loader2 } from 'lucide-react';
+import { X, Folder, File as FileIcon, ArrowLeft, Home, HardDrive, AlertTriangle, Loader2, CheckSquare } from 'lucide-react';
 
 export default function FileBrowserModal({ isOpen, onClose, onSelect, initialPath }) {
   const [currentPath, setCurrentPath] = useState(initialPath || ".");
@@ -57,7 +57,7 @@ export default function FileBrowserModal({ isOpen, onClose, onSelect, initialPat
           </button>
         </div>
 
-        {/* Address Bar */}
+        {/* Address Bar and Folder Selection */}
         <div className="bg-slate-950 px-4 py-2 flex items-center space-x-2 border-b border-slate-700">
             <button 
                 onClick={() => fetchDirectory(parentPath)}
@@ -76,9 +76,21 @@ export default function FileBrowserModal({ isOpen, onClose, onSelect, initialPat
             <div className="flex-1 bg-slate-800 px-3 py-1.5 rounded border border-slate-700 font-mono text-xs text-emerald-400 truncate shadow-inner">
                 {currentPath}
             </div>
+            
+            {/* NEW BUTTON: Select current folder for output parameters */}
+            <button 
+                onClick={() => {
+                    onSelect(currentPath);
+                    onClose();
+                }}
+                className="ml-2 bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded text-xs font-bold flex items-center shadow-md transition-colors"
+                title="Use this folder as output destination"
+            >
+                <CheckSquare size={14} className="mr-2" /> Select this Folder
+            </button>
         </div>
         
-        {/* File List */}
+        {/* File and Folder List */}
         <div className="flex-1 overflow-y-auto bg-[#0d1117] p-2">
             {loading ? (
                 <div className="h-full flex flex-col items-center justify-center text-slate-500">
@@ -108,7 +120,7 @@ export default function FileBrowserModal({ isOpen, onClose, onSelect, initialPat
 
                     {/* Render Files */}
                     {files.map(file => {
-                        const isGIS = file.endsWith('.tif') || file.endsWith('.shp') || file.endsWith('.geojson');
+                        const isGIS = file.endsWith('.tif') || file.endsWith('.shp') || file.endsWith('.geojson') || file.endsWith('.gdb');
                         return (
                         <div 
                             key={file} 
@@ -123,6 +135,7 @@ export default function FileBrowserModal({ isOpen, onClose, onSelect, initialPat
                         </div>
                     )})}
 
+                    {/* Empty Directory Message */}
                     {folders.length === 0 && files.length === 0 && (
                          <div className="col-span-full text-center text-slate-500 py-10 text-sm">Directory is empty.</div>
                     )}
