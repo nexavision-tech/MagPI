@@ -227,3 +227,61 @@ def Clip(in_raster, rectangle, out_raster, in_template_dataset=None, nodata_valu
         logger.error(f"Failed to clip raster: {e}")
         from .objects import Result
         return Result(None, status=3)
+
+def BuildPyramidsAndStats(in_raster, build_pyramids=True, calculate_stats=True):
+    """
+    MagPI Translation of arcpy.management.BuildPyramids / CalculateStatistics.
+    Bakes multi-resolution overviews and statistical profiles directly into the GeoTIFF headers.
+    """
+    # Duck-type the input to get the file path string
+    if hasattr(in_raster, 'name'):
+        raster_path = in_raster.name
+    elif hasattr(in_raster, 'output'):
+        raster_path = in_raster.output
+    else:
+        raster_path = str(in_raster)
+
+    logger.info(f"Executing Open-Source Build Pyramids/Stats on: {raster_path}")
+    
+    try:
+        import rasterio
+        from rasterio.enums import Resampling
+        import numpy as np
+
+        with rasterio.open(raster_path, 'r+') as src:
+            if calculate_stats:
+                logger.info(f"Calculating array statistics for {src.count} bands...")
+                # Calculate stats for each band and bake them into the TIFF tags
+                for i in range(1, src.count + 1):
+                    band = src.read(i)
+                    valid_data = band[band != src.nodata] if src.nodata is not None else band
+                    
+                    if valid_data.size > 0:
+                        stats = {
+                            'STATISTICS_MINIMUM': float(np.min(valid_data)),
+                            'STATISTICS_MAXIMUM': float(np.max(valid_data)),
+                            'STATISTICS_MEAN': float(np.mean(valid_data)),
+                            'STATISTICS_STDDEV': float(np.std(valid_data))
+                        }
+                        src.update_tags(i, **stats)
+                logger.info("Statistics baked successfully.")
+
+            if build_pyramids:
+                logger.info("Building multi-resolution internal overviews (Pyramids)...")
+                # Build overviews at 1/2, 1/4, 1/8, and 1/16 resolution
+                factors = [2, 4, 8, 16]
+                src.build_overviews(factors, Resampling.nearest)
+                src.update_tags(ns='rio_overview', resampling='nearest')
+                logger.info("Pyramids generated successfully.")
+
+        from .objects import Result
+        return Result(raster_path)
+
+    except ImportError:
+        logger.error("Missing dependency: numpy or rasterio.")
+        from .objects import Result
+        return Result(None, status=3)
+    except Exception as e:
+        logger.error(f"Failed to build pyramids/stats: {e}")
+        from .objects import Result
+        return Result(None, status=3)
