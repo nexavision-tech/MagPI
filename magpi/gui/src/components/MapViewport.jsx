@@ -59,8 +59,6 @@ const MapViewport = React.memo(({ onAoiDrawn, selectedNode }) => {
             }
         });
 
-        // NEW: The Viewport Recalibration (ResizeObserver)
-        // This watches the container. When the Terminal animates up, it forces Leaflet to redraw instantly!
         const resizeObserver = new ResizeObserver(() => {
             if (mapInstance.current) {
                 mapInstance.current.invalidateSize();
@@ -74,6 +72,11 @@ const MapViewport = React.memo(({ onAoiDrawn, selectedNode }) => {
             mapInstance.current = null;
         };
     }, [onAoiDrawn]);
+
+    // OPTIMIZATION: We extract ONLY the ID and Parameters. 
+    // We ignore X/Y canvas coordinates entirely so dragging doesn't flash the map!
+    const selectedNodeId = selectedNode?.id;
+    const selectedNodeParamsString = JSON.stringify(selectedNode?.params || {});
 
     useEffect(() => {
         if (!mapInstance.current || !highlightGroup.current) return;
@@ -102,7 +105,8 @@ const MapViewport = React.memo(({ onAoiDrawn, selectedNode }) => {
                 }
             }
         }
-    }, [selectedNode]);
+    // CRITICAL DEPENDENCY ARRAY FIX: Only run this effect if the ID or the Parameters change!
+    }, [selectedNodeId, selectedNodeParamsString]);
 
     const activateDrawTool = () => {
         if (mapInstance.current) {
