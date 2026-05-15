@@ -4,7 +4,7 @@ import {
   Hexagon, Leaf, Grid, Crosshair, Scissors, CircleDashed, 
   ChevronDown, ChevronRight, MousePointer2, Trash2, 
   SlidersHorizontal, Wrench, Check, FolderOpen, ListFilter,
-  Search, Copy, Info
+  Search, Copy, Info, Fingerprint, Loader2, AlertCircle
 } from 'lucide-react';
 
 const TOOLBOX_CATEGORIES = [
@@ -56,13 +56,17 @@ const TOOLBOX_CATEGORIES = [
 export default function Toolbox({ 
   activeRightTab, setActiveRightTab, 
   selectedNode, updateNodeParam, updateNodeName, deleteNode, addNode, duplicateNode,
-  openFileBrowser // <-- NEW: Receive function
+  openFileBrowser 
 }) {
   const [expandedCategories, setExpandedCategories] = useState({ "Data Ingestion": true, "Image Analyst (ia)": true, "GeoAI (geoai)": true, "Data Management": true });
   const [searchQuery, setSearchQuery] = useState('');
   
   const [hoveredTool, setHoveredTool] = useState(null);
   const [mouseY, setMouseY] = useState(0);
+
+  // NEW: Dataset Intelligence State
+  const [metadata, setMetadata] = useState({});
+  const [loadingMeta, setLoadingMeta] = useState(false);
 
   const toggleCategory = (name) => setExpandedCategories(prev => ({ ...prev, [name]: !prev[name] }));
 
@@ -77,17 +81,36 @@ export default function Toolbox({
     ...cat, tools: cat.tools.filter(t => t.name.toLowerCase().includes(searchQuery.toLowerCase()) || t.id.toLowerCase().includes(searchQuery.toLowerCase()))
   })).filter(cat => cat.tools.length > 0);
 
+  // NEW: Function to interrogate the Python Daemon for Raster/Shapefile Headers
+  const fetchMetadata = async (filePath, nodeId) => {
+    setLoadingMeta(true);
+    try {
+      const response = await fetch(`http://localhost:8080/api/describe?file=${encodeURIComponent(filePath)}`);
+      const data = await response.json();
+      
+      if (response.ok) {
+        setMetadata(prev => ({ ...prev, [nodeId]: { data, error: null } }));
+      } else {
+        setMetadata(prev => ({ ...prev, [nodeId]: { data: null, error: data.error } }));
+      }
+    } catch (err) {
+      setMetadata(prev => ({ ...prev, [nodeId]: { data: null, error: "Daemon offline or unreachable." } }));
+    } finally {
+      setLoadingMeta(false);
+    }
+  };
+
   return (
     <div 
       className="w-[320px] bg-slate-800 flex flex-col shadow-[-10px_0_20px_rgba(0,0,0,0.5)] z-20"
-      onMouseMove={(e) => setMouseY(e.clientY)} // Track mouse for tooltip positioning
+      onMouseMove={(e) => setMouseY(e.clientY)} 
     >
       
-      {/* ENHANCED: Fixed Position Tooltip (Immune to scrollbar clipping!) */}
+      {/* Floating Tooltip */}
       {hoveredTool && (
         <div 
           className="fixed right-[330px] w-72 bg-slate-800 border border-slate-600 rounded-lg shadow-[0_0_40px_rgba(0,0,0,0.8)] p-4 z-50 animate-fadeIn pointer-events-none"
-          style={{ top: Math.min(Math.max(mouseY - 50, 20), window.innerHeight - 150) }} // Keeps it on screen
+          style={{ top: Math.min(Math.max(mouseY - 50, 20), window.innerHeight - 150) }} 
         >
           <div className="flex items-center mb-2 text-emerald-400 font-bold text-sm border-b border-slate-700 pb-2">
             <span className="bg-slate-900 p-1.5 rounded-md mr-3 shadow-inner">{hoveredTool.icon}</span> 
@@ -149,7 +172,6 @@ export default function Toolbox({
           </>
         )}
 
-        {/* ... INSPECTOR TAB (Unchanged) ... */}
         {activeRightTab === 'inspector' && (
           <div className="p-3">
             {!selectedNode ? (
@@ -158,7 +180,7 @@ export default function Toolbox({
                 <p className="text-sm font-medium">Select a node on the canvas to configure.</p>
               </div>
             ) : (
-              <div className="space-y-4 animate-fadeIn">
+              <div className="space-y-4 animate-fadeIn pb-6">
                 <div className={`px-2 py-2 rounded-lg text-white font-bold text-sm ${selectedNode.color} border border-t-white/20 border-b-black/50 shadow-lg flex items-center justify-between`}>
                   <div className="flex items-center flex-1 mr-2">
                     <input type="text" value={selectedNode.name} onChange={(e) => updateNodeName(selectedNode.id, e.target.value)} className="bg-transparent border-none text-white font-bold text-sm outline-none w-full focus:ring-1 focus:ring-white/50 rounded px-2 py-1 placeholder-white/50" placeholder="Node Name" />
@@ -195,16 +217,7 @@ export default function Toolbox({
                       ) : key === 'file_path' || key === 'out_folder' ? (
                         <div className="flex items-center space-x-2">
                            <input type="text" value={displayVal} onChange={(e) => updateNodeParam(selectedNode.id, key, e.target.value)} className="flex-1 bg-slate-800 border border-slate-600 rounded-md px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all font-mono"/>
-                          
-                          {/* ENHANCED: File Browser Hook! */}
-                          <button 
-                             onClick={() => openFileBrowser(selectedNode.id, key, displayVal)}
-                             className="p-2 bg-slate-700 hover:bg-slate-600 rounded border border-slate-600 transition-colors text-emerald-400"
-                             title="Browse OS Files"
-                          >
-                             <FolderOpen size={16} />
-                          </button>
-
+                          <button onClick={() => openFileBrowser(selectedNode.id, key, displayVal)} className="p-2 bg-slate-700 hover:bg-slate-600 rounded border border-slate-600 transition-colors text-emerald-400" title="Browse OS Files"><FolderOpen size={16} /></button>
                         </div>
                       ) : (
                         <input type="text" value={displayVal} onChange={(e) => updateNodeParam(selectedNode.id, key, e.target.value)} className="w-full bg-slate-800 border border-slate-600 rounded-md px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all font-mono"/>
@@ -212,6 +225,56 @@ export default function Toolbox({
                     </div>
                   )})}
                 </div>
+
+                {/* ENHANCED: DATASET INTELLIGENCE BRIDGE */}
+                {selectedNode.params && selectedNode.params.file_path && (
+                  <div className="bg-slate-900 p-4 rounded-lg border border-slate-700 shadow-inner mt-4 animate-fadeIn">
+                    <h4 className="text-[10px] uppercase tracking-widest text-blue-400 font-bold mb-3 flex items-center">
+                      <Fingerprint size={12} className="mr-2" /> Dataset Intelligence
+                    </h4>
+                    
+                    <button 
+                      onClick={() => fetchMetadata(selectedNode.params.file_path, selectedNode.id)}
+                      disabled={loadingMeta}
+                      className="w-full py-2 bg-blue-900/40 hover:bg-blue-600 text-blue-300 hover:text-white text-xs font-bold rounded border border-blue-800/50 hover:border-blue-500 transition-all flex items-center justify-center mb-3 disabled:opacity-50"
+                    >
+                      {loadingMeta ? <Loader2 size={14} className="animate-spin mr-2" /> : <Database size={14} className="mr-2" />}
+                      {loadingMeta ? "Scanning Headers..." : "Scan File Headers"}
+                    </button>
+
+                    {/* Display Results */}
+                    {metadata[selectedNode.id] && metadata[selectedNode.id].data && (
+                      <div className="bg-black/50 p-3 rounded border border-slate-800 font-mono text-[10px] space-y-2 text-slate-300">
+                         <div className="flex justify-between border-b border-slate-800 pb-1">
+                            <span className="text-slate-500">TYPE</span>
+                            <span className="text-emerald-400">{metadata[selectedNode.id].data.dataType}</span>
+                         </div>
+                         <div className="flex justify-between border-b border-slate-800 pb-1">
+                            <span className="text-slate-500">BANDS / GEOM</span>
+                            <span className="text-blue-300">
+                               {metadata[selectedNode.id].data.dataType === 'RasterDataset' ? `${metadata[selectedNode.id].data.bandCount} Bands` : metadata[selectedNode.id].data.shapeType}
+                            </span>
+                         </div>
+                         <div className="flex justify-between border-b border-slate-800 pb-1">
+                            <span className="text-slate-500">CRS</span>
+                            <span className="text-purple-400">{metadata[selectedNode.id].data.spatialReference}</span>
+                         </div>
+                         <div className="flex flex-col pt-1">
+                            <span className="text-slate-500 mb-1">EXTENT BOUNDS</span>
+                            <span className="text-[9px] text-slate-400 break-all">{metadata[selectedNode.id].data.extent}</span>
+                         </div>
+                      </div>
+                    )}
+                    
+                    {metadata[selectedNode.id] && metadata[selectedNode.id].error && (
+                      <div className="bg-red-900/20 p-3 rounded border border-red-800/50 flex items-start text-xs text-red-400 mt-2">
+                        <AlertCircle size={14} className="mr-2 mt-0.5 shrink-0" />
+                        <span className="leading-tight">{metadata[selectedNode.id].error}</span>
+                      </div>
+                    )}
+
+                  </div>
+                )}
               </div>
             )}
           </div>

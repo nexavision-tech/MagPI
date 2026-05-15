@@ -15,8 +15,6 @@ def LaunchCanvas(port=8080):
     module_dir = os.path.dirname(os.path.abspath(__file__))
     gui_dir = os.path.join(module_dir, 'gui')
     
-    # In dev mode, the user might be running Vite on 5173. 
-    # This server will run on 8080 to provide the API backend.
     if not os.path.exists(gui_dir):
         logger.warning(f"GUI dir not found at {gui_dir}. Serving API only.")
 
@@ -28,31 +26,77 @@ def LaunchCanvas(port=8080):
                 super().__init__(*args, **kwargs)
 
         def end_headers(self):
-            # Crucial: Allow your Vite dev server (localhost:5173) to talk to this Python API (localhost:8080)
+            # Allow Vite dev server to talk to this API
             self.send_header('Access-Control-Allow-Origin', '*')
             self.send_header('Access-Control-Allow-Methods', 'GET, OPTIONS')
             super().end_headers()
 
         def do_OPTIONS(self):
+            self.send_header('Access-Control-Allow-Headers', 'Content-Type')
             self.send_response(200)
             self.end_headers()
 
         def do_GET(self):
             parsed_path = urlparse(self.path)
             
-            # API ROUTE: The Native OS File Browser
+            # ROUTE 1: Native OS File Browser
             if parsed_path.path == '/api/browse':
                 self.handle_browse(parsed_path.query)
+            
+            # ROUTE 2: Native Dataset Intelligence (Describe)
+            elif parsed_path.path == '/api/describe':
+                self.handle_describe(parsed_path.query)
+                
             else:
-                # Serve normal web files if available
                 super().do_GET()
+
+        def handle_describe(self, query):
+            qs = parse_qs(query)
+            target_file = qs.get('file', [''])[0]
+            
+            try:
+                import magpi as arcpy
+                logger.info(f"API Request: Describing {target_file}")
+                
+                desc = arcpy.Describe(target_file)
+                
+                if desc.dataType == "Unknown":
+                     raise ValueError("Unrecognized data type or file not found.")
+                
+                # Format spatial reference name safely
+                sr_name = "Unknown"
+                if desc.spatialReference:
+                    if hasattr(desc.spatialReference, 'name'):
+                        sr_name = desc.spatialReference.name
+                    elif hasattr(desc.spatialReference, 'to_string'):
+                        sr_name = str(desc.spatialReference.to_epsg() or "Custom CRS")
+                    else:
+                        sr_name = str(desc.spatialReference)
+
+                response = {
+                    "dataType": desc.dataType,
+                    "shapeType": getattr(desc, 'shapeType', "N/A"),
+                    "bandCount": getattr(desc, 'bandCount', 1),
+                    "extent": str(desc.extent) if desc.extent else "Unknown",
+                    "spatialReference": sr_name
+                }
+                
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps(response).encode('utf-8'))
+                
+            except Exception as e:
+                logger.error(f"Describe API failed: {e}")
+                self.send_response(500)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": str(e)}).encode('utf-8'))
 
         def handle_browse(self, query):
             qs = parse_qs(query)
-            # Default to the current working directory, or process a specific path
             target_dir = qs.get('dir', [os.getcwd()])[0]
 
-            # Handle the Linux home directory shortcut
             if target_dir == '~':
                 target_dir = os.path.expanduser('~')
 
@@ -60,11 +104,8 @@ def LaunchCanvas(port=8080):
                 target_dir = os.path.abspath(target_dir)
                 items = os.listdir(target_dir)
                 
-                folders = []
-                files = []
-                
+                folders, files = [], []
                 for item in items:
-                    # Skip hidden files
                     if item.startswith('.'): continue
                     
                     full_path = os.path.join(target_dir, item)
@@ -94,7 +135,7 @@ def LaunchCanvas(port=8080):
                 self.wfile.write(json.dumps({"error": str(e)}).encode('utf-8'))
 
         def log_message(self, format, *args):
-            pass # Shush the standard HTTP logs so we don't spam the terminal
+            pass 
 
     try:
         httpd = socketserver.TCPServer(("", port), MagPIAPIHandler)
