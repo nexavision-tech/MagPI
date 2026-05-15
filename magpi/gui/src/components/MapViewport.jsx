@@ -3,7 +3,7 @@ import L from 'leaflet';
 import 'leaflet-draw';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet-draw/dist/leaflet.draw.css';
-import { Map as MapIcon, Satellite, SquarePen } from 'lucide-react';
+import { Map as MapIcon, Satellite, Edit } from 'lucide-react';
 
 // CRITICAL PATCH FOR LEAFLET 1.9+ & CHROME:
 // Prevents the browser from instantly finishing a rectangle draw as a single point.
@@ -125,7 +125,7 @@ const MapViewport = React.memo(({ onAoiDrawn, selectedNode }) => {
                     className="text-emerald-500 hover:text-white bg-emerald-900/30 hover:bg-emerald-600 px-2 py-1 rounded transition-colors flex items-center border border-emerald-900/50"
                     title="Draw AOI Rectangle"
                 >
-                    <SquarePen size={14} className="mr-1" /> DRAW
+                    <Edit size={14} className="mr-1" /> DRAW
                 </button>
             </div>
             
