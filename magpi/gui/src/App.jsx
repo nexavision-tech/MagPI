@@ -67,12 +67,10 @@ export default function App() {
     setActiveRightTab('toolbox');
   };
 
-  // NEW: Duplicate Node Function
   const duplicateNode = (nodeId) => {
     const nodeToCopy = nodes.find(n => n.id === nodeId);
     if (!nodeToCopy) return;
     
-    // Create an exact copy, offset it slightly so it doesn't overlap perfectly
     const clonedNode = {
       ...nodeToCopy,
       id: `node_${Date.now()}`,
@@ -86,6 +84,17 @@ export default function App() {
 
   const removeConnection = (index) => {
     setConnections(cx => cx.filter((_, i) => i !== index));
+  };
+
+  // NEW: The Matrix Wipe
+  const handleClear = () => {
+    setNodes([]);
+    setConnections([]);
+    setSelectedNodeId(null);
+    setNodeStatuses({});
+    setActiveRightTab('toolbox');
+    setLogs([{ type: 'info', msg: 'Matrix cleared. Ready for new input.' }]);
+    setShowTerminal(true);
   };
 
   const selectedNode = nodes.find(n => n.id === selectedNodeId);
@@ -146,7 +155,11 @@ export default function App() {
 
   return (
     <div className="flex flex-col h-screen bg-slate-900 text-slate-200 font-sans overflow-hidden select-none">
-      <TopRibbon crs={crs} setCrs={setCrs} processingScope={processingScope} setProcessingScope={setProcessingScope} onGenerate={handleGenerate} onSave={handleSave} onLoad={handleLoad} />
+      <TopRibbon 
+        crs={crs} setCrs={setCrs} processingScope={processingScope} setProcessingScope={setProcessingScope} 
+        onGenerate={handleGenerate} onSave={handleSave} onLoad={handleLoad} 
+        onClear={handleClear} // <-- NEW: Pass the wipe function to the ribbon
+      />
       <div className={`flex flex-1 overflow-hidden transition-all duration-500 ${showTerminal ? 'h-[65vh]' : 'h-full'}`}>
         <NodeCanvas 
           nodes={nodes} setNodes={setNodes} connections={connections} setConnections={setConnections}
@@ -158,8 +171,7 @@ export default function App() {
         <Toolbox 
           activeRightTab={activeRightTab} setActiveRightTab={setActiveRightTab} 
           selectedNode={selectedNode} updateNodeParam={updateNodeParam} 
-          deleteNode={deleteNode} addNode={addNode} 
-          duplicateNode={duplicateNode} // <-- NEW: Pass down duplicate function
+          deleteNode={deleteNode} addNode={addNode} duplicateNode={duplicateNode} 
         />
       </div>
       <Terminal showTerminal={showTerminal} setShowTerminal={setShowTerminal} logs={logs} isProcessing={isProcessing} />
