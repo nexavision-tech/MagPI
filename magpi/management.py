@@ -10,10 +10,6 @@ from .objects import Result
 logger = logging.getLogger("MagPI_Management")
 
 def GetCount(in_rows):
-    """
-    MagPI Translation of arcpy.management.GetCount.
-    Reads the dataset and returns the length of the GeoDataFrame.
-    """
     logger.info(f"Executing GetCount on: {in_rows}")
     try:
         gdf = gpd.read_file(in_rows)
@@ -25,7 +21,6 @@ def GetCount(in_rows):
         return Result(0, status=3)
 
 def CopyFeatures(in_features, out_feature_class, config_keyword=None, spatial_grid_1=None, spatial_grid_2=None, spatial_grid_3=None):
-    """MagPI Translation of arcpy.management.CopyFeatures."""
     logger.info(f"Copying features from {in_features} to {out_feature_class}")
     try:
         gdf = gpd.read_file(in_features)
@@ -36,10 +31,6 @@ def CopyFeatures(in_features, out_feature_class, config_keyword=None, spatial_gr
         return Result(None, status=3)
 
 def Delete(in_data, data_type=None):
-    """
-    MagPI Translation of arcpy.management.Delete.
-    Detects if the target is a file or a directory and gracefully removes it.
-    """
     logger.info(f"Attempting to delete: {in_data}")
     if os.path.exists(in_data):
         try:
@@ -57,10 +48,6 @@ def Delete(in_data, data_type=None):
         return Result(True)
 
 def Project(in_dataset, out_dataset, out_coor_system, transform_method=None, in_coor_system=None, preserve_shape="NO_PRESERVE_SHAPE", max_deviation=None, vertical="NO_VERTICAL"):
-    """
-    MagPI Translation of arcpy.management.Project.
-    Bypasses the proprietary projection engine using pyproj via GeoPandas.
-    """
     logger.info(f"Executing Open-Source Project (Reprojection) on: {in_dataset}")
     try:
         gdf = gpd.read_file(in_dataset)
@@ -85,10 +72,6 @@ def Project(in_dataset, out_dataset, out_coor_system, transform_method=None, in_
         return Result(None, status=3)
 
 def Merge(inputs, output, field_mappings=None, add_source="NO_SOURCE_INFO"):
-    """
-    MagPI Translation of arcpy.management.Merge.
-    Concatenates multiple vector datasets into a single output using Pandas.
-    """
     logger.info(f"Executing Open-Source Merge on: {inputs}")
     try:
         if isinstance(inputs, str):
@@ -114,10 +97,6 @@ def Merge(inputs, output, field_mappings=None, add_source="NO_SOURCE_INFO"):
         return Result(None, status=3)
 
 def JoinField(in_data, in_field, join_table, join_field, fields=None):
-    """
-    MagPI Translation of arcpy.management.JoinField.
-    Permanently joins the contents of a CSV/Table to a Shapefile/GeoDataFrame.
-    """
     logger.info(f"Executing Open-Source JoinField on {in_data} using {join_table}")
     try:
         gdf = gpd.read_file(in_data)
@@ -152,7 +131,6 @@ def JoinField(in_data, in_field, join_table, join_field, fields=None):
         return Result(None, status=3)
 
 def AddField(in_table, field_name, field_type, field_precision=None, field_scale=None, field_length=None, field_alias=None, field_is_nullable="NULLABLE", field_is_required="NON_REQUIRED", field_domain=""):
-    """MagPI Translation of arcpy.management.AddField."""
     logger.info(f"Adding field '{field_name}' of type '{field_type}' to {in_table}")
     try:
         gdf = gpd.read_file(in_table)
@@ -176,7 +154,6 @@ def AddField(in_table, field_name, field_type, field_precision=None, field_scale
         return Result(None, status=3)
 
 def CalculateField(in_table, field, expression, expression_type="PYTHON3", code_block="", field_type=""):
-    """MagPI Translation of arcpy.management.CalculateField."""
     logger.info(f"Calculating field '{field}' on {in_table}")
     try:
         gdf = gpd.read_file(in_table)
@@ -190,11 +167,6 @@ def CalculateField(in_table, field, expression, expression_type="PYTHON3", code_
         return Result(None, status=3)
 
 def Clip(in_raster, rectangle, out_raster, in_template_dataset=None, nodata_value=None, clipping_geometry="NONE", maintain_clipping_extent="NO_MAINTAIN_EXTENT"):
-    """
-    MagPI Translation of arcpy.management.Clip with AUTO-PROJECTION.
-    Extracts a rectangular chunk of a raster based on an Extent object or bounding box string.
-    """
-    # CRITICAL FIX: Extract the string path if a Raster object was passed!
     if hasattr(in_raster, 'name'):
         raster_path = in_raster.name
     elif hasattr(in_raster, 'output'):
@@ -209,7 +181,6 @@ def Clip(in_raster, rectangle, out_raster, in_template_dataset=None, nodata_valu
         from rasterio.warp import transform_bounds
         from .objects import Result, Extent
 
-        # Parse the rectangle
         if hasattr(rectangle, 'XMin'):
             minx, miny, maxx, maxy = rectangle.XMin, rectangle.YMin, rectangle.XMax, rectangle.YMax
         elif isinstance(rectangle, str):
@@ -220,17 +191,11 @@ def Clip(in_raster, rectangle, out_raster, in_template_dataset=None, nodata_valu
             return Result(None, status=3)
 
         with rasterio.open(raster_path) as src:
-            
-            # MAGIC AUTO-PROJECTOR (Transforms GPS to State Plane automatically)
             if -180 <= minx <= 180 and -90 <= miny <= 90:
-                logger.info(f"Detected UI GPS coords. Auto-projecting bounding box to Raster CRS ({src.crs})...")
                 minx, miny, maxx, maxy = transform_bounds('EPSG:4326', src.crs, minx, miny, maxx, maxy)
-                logger.info(f"Projected Bounds: {minx:.2f}, {miny:.2f}, {maxx:.2f}, {maxy:.2f}")
 
             window = from_bounds(minx, miny, maxx, maxy, src.transform)
             window = window.round_offsets().round_lengths()
-            
-            logger.info(f"Clipping pixel window calculated: {window}")
             
             clipped_array = src.read(window=window)
             
@@ -244,6 +209,12 @@ def Clip(in_raster, rectangle, out_raster, in_template_dataset=None, nodata_valu
             
             with rasterio.open(out_raster, "w", **out_meta) as dest:
                 dest.write(clipped_array)
+                
+                # CRITICAL FIX: Preserve Color Interpretation (Stop Band 4 from becoming Alpha)
+                try:
+                    dest.colorinterp = src.colorinterp
+                except Exception as e:
+                    logger.debug(f"Could not copy colorinterp: {e}")
                 
         logger.info(f"Raster Clip complete. Saved to: {out_raster}")
         return Result(out_raster)

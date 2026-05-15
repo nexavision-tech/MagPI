@@ -1,4 +1,3 @@
-# magpi/ui.py
 import http.server
 import socketserver
 import webbrowser
@@ -28,7 +27,6 @@ def LaunchCanvas(port=8080):
                 super().__init__(*args, **kwargs)
 
         def end_headers(self):
-            # Allow Vite dev server to talk to this API
             self.send_header('Access-Control-Allow-Origin', '*')
             self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
             self.send_header('Access-Control-Allow-Headers', 'Content-Type')
@@ -40,7 +38,6 @@ def LaunchCanvas(port=8080):
 
         def do_GET(self):
             parsed_path = urlparse(self.path)
-            
             if parsed_path.path == '/api/browse':
                 self.handle_browse(parsed_path.query)
             elif parsed_path.path == '/api/describe':
@@ -48,7 +45,6 @@ def LaunchCanvas(port=8080):
             else:
                 super().do_GET()
 
-        # NEW: The Execution Engine (POST Route)
         def do_POST(self):
             parsed_path = urlparse(self.path)
             
@@ -62,15 +58,12 @@ def LaunchCanvas(port=8080):
                     
                     logger.info("Received Pipeline Execution Request from Canvas.")
                     
-                    # 1. Write the incoming code to a temporary Python file
                     with tempfile.NamedTemporaryFile(delete=False, suffix='.py', mode='w') as temp_script:
                         temp_script.write(script_code)
                         temp_filepath = temp_script.name
                         
                     logger.info(f"Executing Matrix Payload: {temp_filepath}")
                     
-                    # 2. Run the script natively on the host OS!
-                    # stderr=subprocess.STDOUT merges errors and standard prints into one stream
                     process = subprocess.Popen(
                         ['python', temp_filepath], 
                         stdout=subprocess.PIPE, 
@@ -78,16 +71,11 @@ def LaunchCanvas(port=8080):
                         text=True
                     )
                     
-                    # Wait for it to finish and grab the output
                     output, _ = process.communicate()
                     
-                    # Clean up the temp file
-                    try:
-                        os.remove(temp_filepath)
-                    except:
-                        pass
+                    try: os.remove(temp_filepath)
+                    except: pass
                     
-                    # 3. Send the physical execution logs back to the React Terminal
                     response = {
                         "status": "success" if process.returncode == 0 else "error", 
                         "logs": output
@@ -131,7 +119,9 @@ def LaunchCanvas(port=8080):
                     "shapeType": getattr(desc, 'shapeType', "N/A"),
                     "bandCount": getattr(desc, 'bandCount', 1),
                     "extent": str(desc.extent) if desc.extent else "Unknown",
-                    "spatialReference": sr_name
+                    "spatialReference": sr_name,
+                    # NEW: Send the WGS84 Extent to the Web Map!
+                    "wgs84_extent": getattr(desc, 'wgs84_extent', None)
                 }
                 
                 self.send_response(200)
@@ -148,64 +138,43 @@ def LaunchCanvas(port=8080):
         def handle_browse(self, query):
             qs = parse_qs(query)
             target_dir = qs.get('dir', [os.getcwd()])[0]
-
-            if target_dir == '~':
-                target_dir = os.path.expanduser('~')
-
+            if target_dir == '~': target_dir = os.path.expanduser('~')
             try:
                 target_dir = os.path.abspath(target_dir)
                 items = os.listdir(target_dir)
-                
                 folders, files = [], []
                 for item in items:
                     if item.startswith('.'): continue
-                    
                     full_path = os.path.join(target_dir, item)
-                    if os.path.isdir(full_path):
-                        folders.append(item)
-                    else:
-                        files.append(item)
-
+                    if os.path.isdir(full_path): folders.append(item)
+                    else: files.append(item)
                 folders.sort()
                 files.sort()
-
-                response = {
-                    "current_dir": target_dir,
-                    "parent_dir": os.path.dirname(target_dir),
-                    "folders": folders,
-                    "files": files
-                }
+                response = { "current_dir": target_dir, "parent_dir": os.path.dirname(target_dir), "folders": folders, "files": files }
                 self.send_response(200)
                 self.send_header('Content-type', 'application/json')
                 self.end_headers()
                 self.wfile.write(json.dumps(response).encode('utf-8'))
-                
             except Exception as e:
                 self.send_response(500)
                 self.send_header('Content-type', 'application/json')
                 self.end_headers()
                 self.wfile.write(json.dumps({"error": str(e)}).encode('utf-8'))
 
-        def log_message(self, format, *args):
-            pass 
+        def log_message(self, format, *args): pass 
 
     try:
         httpd = socketserver.TCPServer(("", port), MagPIAPIHandler)
         thread = threading.Thread(target=httpd.serve_forever)
         thread.daemon = True
         thread.start()
-        
         logger.info(f"MagPI Daemon API active on http://localhost:{port}")
-        
         print("\n" + "="*50)
         print(f"🧭 MagPI Daemon API & Canvas Server is running!")
         print(f"📡 API Port: {port}")
         print("🛑 Press [Ctrl+C] to shut down the server.")
         print("="*50 + "\n")
-        
-        while True:
-            time.sleep(1)
-            
+        while True: time.sleep(1)
     except OSError:
         logger.error(f"Port {port} is busy. Try another port.")
     except KeyboardInterrupt:

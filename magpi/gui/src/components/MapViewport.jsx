@@ -25,7 +25,6 @@ const MapViewport = React.memo(({ onAoiDrawn, selectedNode }) => {
 
         L.control.zoom({ position: 'topright' }).addTo(map);
 
-        // We only use the highlightGroup now. The map doesn't save its own drawings.
         highlightGroup.current = new L.FeatureGroup();
         map.addLayer(highlightGroup.current);
 
@@ -34,7 +33,6 @@ const MapViewport = React.memo(({ onAoiDrawn, selectedNode }) => {
                 polyline: false, polygon: false, circle: false, marker: false, circlemarker: false,
                 rectangle: { shapeOptions: { color: '#f69d3c', weight: 2, fillOpacity: 0.1 } }
             },
-            // Disabled the Leaflet Edit Toolbar entirely. MagPI Nodes are the source of truth.
             edit: false 
         });
         map.addControl(drawControl);
@@ -44,8 +42,6 @@ const MapViewport = React.memo(({ onAoiDrawn, selectedNode }) => {
         document.head.appendChild(style);
 
         map.on(L.Draw.Event.CREATED, function (e) {
-            // CRITICAL FIX: We do NOT add the layer to the map here. 
-            // We just extract the math, send it to the Canvas, and let the Canvas highlight logic draw the box!
             const bounds = e.layer.getBounds();
             if (onAoiDrawn) {
                 onAoiDrawn({
@@ -89,16 +85,21 @@ const MapViewport = React.memo(({ onAoiDrawn, selectedNode }) => {
                     highlightGroup.current.addLayer(rect);
                     mapInstance.current.flyToBounds(bounds, { duration: 1.0, padding: [20, 20] });
                 } catch (e) {
-                    console.log("Invalid coordinates in Clip Node, waiting for user input.");
+                    console.log("Invalid coordinates in Clip Node.");
                 }
             } 
             else if (selectedNode.toolId === 'load_raster' && p.file_path) {
-                if (p.file_path.includes("noaa_florida")) {
-                    const mockNoaaBounds = [[28.45, -81.55], [28.65, -81.25]]; 
-                    const rect = L.rectangle(mockNoaaBounds, { color: "#3b82f6", weight: 2, fillOpacity: 0.1 });
-                    highlightGroup.current.addLayer(rect);
-                    mapInstance.current.flyToBounds(mockNoaaBounds, { duration: 1.0, padding: [20, 20] });
-                }
+                // TRUE DYNAMIC FOOTPRINT! We ask the Daemon where the raster lives on Earth!
+                fetch(`http://localhost:8080/api/describe?file=${encodeURIComponent(p.file_path)}`)
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data && data.wgs84_extent) {
+                            const rect = L.rectangle(data.wgs84_extent, { color: "#3b82f6", weight: 2, fillOpacity: 0.1 });
+                            highlightGroup.current.addLayer(rect);
+                            mapInstance.current.flyToBounds(data.wgs84_extent, { duration: 1.0, padding: [20, 20] });
+                        }
+                    })
+                    .catch(err => console.log("Daemon footprint fetch failed", err));
             }
         }
     }, [selectedNodeId, selectedNodeParamsString]);
@@ -125,11 +126,9 @@ const MapViewport = React.memo(({ onAoiDrawn, selectedNode }) => {
                     <Edit size={14} className="mr-1" /> DRAW
                 </button>
             </div>
-            
             <div className="flex-1 relative bg-[#111827] overflow-hidden z-0 leaflet-dark-mode-container">
                 <div ref={mapRef} style={{ width: '100%', height: '100%', backgroundColor: '#1f2937', touchAction: 'none' }}></div>
             </div>
-            
             <div className="bg-slate-900 p-4 border-t border-slate-700 text-xs text-slate-400 font-mono leading-relaxed">
                 <p className="text-emerald-400 font-bold mb-2 flex items-center">
                    <Satellite size={14} className="mr-2" /> OSM Connected

@@ -1,4 +1,3 @@
-# magpi/objects.py
 import os
 import logging
 
@@ -35,8 +34,8 @@ class Describe:
         self.bandCount = 1
         self.extent = None
         self.spatialReference = "Unknown"
+        self.wgs84_extent = None # NEW: Stores Lat/Lon for the React Map!
         
-        # Handle if a Result object or Extent was passed instead of a string
         if hasattr(dataset, 'output'):
             dataset = dataset.output
         
@@ -50,10 +49,21 @@ class Describe:
             self.dataType = "RasterDataset"
             try:
                 import rasterio
+                from rasterio.warp import transform_bounds
                 with rasterio.open(dataset) as src:
                     self.bandCount = src.count
-                    self.extent = f"XMin: {src.bounds.left:.2f}, YMin: {src.bounds.bottom:.2f}, XMax: {src.bounds.right:.2f}, YMax: {src.bounds.top:.2f}"
+                    bounds = src.bounds
+                    self.extent = f"XMin: {bounds.left:.2f}, YMin: {bounds.bottom:.2f}, XMax: {bounds.right:.2f}, YMax: {bounds.top:.2f}"
                     self.spatialReference = SpatialReference(src.crs)
+                    
+                    # MAGIC PROJECTION: Transform the native CRS to Lat/Lon (EPSG:4326) for the Leaflet UI!
+                    try:
+                        wgs = transform_bounds(src.crs, 'EPSG:4326', bounds.left, bounds.bottom, bounds.right, bounds.top)
+                        # Leaflet needs [[min_lat, min_lon], [max_lat, max_lon]]
+                        self.wgs84_extent = [[wgs[1], wgs[0]], [wgs[3], wgs[2]]]
+                    except Exception as e:
+                        logger.debug(f"Could not project bounds to WGS84: {e}")
+
             except Exception as e:
                 logger.error(f"Failed to describe raster: {e}")
                 
