@@ -55,7 +55,8 @@ const TOOLBOX_CATEGORIES = [
 
 export default function Toolbox({ 
   activeRightTab, setActiveRightTab, 
-  selectedNode, updateNodeParam, updateNodeName, deleteNode, addNode, duplicateNode 
+  selectedNode, updateNodeParam, updateNodeName, deleteNode, addNode, duplicateNode,
+  openFileBrowser // <-- NEW: Receive function
 }) {
   const [expandedCategories, setExpandedCategories] = useState({ "Data Ingestion": true, "Image Analyst (ia)": true, "GeoAI (geoai)": true, "Data Management": true });
   const [searchQuery, setSearchQuery] = useState('');
@@ -194,7 +195,16 @@ export default function Toolbox({
                       ) : key === 'file_path' || key === 'out_folder' ? (
                         <div className="flex items-center space-x-2">
                            <input type="text" value={displayVal} onChange={(e) => updateNodeParam(selectedNode.id, key, e.target.value)} className="flex-1 bg-slate-800 border border-slate-600 rounded-md px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all font-mono"/>
-                          <button className="p-2 bg-slate-700 hover:bg-slate-600 rounded border border-slate-600 transition-colors text-slate-300"><FolderOpen size={16} /></button>
+                          
+                          {/* ENHANCED: File Browser Hook! */}
+                          <button 
+                             onClick={() => openFileBrowser(selectedNode.id, key, displayVal)}
+                             className="p-2 bg-slate-700 hover:bg-slate-600 rounded border border-slate-600 transition-colors text-emerald-400"
+                             title="Browse OS Files"
+                          >
+                             <FolderOpen size={16} />
+                          </button>
+
                         </div>
                       ) : (
                         <input type="text" value={displayVal} onChange={(e) => updateNodeParam(selectedNode.id, key, e.target.value)} className="w-full bg-slate-800 border border-slate-600 rounded-md px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all font-mono"/>

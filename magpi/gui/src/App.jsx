@@ -7,6 +7,7 @@ import Toolbox from './components/Toolbox';
 import NodeCanvas from './components/NodeCanvas';
 import MapViewport from './components/MapViewport';
 import ScriptModal from './components/ScriptModal';
+import FileBrowserModal from './components/FileBrowserModal'; // <-- NEW
 
 // Utilities
 import { generatePythonScript } from './utils/scriptGen';
@@ -30,6 +31,9 @@ export default function App() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [logs, setLogs] = useState([]);
   const [nodeStatuses, setNodeStatuses] = useState({});
+
+  // NEW: OS File Browser State
+  const [browserConfig, setBrowserConfig] = useState({ isOpen: false, nodeId: null, paramKey: null, initialPath: "." });
 
   const handleAoiDrawn = useCallback((aoiData) => {
     const newNode = { 
@@ -56,6 +60,18 @@ export default function App() {
 
   const updateNodeParam = (nodeId, paramKey, value) => {
     setNodes(nds => nds.map(n => n.id === nodeId ? { ...n, params: { ...n.params, [paramKey]: value } } : n));
+  };
+
+  // NEW: OS File Browser Trigger
+  const openFileBrowser = (nodeId, paramKey, currentPath) => {
+    setBrowserConfig({ isOpen: true, nodeId, paramKey, initialPath: currentPath || "." });
+  };
+
+  // NEW: Handle File Selected
+  const handleFileSelected = (absolutePath) => {
+    if (browserConfig.nodeId && browserConfig.paramKey) {
+       updateNodeParam(browserConfig.nodeId, browserConfig.paramKey, absolutePath);
+    }
   };
 
   const updateNodeName = (nodeId, newName) => {
@@ -142,18 +158,27 @@ export default function App() {
           setActiveRightTab={setActiveRightTab} nodeStatuses={nodeStatuses} 
           removeConnection={removeConnection} addNode={addNode} 
         />
-        
-        {/* ENHANCED: We are now passing the selectedNode directly into the Map Viewport! */}
         <MapViewport onAoiDrawn={handleAoiDrawn} selectedNode={selectedNode} />
         
         <Toolbox 
           activeRightTab={activeRightTab} setActiveRightTab={setActiveRightTab} 
           selectedNode={selectedNode} updateNodeParam={updateNodeParam} updateNodeName={updateNodeName} 
           deleteNode={deleteNode} addNode={addNode} duplicateNode={duplicateNode} 
+          openFileBrowser={openFileBrowser} // <-- NEW: Wire it up!
         />
       </div>
       <Terminal showTerminal={showTerminal} setShowTerminal={setShowTerminal} logs={logs} isProcessing={isProcessing} />
+      
       <ScriptModal showScript={showScript} setShowScript={setShowScript} generatedCode={generatedCode} processingScope={processingScope} onDeploy={handleDeploy} />
+      
+      {/* NEW: Mount the File Browser Modal */}
+      <FileBrowserModal 
+        isOpen={browserConfig.isOpen} 
+        onClose={() => setBrowserConfig(prev => ({ ...prev, isOpen: false }))} 
+        onSelect={handleFileSelected}
+        initialPath={browserConfig.initialPath}
+      />
+
     </div>
   );
 }
