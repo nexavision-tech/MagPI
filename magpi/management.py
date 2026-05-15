@@ -65,8 +65,6 @@ def Project(in_dataset, out_dataset, out_coor_system, transform_method=None, in_
     try:
         gdf = gpd.read_file(in_dataset)
         
-        # Extract the EPSG string from the duck-typed SpatialReference object, 
-        # or handle it if the user passed a raw string (e.g., "EPSG:4326")
         if hasattr(out_coor_system, 'factoryCode'):
             target_crs = f"EPSG:{out_coor_system.factoryCode}"
         elif isinstance(out_coor_system, str):
@@ -76,9 +74,7 @@ def Project(in_dataset, out_dataset, out_coor_system, transform_method=None, in_
             
         logger.info(f"Targeting CRS: {target_crs}")
         
-        # The magic one-liner that replaces thousands of lines of C++
         projected_gdf = gdf.to_crs(target_crs)
-        
         projected_gdf.to_file(out_dataset)
         logger.info(f"Reprojection complete. Saved to: {out_dataset}")
         
@@ -124,20 +120,16 @@ def JoinField(in_data, in_field, join_table, join_field, fields=None):
     """
     logger.info(f"Executing Open-Source JoinField on {in_data} using {join_table}")
     try:
-        # 1. Load the target spatial data
         gdf = gpd.read_file(in_data)
         
-        # 2. Load the tabular join data
         if str(join_table).endswith('.csv'):
             df = pd.read_csv(join_table)
         else:
             df = gpd.read_file(join_table).drop(columns='geometry', errors='ignore')
 
-        # Convert join fields to strings to ensure they match (e.g. FIPS codes/GEOIDs)
         gdf[in_field] = gdf[in_field].astype(str)
         df[join_field] = df[join_field].astype(str)
 
-        # 3. Filter specific fields if requested
         if fields:
             if isinstance(fields, str):
                 fields = [f.strip() for f in fields.split(';')]
@@ -145,16 +137,13 @@ def JoinField(in_data, in_field, join_table, join_field, fields=None):
                 fields.append(join_field)
             df = df[fields]
 
-        # 4. Perform the Relational Merge (Left Join)
         logger.info(f"Merging tables on {in_field} == {join_field}...")
         merged_gdf = gdf.merge(df, how='left', left_on=in_field, right_on=join_field)
 
         if in_field != join_field and join_field in merged_gdf.columns:
             merged_gdf = merged_gdf.drop(columns=[join_field])
 
-        # 5. Overwrite the original target file
         merged_gdf.to_file(in_data)
-        
         logger.info(f"Join complete. Data saved back to: {in_data}")
         return Result(in_data)
 
@@ -163,14 +152,10 @@ def JoinField(in_data, in_field, join_table, join_field, fields=None):
         return Result(None, status=3)
 
 def AddField(in_table, field_name, field_type, field_precision=None, field_scale=None, field_length=None, field_alias=None, field_is_nullable="NULLABLE", field_is_required="NON_REQUIRED", field_domain=""):
-    """
-    MagPI Translation of arcpy.management.AddField.
-    Adds an empty/null column to the GeoDataFrame based on requested ESRI type.
-    """
+    """MagPI Translation of arcpy.management.AddField."""
     logger.info(f"Adding field '{field_name}' of type '{field_type}' to {in_table}")
     try:
         gdf = gpd.read_file(in_table)
-        
         ftype_upper = field_type.upper()
         if ftype_upper in ["TEXT", "STRING"]:
             gdf[field_name] = ""
@@ -191,40 +176,41 @@ def AddField(in_table, field_name, field_type, field_precision=None, field_scale
         return Result(None, status=3)
 
 def CalculateField(in_table, field, expression, expression_type="PYTHON3", code_block="", field_type=""):
-    """
-    MagPI Translation of arcpy.management.CalculateField.
-    Evaluates a basic Python expression on a GeoPandas DataFrame.
-    """
+    """MagPI Translation of arcpy.management.CalculateField."""
     logger.info(f"Calculating field '{field}' on {in_table}")
     try:
         gdf = gpd.read_file(in_table)
-        
-        # Basic translation of ESRI's !Field_Name! syntax to Pandas gdf['Field_Name'] syntax
         pandas_expr = re.sub(r'!([^!]+)!', r"gdf['\1']", expression)
-        
-        # Execute the calculation vectorized over the entire column at once
         gdf[field] = eval(pandas_expr)
-        
         gdf.to_file(in_table)
         logger.info(f"CalculateField complete. Internal expression used: {pandas_expr}")
         return Result(in_table)
     except Exception as e:
-        logger.error(f"Failed to calculate field. Complex code blocks may require manual translation. Error: {e}")
+        logger.error(f"Failed to calculate field. Error: {e}")
         return Result(None, status=3)
 
 def Clip(in_raster, rectangle, out_raster, in_template_dataset=None, nodata_value=None, clipping_geometry="NONE", maintain_clipping_extent="NO_MAINTAIN_EXTENT"):
     """
-    MagPI Translation of arcpy.management.Clip.
+    MagPI Translation of arcpy.management.Clip with AUTO-PROJECTION.
     Extracts a rectangular chunk of a raster based on an Extent object or bounding box string.
     """
-    logger.info(f"Executing Open-Source Raster Clip on: {in_raster}")
+    # CRITICAL FIX: Extract the string path if a Raster object was passed!
+    if hasattr(in_raster, 'name'):
+        raster_path = in_raster.name
+    elif hasattr(in_raster, 'output'):
+        raster_path = in_raster.output
+    else:
+        raster_path = str(in_raster)
+
+    logger.info(f"Executing Open-Source Raster Clip on: {raster_path}")
     try:
         import rasterio
         from rasterio.windows import from_bounds
+        from rasterio.warp import transform_bounds
         from .objects import Result, Extent
 
-        # Parse the rectangle (can be an Extent object or a space-separated string)
-        if isinstance(rectangle, Extent):
+        # Parse the rectangle
+        if hasattr(rectangle, 'XMin'):
             minx, miny, maxx, maxy = rectangle.XMin, rectangle.YMin, rectangle.XMax, rectangle.YMax
         elif isinstance(rectangle, str):
             parts = rectangle.split()
@@ -233,19 +219,21 @@ def Clip(in_raster, rectangle, out_raster, in_template_dataset=None, nodata_valu
             logger.error("Invalid rectangle provided to Clip.")
             return Result(None, status=3)
 
-        with rasterio.open(in_raster) as src:
-            # Calculate the exact pixel window based on real-world coordinates
-            window = from_bounds(minx, miny, maxx, maxy, src.transform)
+        with rasterio.open(raster_path) as src:
             
-            # Snap window to integer pixel boundaries to avoid sub-pixel tearing
+            # MAGIC AUTO-PROJECTOR (Transforms GPS to State Plane automatically)
+            if -180 <= minx <= 180 and -90 <= miny <= 90:
+                logger.info(f"Detected UI GPS coords. Auto-projecting bounding box to Raster CRS ({src.crs})...")
+                minx, miny, maxx, maxy = transform_bounds('EPSG:4326', src.crs, minx, miny, maxx, maxy)
+                logger.info(f"Projected Bounds: {minx:.2f}, {miny:.2f}, {maxx:.2f}, {maxy:.2f}")
+
+            window = from_bounds(minx, miny, maxx, maxy, src.transform)
             window = window.round_offsets().round_lengths()
             
-            logger.info(f"Clipping window calculated: {window}")
+            logger.info(f"Clipping pixel window calculated: {window}")
             
-            # Read the data within that exact window (Blazing fast!)
             clipped_array = src.read(window=window)
             
-            # Copy and update metadata for the new chipped file
             out_meta = src.meta.copy()
             out_meta.update({
                 "driver": "GTiff",
@@ -260,9 +248,11 @@ def Clip(in_raster, rectangle, out_raster, in_template_dataset=None, nodata_valu
         logger.info(f"Raster Clip complete. Saved to: {out_raster}")
         return Result(out_raster)
 
-    except ImportError:
-        logger.error("Missing dependency: 'rasterio'.")
+    except ImportError as e:
+        logger.error(f"Missing dependency (Make sure rasterio is installed): {e}")
+        from .objects import Result
         return Result(None, status=3)
     except Exception as e:
         logger.error(f"Failed to clip raster: {e}")
+        from .objects import Result
         return Result(None, status=3)

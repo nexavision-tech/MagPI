@@ -1,9 +1,6 @@
 import React, { useState, useCallback } from 'react';
 
-// NEW ICONS for the Footer
 import { GitBranch, XCircle, AlertTriangle, Bell, TerminalSquare } from 'lucide-react';
-
-// Imported Modular Components
 import TopRibbon from './components/TopRibbon';
 import Terminal from './components/Terminal';
 import Toolbox from './components/Toolbox';
@@ -12,7 +9,6 @@ import MapViewport from './components/MapViewport';
 import ScriptModal from './components/ScriptModal';
 import FileBrowserModal from './components/FileBrowserModal';
 
-// Utilities
 import { generatePythonScript } from './utils/scriptGen';
 import { saveProject, loadProject } from './utils/fileOps';
 
@@ -20,9 +16,8 @@ export default function App() {
   const [crs, setCrs] = useState("EPSG:6438");
   const [processingScope, setProcessingScope] = useState("Local Python");
   
-  const [nodes, setNodes] = useState([
-    { id: 'node_1', toolId: 'load_raster', name: 'NOAA 4-Band Raster', icon: 'fa-image', x: 200, y: 150, color: 'bg-blue-600', border: 'border-blue-500', params: { file_path: "./test_data/noaa_florida/2021_4BandImagery_Florida_J1378560tR0_C0.tif" } }
-  ]);
+  // CRITICAL UPDATE: The Canvas now boots up completely blank!
+  const [nodes, setNodes] = useState([]);
   const [connections, setConnections] = useState([]);
   
   const [activeRightTab, setActiveRightTab] = useState('toolbox');
