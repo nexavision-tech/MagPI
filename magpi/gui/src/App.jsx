@@ -1,5 +1,8 @@
 import React, { useState, useCallback } from 'react';
 
+// NEW ICONS for the Footer
+import { GitBranch, XCircle, AlertTriangle, Bell, TerminalSquare } from 'lucide-react';
+
 // Imported Modular Components
 import TopRibbon from './components/TopRibbon';
 import Terminal from './components/Terminal';
@@ -146,15 +149,14 @@ export default function App() {
   };
 
   return (
-    // CRITICAL FIX: "absolute inset-0 w-full h-full" bolts the app to the screen frame. No more jumping!
     <div className="absolute inset-0 w-full h-full flex flex-col bg-slate-900 text-slate-200 font-sans overflow-hidden select-none">
       
-      {/* TOP RIBBON - flex-none prevents it from shrinking or hiding */}
+      {/* TOP RIBBON */}
       <div className="flex-none z-40 shadow-md">
         <TopRibbon crs={crs} setCrs={setCrs} processingScope={processingScope} setProcessingScope={setProcessingScope} onGenerate={handleGenerate} onSave={handleSave} onLoad={handleLoad} onClear={handleClear} />
       </div>
       
-      {/* MAIN WORKSPACE - flex-1 min-h-0 seamlessly absorbs the terminal animation */}
+      {/* MAIN WORKSPACE */}
       <div className="flex-1 flex overflow-hidden min-h-0 relative z-0">
         <NodeCanvas 
           nodes={nodes} setNodes={setNodes} connections={connections} setConnections={setConnections}
@@ -172,9 +174,31 @@ export default function App() {
         />
       </div>
 
-      {/* TERMINAL WRAPPER - Controlled entirely by Terminal component height */}
+      {/* TERMINAL WRAPPER */}
       <div className="flex-none z-30">
         <Terminal showTerminal={showTerminal} setShowTerminal={setShowTerminal} logs={logs} isProcessing={isProcessing} />
+      </div>
+      
+      {/* NEW: VS-CODE STYLE PERSISTENT FOOTER */}
+      <div className="flex-none shrink-0 bg-[#007acc] text-[10.5px] text-white flex items-center justify-between px-3 py-1 z-50 font-sans shadow-[0_-2px_5px_rgba(0,0,0,0.3)]">
+        <div className="flex items-center space-x-4">
+          <span className="flex items-center cursor-pointer hover:bg-white/20 px-1 rounded transition-colors"><GitBranch size={11} className="mr-1" /> main*</span>
+          <span className="flex items-center cursor-pointer hover:bg-white/20 px-1 rounded transition-colors"><XCircle size={11} className="mr-1" />0 <AlertTriangle size={11} className="ml-2 mr-1" />0</span>
+          
+          {/* Interactive Console Toggle */}
+          <span 
+            className="flex items-center cursor-pointer hover:bg-white/20 px-1 rounded transition-colors" 
+            onClick={() => setShowTerminal(!showTerminal)}
+            title="Toggle MagPI Console"
+          >
+            <TerminalSquare size={11} className="mr-1" /> {showTerminal ? "Hide Console" : "Show Console"}
+          </span>
+        </div>
+        <div className="flex items-center space-x-4">
+          <span className="cursor-pointer hover:bg-white/20 px-1 rounded transition-colors hidden sm:block">UTF-8</span>
+          <span className="cursor-pointer hover:bg-white/20 px-1 rounded transition-colors">Python 3.10 (magpi-env)</span>
+          <span className="cursor-pointer hover:bg-white/20 px-1 rounded transition-colors"><Bell size={11} /></span>
+        </div>
       </div>
       
       <ScriptModal showScript={showScript} setShowScript={setShowScript} generatedCode={generatedCode} processingScope={processingScope} onDeploy={handleDeploy} />
