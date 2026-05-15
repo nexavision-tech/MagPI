@@ -54,12 +54,15 @@ export const generatePythonScript = (nodes, connections, crs, processingScope) =
             funcCall = `${outVar} = arcpy.geoai.DetectObjectsUsingDeepLearning(getattr(${inVar}, 'name', ${inVar}), "${p.out_shp}", "${p.model}")`;
         }
         else if (n.toolId === 'mgt_clip') {
-            // CRITICAL FIX: Output a .tif and use the node ID to prevent file overwrites!
             const outFileName = `aoi_clip_${n.id.split('_')[1]}.tif`;
             funcCall = `extent_poly = arcpy.Extent(${p.xmin}, ${p.ymin}, ${p.xmax}, ${p.ymax})\n${outVar} = arcpy.management.Clip(${inVar}, extent_poly, "${outFileName}")`;
         }
         else if (n.toolId === 'mgt_buffer') {
             funcCall = `${outVar} = arcpy.analysis.Buffer(${inVar}, "out_buf.shp", "${p.distance} ${p.unit || ''}".strip())`;
+        }
+        // NEW: Build Pyramids Translation
+        else if (n.toolId === 'mgt_pyramids') {
+            funcCall = `arcpy.management.BuildPyramidsAndStats(${inVar}, build_pyramids=${p.build_pyramids ? 'True' : 'False'}, calculate_stats=${p.calculate_stats ? 'True' : 'False'})`;
         }
         else {
             funcCall = `# Execute ${n.name}`;

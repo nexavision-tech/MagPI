@@ -49,6 +49,11 @@ const TOOLBOX_CATEGORIES = [
         description: "Creates polygon boundaries at a specified distance around input vector features.",
         params: { distance: 50, unit: { value: "Meters", type: "select", options: ["Meters", "Kilometers", "Feet", "Miles"] } } 
       },
+      // NEW: Pyramid and Stats Builder Tool
+      { id: 'mgt_pyramids', name: "Build Pyramids & Stats", type: 'process', icon: <Layers size={14}/>, color: 'bg-slate-600', border: 'border-slate-500', 
+        description: "Calculates multi-band statistics and builds internal overviews (pyramids) for massive speed boosts when rendering in desktop software.",
+        params: { build_pyramids: true, calculate_stats: true } 
+      },
     ]
   }
 ];
