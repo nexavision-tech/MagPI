@@ -123,29 +123,59 @@ export default function App() {
     setShowScript(true);
   };
 
-  const handleDeploy = () => {
-    setShowScript(false); setShowTerminal(true); setIsProcessing(true); setLogs([]); setNodeStatuses({});
-    const sortedNodes = [...nodes].sort((a, b) => a.x - b.x);
-    const simulatedLogs = [
-        { type: 'info', msg: 'MagPI Translation Matrix Online. Bypassing legacy dependencies.', delay: 500 },
-        { type: 'info', msg: `Global Workspace set to: ./tmp_wksp`, delay: 500 }
-    ];
-    sortedNodes.forEach((n) => {
-        simulatedLogs.push({ type: 'info', msg: `[${n.name}] Initialization starting...`, nodeId: n.id, status: 'processing', delay: 1000 });
-        simulatedLogs.push({ type: 'success', msg: `[PASS] ${n.name} execution complete.`, nodeId: n.id, status: 'success', delay: 1000 });
-    });
-    simulatedLogs.push({ type: 'success', msg: `--- MAGPI PIPELINE EXECUTION COMPLETE ---`, delay: 500, isEnd: true });
-
-    let currentLogIndex = 0;
-    const processNextLog = () => {
-        if (currentLogIndex >= simulatedLogs.length) return;
-        const log = simulatedLogs[currentLogIndex];
-        if (log.isEnd) setIsProcessing(false);
-        if (log.nodeId && log.status) setNodeStatuses(prev => ({ ...prev, [log.nodeId]: log.status }));
-        setLogs(prev => [...prev, log]);
-        setTimeout(() => { currentLogIndex++; processNextLog(); }, log.delay || 300);
-    };
-    processNextLog();
+  // ENHANCED: The True Execution Engine Bridge
+  const handleDeploy = async () => {
+    setShowScript(false); 
+    setShowTerminal(true); 
+    setIsProcessing(true); 
+    setNodeStatuses({});
+    
+    // Set all nodes to 'processing' state (yellow pulse)
+    const processingStates = {};
+    nodes.forEach(n => processingStates[n.id] = 'processing');
+    setNodeStatuses(processingStates);
+    
+    setLogs([
+        { type: 'info', msg: 'Initiating Daemon Link on port 8080...' },
+        { type: 'info', msg: 'Transmitting payload to OS kernel...' }
+    ]);
+    
+    try {
+        const response = await fetch("http://localhost:8080/api/run", {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ code: generatedCode })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            // Parse the physical stdout text returned by Python!
+            const rawLogs = data.logs.split('\n').filter(l => l.trim() !== '');
+            const parsedLogs = rawLogs.map(line => {
+                let logType = 'info';
+                if (line.toLowerCase().includes('error') || line.toLowerCase().includes('fail')) logType = 'error';
+                else if (line.toLowerCase().includes('success') || line.toLowerCase().includes('pass')) logType = 'success';
+                return { type: logType, msg: line };
+            });
+            
+            setLogs(prev => [...prev, ...parsedLogs, { type: data.status === 'success' ? 'success' : 'error', msg: `Matrix Execution ${data.status.toUpperCase()}.` }]);
+            
+            // Set nodes to success or clear based on result
+            const finalStates = {};
+            nodes.forEach(n => finalStates[n.id] = data.status === 'success' ? 'success' : null);
+            setNodeStatuses(finalStates);
+            
+        } else {
+            setLogs(prev => [...prev, { type: 'error', msg: `Daemon execution failed: ${data.error}` }]);
+            setNodeStatuses({});
+        }
+    } catch (err) {
+        setLogs(prev => [...prev, { type: 'error', msg: `Failed to contact MagPI Daemon: ${err.message}` }]);
+        setNodeStatuses({});
+    } finally {
+        setIsProcessing(false);
+    }
   };
 
   return (
@@ -179,13 +209,12 @@ export default function App() {
         <Terminal showTerminal={showTerminal} setShowTerminal={setShowTerminal} logs={logs} isProcessing={isProcessing} />
       </div>
       
-      {/* NEW: VS-CODE STYLE PERSISTENT FOOTER */}
+      {/* VS-CODE STYLE PERSISTENT FOOTER */}
       <div className="flex-none shrink-0 bg-[#007acc] text-[10.5px] text-white flex items-center justify-between px-3 py-1 z-50 font-sans shadow-[0_-2px_5px_rgba(0,0,0,0.3)]">
         <div className="flex items-center space-x-4">
           <span className="flex items-center cursor-pointer hover:bg-white/20 px-1 rounded transition-colors"><GitBranch size={11} className="mr-1" /> main*</span>
           <span className="flex items-center cursor-pointer hover:bg-white/20 px-1 rounded transition-colors"><XCircle size={11} className="mr-1" />0 <AlertTriangle size={11} className="ml-2 mr-1" />0</span>
           
-          {/* Interactive Console Toggle */}
           <span 
             className="flex items-center cursor-pointer hover:bg-white/20 px-1 rounded transition-colors" 
             onClick={() => setShowTerminal(!showTerminal)}

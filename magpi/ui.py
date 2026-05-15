@@ -7,6 +7,8 @@ import json
 import threading
 import logging
 import time
+import tempfile
+import subprocess
 from urllib.parse import urlparse, parse_qs
 
 logger = logging.getLogger("MagPI_UI")
@@ -28,27 +30,80 @@ def LaunchCanvas(port=8080):
         def end_headers(self):
             # Allow Vite dev server to talk to this API
             self.send_header('Access-Control-Allow-Origin', '*')
-            self.send_header('Access-Control-Allow-Methods', 'GET, OPTIONS')
+            self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+            self.send_header('Access-Control-Allow-Headers', 'Content-Type')
             super().end_headers()
 
         def do_OPTIONS(self):
-            self.send_header('Access-Control-Allow-Headers', 'Content-Type')
             self.send_response(200)
             self.end_headers()
 
         def do_GET(self):
             parsed_path = urlparse(self.path)
             
-            # ROUTE 1: Native OS File Browser
             if parsed_path.path == '/api/browse':
                 self.handle_browse(parsed_path.query)
-            
-            # ROUTE 2: Native Dataset Intelligence (Describe)
             elif parsed_path.path == '/api/describe':
                 self.handle_describe(parsed_path.query)
-                
             else:
                 super().do_GET()
+
+        # NEW: The Execution Engine (POST Route)
+        def do_POST(self):
+            parsed_path = urlparse(self.path)
+            
+            if parsed_path.path == '/api/run':
+                content_length = int(self.headers['Content-Length'])
+                post_data = self.rfile.read(content_length)
+                
+                try:
+                    payload = json.loads(post_data.decode('utf-8'))
+                    script_code = payload.get('code', '')
+                    
+                    logger.info("Received Pipeline Execution Request from Canvas.")
+                    
+                    # 1. Write the incoming code to a temporary Python file
+                    with tempfile.NamedTemporaryFile(delete=False, suffix='.py', mode='w') as temp_script:
+                        temp_script.write(script_code)
+                        temp_filepath = temp_script.name
+                        
+                    logger.info(f"Executing Matrix Payload: {temp_filepath}")
+                    
+                    # 2. Run the script natively on the host OS!
+                    # stderr=subprocess.STDOUT merges errors and standard prints into one stream
+                    process = subprocess.Popen(
+                        ['python', temp_filepath], 
+                        stdout=subprocess.PIPE, 
+                        stderr=subprocess.STDOUT, 
+                        text=True
+                    )
+                    
+                    # Wait for it to finish and grab the output
+                    output, _ = process.communicate()
+                    
+                    # Clean up the temp file
+                    try:
+                        os.remove(temp_filepath)
+                    except:
+                        pass
+                    
+                    # 3. Send the physical execution logs back to the React Terminal
+                    response = {
+                        "status": "success" if process.returncode == 0 else "error", 
+                        "logs": output
+                    }
+                    
+                    self.send_response(200)
+                    self.send_header('Content-type', 'application/json')
+                    self.end_headers()
+                    self.wfile.write(json.dumps(response).encode('utf-8'))
+                    
+                except Exception as e:
+                    logger.error(f"Execution API failed: {e}")
+                    self.send_response(500)
+                    self.send_header('Content-type', 'application/json')
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"error": str(e)}).encode('utf-8'))
 
         def handle_describe(self, query):
             qs = parse_qs(query)
@@ -57,13 +112,11 @@ def LaunchCanvas(port=8080):
             try:
                 import magpi as arcpy
                 logger.info(f"API Request: Describing {target_file}")
-                
                 desc = arcpy.Describe(target_file)
                 
                 if desc.dataType == "Unknown":
                      raise ValueError("Unrecognized data type or file not found.")
                 
-                # Format spatial reference name safely
                 sr_name = "Unknown"
                 if desc.spatialReference:
                     if hasattr(desc.spatialReference, 'name'):
@@ -87,7 +140,6 @@ def LaunchCanvas(port=8080):
                 self.wfile.write(json.dumps(response).encode('utf-8'))
                 
             except Exception as e:
-                logger.error(f"Describe API failed: {e}")
                 self.send_response(500)
                 self.send_header('Content-type', 'application/json')
                 self.end_headers()
