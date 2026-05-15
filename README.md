@@ -60,7 +60,9 @@ arcpy.analysis.Buffer("roads.shp", "roads_buf.shp", "50 METERS")
 The translation of an entire proprietary ecosystem is a massive undertaking. We are tracking progress via GitHub Projects (Kanban). The core modules are currently in the following states of development:
 - [x] `arcpy.management` (Vector/Data handling via GeoPandas) - Active
 - [x] `arcpy.analysis` (Spatial operations via Shapely) - Active
-- [x] `arcpy.sa` (Map Algebra via Rasterio/NumPy) - Active[x] arcpy.da (Data Access / Cursor mapping) - Active[x] arcpy.env (Environment Settings) - Active
+- [x] `arcpy.sa` (Map Algebra via Rasterio/NumPy) - Active
+- [x] arcpy.da (Data Access / Cursor mapping) - Active
+- [x] arcpy.env (Environment Settings) - Active
 - [x] `arcpy.wfs` (Sovereign Data Pulls) - Active
 
 # 🤝 Contributing
