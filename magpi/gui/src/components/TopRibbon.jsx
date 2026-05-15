@@ -7,7 +7,8 @@ export default function TopRibbon({
   onGenerate, onSave, onLoad, onClear 
 }) {
   return (
-    <div className="flex flex-col bg-slate-800 border-b border-slate-700 shadow-md z-20">
+    // CRITICAL FIX: Added 'shrink-0' so the canvas never pushes this off-screen
+    <div className="flex flex-col bg-slate-800 border-b border-slate-700 shadow-md z-20 shrink-0">
       
       {/* Top Thin Status Bar */}
       <div className="flex items-center justify-between px-4 py-1.5 bg-slate-950 text-xs text-slate-400">

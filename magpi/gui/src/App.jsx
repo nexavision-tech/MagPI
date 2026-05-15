@@ -7,7 +7,7 @@ import Toolbox from './components/Toolbox';
 import NodeCanvas from './components/NodeCanvas';
 import MapViewport from './components/MapViewport';
 import ScriptModal from './components/ScriptModal';
-import FileBrowserModal from './components/FileBrowserModal'; // <-- NEW
+import FileBrowserModal from './components/FileBrowserModal';
 
 // Utilities
 import { generatePythonScript } from './utils/scriptGen';
@@ -32,7 +32,6 @@ export default function App() {
   const [logs, setLogs] = useState([]);
   const [nodeStatuses, setNodeStatuses] = useState({});
 
-  // NEW: OS File Browser State
   const [browserConfig, setBrowserConfig] = useState({ isOpen: false, nodeId: null, paramKey: null, initialPath: "." });
 
   const handleAoiDrawn = useCallback((aoiData) => {
@@ -62,12 +61,10 @@ export default function App() {
     setNodes(nds => nds.map(n => n.id === nodeId ? { ...n, params: { ...n.params, [paramKey]: value } } : n));
   };
 
-  // NEW: OS File Browser Trigger
   const openFileBrowser = (nodeId, paramKey, currentPath) => {
     setBrowserConfig({ isOpen: true, nodeId, paramKey, initialPath: currentPath || "." });
   };
 
-  // NEW: Handle File Selected
   const handleFileSelected = (absolutePath) => {
     if (browserConfig.nodeId && browserConfig.paramKey) {
        updateNodeParam(browserConfig.nodeId, browserConfig.paramKey, absolutePath);
@@ -150,8 +147,12 @@ export default function App() {
 
   return (
     <div className="flex flex-col h-screen bg-slate-900 text-slate-200 font-sans overflow-hidden select-none">
+      
       <TopRibbon crs={crs} setCrs={setCrs} processingScope={processingScope} setProcessingScope={setProcessingScope} onGenerate={handleGenerate} onSave={handleSave} onLoad={handleLoad} onClear={handleClear} />
-      <div className={`flex flex-1 overflow-hidden transition-all duration-500 ${showTerminal ? 'h-[65vh]' : 'h-full'}`}>
+      
+      {/* CRITICAL FIX: Removed rigid heights, allowing flexbox to naturally absorb the Terminal push! */}
+      <div className="flex flex-1 overflow-hidden min-h-0">
+        
         <NodeCanvas 
           nodes={nodes} setNodes={setNodes} connections={connections} setConnections={setConnections}
           selectedNodeId={selectedNodeId} setSelectedNodeId={setSelectedNodeId}
@@ -164,14 +165,14 @@ export default function App() {
           activeRightTab={activeRightTab} setActiveRightTab={setActiveRightTab} 
           selectedNode={selectedNode} updateNodeParam={updateNodeParam} updateNodeName={updateNodeName} 
           deleteNode={deleteNode} addNode={addNode} duplicateNode={duplicateNode} 
-          openFileBrowser={openFileBrowser} // <-- NEW: Wire it up!
+          openFileBrowser={openFileBrowser} 
         />
       </div>
+
       <Terminal showTerminal={showTerminal} setShowTerminal={setShowTerminal} logs={logs} isProcessing={isProcessing} />
       
       <ScriptModal showScript={showScript} setShowScript={setShowScript} generatedCode={generatedCode} processingScope={processingScope} onDeploy={handleDeploy} />
       
-      {/* NEW: Mount the File Browser Modal */}
       <FileBrowserModal 
         isOpen={browserConfig.isOpen} 
         onClose={() => setBrowserConfig(prev => ({ ...prev, isOpen: false }))} 
