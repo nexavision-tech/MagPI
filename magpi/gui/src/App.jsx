@@ -13,21 +13,17 @@ import { generatePythonScript } from './utils/scriptGen';
 import { saveProject, loadProject } from './utils/fileOps';
 
 export default function App() {
-  // Global Application State
   const [crs, setCrs] = useState("EPSG:6438");
   const [processingScope, setProcessingScope] = useState("Local Python");
   
-  // Pipeline State (The Nodes & Wires)
   const [nodes, setNodes] = useState([
     { id: 'node_1', toolId: 'load_raster', name: 'NOAA 4-Band Raster', icon: 'fa-image', x: 200, y: 150, color: 'bg-blue-600', border: 'border-blue-500', params: { file_path: "./test_data/noaa_florida/2021_4BandImagery_Florida_J1378560tR0_C0.tif" } }
   ]);
   const [connections, setConnections] = useState([]);
   
-  // UI Interaction State
   const [activeRightTab, setActiveRightTab] = useState('toolbox');
   const [selectedNodeId, setSelectedNodeId] = useState(null);
 
-  // Terminal, Script & Execution State
   const [showScript, setShowScript] = useState(false);
   const [generatedCode, setGeneratedCode] = useState("");
   const [showTerminal, setShowTerminal] = useState(false);
@@ -48,18 +44,12 @@ export default function App() {
   };
 
   // --- NODE LOGIC METHODS ---
-  // ENHANCED: Now accepts specific X and Y coordinates!
   const addNode = (tool, dropX = null, dropY = null) => {
     const newNode = { 
-      id: `node_${Date.now()}`, 
-      toolId: tool.id, 
-      name: tool.name, 
-      icon: tool.icon, 
+      id: `node_${Date.now()}`, toolId: tool.id, name: tool.name, icon: tool.icon, 
       x: dropX !== null ? dropX : 300 + Math.random() * 50, 
       y: dropY !== null ? dropY : 200 + Math.random() * 50, 
-      color: tool.color, 
-      border: tool.border, 
-      params: { ...tool.params } 
+      color: tool.color, border: tool.border, params: { ...tool.params } 
     };
     setNodes([...nodes, newNode]);
     setSelectedNodeId(newNode.id);
@@ -75,6 +65,23 @@ export default function App() {
     setConnections(cx => cx.filter(c => c.from !== nodeId && c.to !== nodeId));
     setSelectedNodeId(null);
     setActiveRightTab('toolbox');
+  };
+
+  // NEW: Duplicate Node Function
+  const duplicateNode = (nodeId) => {
+    const nodeToCopy = nodes.find(n => n.id === nodeId);
+    if (!nodeToCopy) return;
+    
+    // Create an exact copy, offset it slightly so it doesn't overlap perfectly
+    const clonedNode = {
+      ...nodeToCopy,
+      id: `node_${Date.now()}`,
+      x: nodeToCopy.x + 40,
+      y: nodeToCopy.y + 40
+    };
+    
+    setNodes([...nodes, clonedNode]);
+    setSelectedNodeId(clonedNode.id);
   };
 
   const removeConnection = (index) => {
@@ -142,15 +149,18 @@ export default function App() {
       <TopRibbon crs={crs} setCrs={setCrs} processingScope={processingScope} setProcessingScope={setProcessingScope} onGenerate={handleGenerate} onSave={handleSave} onLoad={handleLoad} />
       <div className={`flex flex-1 overflow-hidden transition-all duration-500 ${showTerminal ? 'h-[65vh]' : 'h-full'}`}>
         <NodeCanvas 
-          nodes={nodes} setNodes={setNodes}
-          connections={connections} setConnections={setConnections}
+          nodes={nodes} setNodes={setNodes} connections={connections} setConnections={setConnections}
           selectedNodeId={selectedNodeId} setSelectedNodeId={setSelectedNodeId}
           setActiveRightTab={setActiveRightTab} nodeStatuses={nodeStatuses} 
-          removeConnection={removeConnection} 
-          addNode={addNode} // <-- ENHANCED: Passed addNode into the canvas!
+          removeConnection={removeConnection} addNode={addNode} 
         />
         <MapViewport onAoiDrawn={handleAoiDrawn} />
-        <Toolbox activeRightTab={activeRightTab} setActiveRightTab={setActiveRightTab} selectedNode={selectedNode} updateNodeParam={updateNodeParam} deleteNode={deleteNode} addNode={addNode} />
+        <Toolbox 
+          activeRightTab={activeRightTab} setActiveRightTab={setActiveRightTab} 
+          selectedNode={selectedNode} updateNodeParam={updateNodeParam} 
+          deleteNode={deleteNode} addNode={addNode} 
+          duplicateNode={duplicateNode} // <-- NEW: Pass down duplicate function
+        />
       </div>
       <Terminal showTerminal={showTerminal} setShowTerminal={setShowTerminal} logs={logs} isProcessing={isProcessing} />
       <ScriptModal showScript={showScript} setShowScript={setShowScript} generatedCode={generatedCode} processingScope={processingScope} onDeploy={handleDeploy} />

@@ -3,7 +3,8 @@ import {
   Database, Layers, Cpu, Settings, Image as ImageIcon, 
   Hexagon, Leaf, Grid, Crosshair, Scissors, CircleDashed, 
   ChevronDown, ChevronRight, MousePointer2, Trash2, 
-  SlidersHorizontal, Wrench, Check, FolderOpen, ListFilter 
+  SlidersHorizontal, Wrench, Check, FolderOpen, ListFilter,
+  Search, Copy // <-- NEW ICONS
 } from 'lucide-react';
 
 const TOOLBOX_CATEGORIES = [
@@ -40,18 +41,31 @@ const TOOLBOX_CATEGORIES = [
   }
 ];
 
-export default function Toolbox({ activeRightTab, setActiveRightTab, selectedNode, updateNodeParam, deleteNode, addNode }) {
+export default function Toolbox({ 
+  activeRightTab, setActiveRightTab, 
+  selectedNode, updateNodeParam, deleteNode, addNode, duplicateNode 
+}) {
   const [expandedCategories, setExpandedCategories] = useState({ "Data Ingestion": true, "Image Analyst (ia)": true, "GeoAI (geoai)": true, "Data Management": true });
+  
+  // NEW: Search State
+  const [searchQuery, setSearchQuery] = useState('');
 
   const toggleCategory = (name) => setExpandedCategories(prev => ({ ...prev, [name]: !prev[name] }));
 
-  // ENHANCED: Package the tool data into the browser's drag payload
   const handleDragStart = (e, tool) => {
-    // We convert the react icon element to a string key so it can survive the JSON conversion!
     const dragPayload = { ...tool, _icon_key: tool.icon.type.name || 'Settings' };
     e.dataTransfer.setData("application/json", JSON.stringify(dragPayload));
     e.dataTransfer.effectAllowed = 'copy';
   };
+
+  // NEW: Filter categories based on search input
+  const filteredCategories = TOOLBOX_CATEGORIES.map(cat => ({
+    ...cat,
+    tools: cat.tools.filter(t => 
+      t.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+      t.id.toLowerCase().includes(searchQuery.toLowerCase())
+    )
+  })).filter(cat => cat.tools.length > 0); // Hide empty categories
 
   return (
     <div className="w-[320px] bg-slate-800 flex flex-col shadow-[-10px_0_20px_rgba(0,0,0,0.5)] z-20">
@@ -60,39 +74,63 @@ export default function Toolbox({ activeRightTab, setActiveRightTab, selectedNod
         <button onClick={() => setActiveRightTab('inspector')} className={`flex-1 py-4 text-xs font-bold uppercase tracking-widest transition-all flex items-center justify-center ${activeRightTab === 'inspector' ? 'text-emerald-400 border-b-2 border-emerald-400 bg-slate-800' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/50'}`}><SlidersHorizontal size={14} className="mr-2" /> Params</button>
       </div>
       
-      <div className="flex-1 overflow-y-auto bg-slate-800 p-3">
+      <div className="flex-1 overflow-y-auto bg-slate-800 flex flex-col">
+        
+        {/* TOOLBOX TAB */}
         {activeRightTab === 'toolbox' && (
-          <div className="space-y-3">
-            {TOOLBOX_CATEGORIES.map((cat, idx) => (
-              <div key={idx} className="bg-slate-900/80 rounded-lg border border-slate-700/80 overflow-hidden shadow-sm">
-                <button onClick={() => toggleCategory(cat.name)} className="w-full flex items-center justify-between px-4 py-3 bg-slate-800/80 hover:bg-slate-700 transition-colors">
-                  <div className="flex items-center space-x-3 text-sm font-bold text-slate-200">{cat.icon}<span>{cat.name}</span></div>
-                  {expandedCategories[cat.name] ? <ChevronDown size={14} className="text-slate-500"/> : <ChevronRight size={14} className="text-slate-500"/>}
-                </button>
-                {expandedCategories[cat.name] && (
-                  <div className="p-2 space-y-1 bg-slate-900/50">
-                    {cat.tools.map(tool => (
-                      <div 
-                        key={tool.id} 
-                        draggable="true"
-                        onDragStart={(e) => handleDragStart(e, tool)}
-                        onClick={() => addNode(tool)} // Fallback: still spawns in center if they just click it
-                        className="flex items-center px-3 py-2.5 text-xs bg-slate-800 hover:bg-slate-700 rounded-md cursor-grab active:cursor-grabbing border border-transparent hover:border-emerald-500/50 transition-all group shadow-sm"
-                      >
-                        <div className={`w-3 h-3 rounded-full mr-3 ${tool.color} shadow-inner`}></div>
-                        <span className="flex-1 text-slate-300 font-medium group-hover:text-white transition-colors">{tool.name}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
+          <>
+            {/* NEW: Search Bar */}
+            <div className="p-3 pb-1 shrink-0">
+              <div className="relative">
+                <Search size={14} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-500" />
+                <input 
+                  type="text" 
+                  placeholder="Search tools..." 
+                  value={searchQuery} 
+                  onChange={e => setSearchQuery(e.target.value)} 
+                  className="w-full bg-slate-900 border border-slate-700 rounded-md pl-9 pr-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-500 transition-colors placeholder:text-slate-600" 
+                />
               </div>
-            ))}
-          </div>
+            </div>
+
+            <div className="p-3 space-y-3 flex-1 overflow-y-auto">
+              {filteredCategories.length === 0 ? (
+                 <div className="text-center text-slate-500 text-xs mt-4">No tools found for "{searchQuery}"</div>
+              ) : (
+                filteredCategories.map((cat, idx) => (
+                  <div key={idx} className="bg-slate-900/80 rounded-lg border border-slate-700/80 overflow-hidden shadow-sm">
+                    <button onClick={() => toggleCategory(cat.name)} className="w-full flex items-center justify-between px-4 py-3 bg-slate-800/80 hover:bg-slate-700 transition-colors">
+                      <div className="flex items-center space-x-3 text-sm font-bold text-slate-200">{cat.icon}<span>{cat.name}</span></div>
+                      {expandedCategories[cat.name] || searchQuery !== '' ? <ChevronDown size={14} className="text-slate-500"/> : <ChevronRight size={14} className="text-slate-500"/>}
+                    </button>
+                    
+                    {/* Auto-expand categories if user is actively searching */}
+                    {(expandedCategories[cat.name] || searchQuery !== '') && (
+                      <div className="p-2 space-y-1 bg-slate-900/50">
+                        {cat.tools.map(tool => (
+                          <div 
+                            key={tool.id} 
+                            draggable="true"
+                            onDragStart={(e) => handleDragStart(e, tool)}
+                            onClick={() => addNode(tool)} 
+                            className="flex items-center px-3 py-2.5 text-xs bg-slate-800 hover:bg-slate-700 rounded-md cursor-grab active:cursor-grabbing border border-transparent hover:border-emerald-500/50 transition-all group shadow-sm"
+                          >
+                            <div className={`w-3 h-3 rounded-full mr-3 ${tool.color} shadow-inner`}></div>
+                            <span className="flex-1 text-slate-300 font-medium group-hover:text-white transition-colors">{tool.name}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          </>
         )}
 
-        {/* INSPECTOR TAB ... (Unchanged) ... */}
+        {/* INSPECTOR TAB */}
         {activeRightTab === 'inspector' && (
-          <div className="p-2">
+          <div className="p-3">
             {!selectedNode ? (
               <div className="text-center text-slate-500 mt-16 flex flex-col items-center">
                 <div className="w-16 h-16 rounded-full bg-slate-900 border border-slate-700 flex items-center justify-center mb-4 shadow-inner">
@@ -104,8 +142,26 @@ export default function Toolbox({ activeRightTab, setActiveRightTab, selectedNod
               <div className="space-y-4 animate-fadeIn">
                 <div className={`px-4 py-3 rounded-lg text-white font-bold text-sm ${selectedNode.color} border border-t-white/20 border-b-black/50 shadow-lg flex items-center justify-between`}>
                   <div className="flex items-center">{selectedNode.name}</div>
-                  <button onClick={() => deleteNode(selectedNode.id)} className="w-6 h-6 rounded bg-black/20 hover:bg-red-500/80 flex items-center justify-center transition-colors"><Trash2 size={12} /></button>
+                  
+                  {/* NEW: Action Button Group (Duplicate & Delete) */}
+                  <div className="flex space-x-2">
+                    <button 
+                      onClick={() => duplicateNode(selectedNode.id)} 
+                      className="w-7 h-7 rounded bg-black/20 hover:bg-emerald-500/80 flex items-center justify-center transition-colors shadow-sm"
+                      title="Duplicate Node"
+                    >
+                      <Copy size={13} />
+                    </button>
+                    <button 
+                      onClick={() => deleteNode(selectedNode.id)} 
+                      className="w-7 h-7 rounded bg-black/20 hover:bg-red-500/80 flex items-center justify-center transition-colors shadow-sm"
+                      title="Delete Node"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
                 </div>
+
                 <div className="bg-slate-900 p-4 rounded-lg border border-slate-700 shadow-inner">
                   <h4 className="text-[10px] uppercase tracking-widest text-emerald-500 font-bold mb-4 flex items-center"><SlidersHorizontal size={12} className="mr-2" /> Parameters</h4>
                   {Object.entries(selectedNode.params || {}).map(([key, val]) => {
