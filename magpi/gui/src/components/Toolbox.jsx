@@ -4,28 +4,38 @@ import {
   Hexagon, Leaf, Grid, Crosshair, Scissors, CircleDashed, 
   ChevronDown, ChevronRight, MousePointer2, Trash2, 
   SlidersHorizontal, Wrench, Check, FolderOpen, ListFilter,
-  Search, Copy 
+  Search, Copy, Info
 } from 'lucide-react';
 
+// ENHANCED: Added rich descriptions to every tool
 const TOOLBOX_CATEGORIES = [
   {
     name: "Data Ingestion", icon: <Database size={18} className="text-emerald-500/70" />,
     tools: [
-      { id: 'load_raster', name: "Input Raster", type: 'input', icon: <ImageIcon size={14}/>, color: 'bg-blue-600', border: 'border-blue-500', params: { file_path: "./test_data/noaa_florida/2021_4BandImagery.tif" } },
-      { id: 'load_vector', name: "Input Vector", type: 'input', icon: <Hexagon size={14}/>, color: 'bg-blue-600', border: 'border-blue-500', params: { file_path: "./test_data/Orange_County_Tracts.shp" } },
+      { id: 'load_raster', name: "Input Raster", type: 'input', icon: <ImageIcon size={14}/>, color: 'bg-blue-600', border: 'border-blue-500', 
+        description: "Loads a multi-band imagery file (TIFF, IMG, JP2) into the MagPI processing matrix.",
+        params: { file_path: "./test_data/noaa_florida/2021_4BandImagery_Florida_J1378560tR0_C0.tif" } },
+      { id: 'load_vector', name: "Input Vector", type: 'input', icon: <Hexagon size={14}/>, color: 'bg-blue-600', border: 'border-blue-500', 
+        description: "Loads a vector feature class or shapefile containing points, lines, or polygons.",
+        params: { file_path: "./test_data/Orange_County_Tracts.shp" } },
     ]
   },
   {
     name: "Image Analyst (ia)", icon: <Layers size={18} className="text-emerald-500/70" />,
     tools: [
-      { id: 'ia_ndvi', name: "NDVI Calculator", type: 'process', icon: <Leaf size={14}/>, color: 'bg-emerald-600', border: 'border-emerald-500', params: { nir_band: 4, red_band: 1 } },
-      { id: 'ia_export_dl', name: "Export DL Tensors", type: 'process', icon: <Grid size={14}/>, color: 'bg-emerald-600', border: 'border-emerald-500', params: { out_folder: "./dl_chips", tile_size: 256, stride: 128, shuffle: true } },
+      { id: 'ia_ndvi', name: "NDVI Calculator", type: 'process', icon: <Leaf size={14}/>, color: 'bg-emerald-600', border: 'border-emerald-500', 
+        description: "Calculates the Normalized Difference Vegetation Index using Near-Infrared and Red bands.",
+        params: { nir_band: 4, red_band: 1 } },
+      { id: 'ia_export_dl', name: "Export DL Tensors", type: 'process', icon: <Grid size={14}/>, color: 'bg-emerald-600', border: 'border-emerald-500', 
+        description: "Chips massive rasters into perfectly sized tensors (tiles) for PyTorch/TensorFlow deep learning models.",
+        params: { out_folder: "./dl_chips", tile_size: 256, stride: 128, shuffle: true } },
     ]
   },
   {
     name: "GeoAI (geoai)", icon: <Cpu size={18} className="text-emerald-500/70" />,
     tools: [
       { id: 'ai_detect', name: "Detect Objects", type: 'process', icon: <Crosshair size={14}/>, color: 'bg-purple-600', border: 'border-purple-500', 
+        description: "Executes a pre-trained Deep Learning vision model (like ResNet or SegFormer) across an input raster to extract vector features.",
         params: { out_shp: "pools.shp", model: { value: "facebook/detr-resnet-50", type: "select", options: ["facebook/detr-resnet-50", "facebook/mask2former-swin", "nvidia/segformer-b0"] } } 
       },
     ]
@@ -33,8 +43,11 @@ const TOOLBOX_CATEGORIES = [
   {
     name: "Data Management", icon: <Settings size={18} className="text-emerald-500/70" />,
     tools: [
-      { id: 'mgt_clip', name: "Clip to AOI", type: 'process', icon: <Scissors size={14}/>, color: 'bg-slate-600', border: 'border-slate-500', params: { xmin: "", ymin: "", xmax: "", ymax: "" } },
+      { id: 'mgt_clip', name: "Clip to AOI", type: 'process', icon: <Scissors size={14}/>, color: 'bg-slate-600', border: 'border-slate-500', 
+        description: "Extracts a spatial subset of a raster or vector based on a defined bounding box.",
+        params: { xmin: "", ymin: "", xmax: "", ymax: "" } },
       { id: 'mgt_buffer', name: "Buffer", type: 'process', icon: <CircleDashed size={14}/>, color: 'bg-slate-600', border: 'border-slate-500', 
+        description: "Creates polygon boundaries at a specified distance around input vector features.",
         params: { distance: 50, unit: { value: "Meters", type: "select", options: ["Meters", "Kilometers", "Feet", "Miles"] } } 
       },
     ]
@@ -47,6 +60,9 @@ export default function Toolbox({
 }) {
   const [expandedCategories, setExpandedCategories] = useState({ "Data Ingestion": true, "Image Analyst (ia)": true, "GeoAI (geoai)": true, "Data Management": true });
   const [searchQuery, setSearchQuery] = useState('');
+  
+  // NEW: State to track which tool the mouse is currently hovering over
+  const [hoveredTool, setHoveredTool] = useState(null);
 
   const toggleCategory = (name) => setExpandedCategories(prev => ({ ...prev, [name]: !prev[name] }));
 
@@ -54,6 +70,7 @@ export default function Toolbox({
     const dragPayload = { ...tool, _icon_key: tool.icon.type.name || 'Settings' };
     e.dataTransfer.setData("application/json", JSON.stringify(dragPayload));
     e.dataTransfer.effectAllowed = 'copy';
+    setHoveredTool(null); // Hide tooltip while dragging
   };
 
   const filteredCategories = TOOLBOX_CATEGORIES.map(cat => ({
@@ -61,13 +78,30 @@ export default function Toolbox({
   })).filter(cat => cat.tools.length > 0);
 
   return (
-    <div className="w-[320px] bg-slate-800 flex flex-col shadow-[-10px_0_20px_rgba(0,0,0,0.5)] z-20">
+    <div className="w-[320px] bg-slate-800 flex flex-col shadow-[-10px_0_20px_rgba(0,0,0,0.5)] z-20 relative">
       <div className="flex bg-slate-900 border-b border-slate-700">
         <button onClick={() => setActiveRightTab('toolbox')} className={`flex-1 py-4 text-xs font-bold uppercase tracking-widest transition-all flex items-center justify-center ${activeRightTab === 'toolbox' ? 'text-emerald-400 border-b-2 border-emerald-400 bg-slate-800' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/50'}`}><Wrench size={14} className="mr-2" /> Tools</button>
         <button onClick={() => setActiveRightTab('inspector')} className={`flex-1 py-4 text-xs font-bold uppercase tracking-widest transition-all flex items-center justify-center ${activeRightTab === 'inspector' ? 'text-emerald-400 border-b-2 border-emerald-400 bg-slate-800' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/50'}`}><SlidersHorizontal size={14} className="mr-2" /> Params</button>
       </div>
       
-      <div className="flex-1 overflow-y-auto bg-slate-800 flex flex-col">
+      <div className="flex-1 overflow-y-auto bg-slate-800 flex flex-col relative">
+        
+        {/* ENHANCED: Floating Rich Tooltip */}
+        {hoveredTool && (
+          <div className="absolute right-[330px] top-10 w-64 bg-slate-800 border border-slate-600 rounded-lg shadow-[0_0_30px_rgba(0,0,0,0.8)] p-4 z-50 animate-fadeIn pointer-events-none">
+            <div className="flex items-center mb-2 text-emerald-400 font-bold text-sm border-b border-slate-700 pb-2">
+              <span className="bg-slate-900 p-1.5 rounded-md mr-3 shadow-inner">{hoveredTool.icon}</span> 
+              {hoveredTool.name}
+            </div>
+            <p className="text-xs text-slate-300 leading-relaxed mb-3">
+              {hoveredTool.description}
+            </p>
+            <div className="flex items-center text-[9px] text-slate-500 uppercase tracking-widest font-bold bg-slate-900 px-2 py-1 rounded">
+              <Info size={10} className="mr-1" /> Module: {hoveredTool.id.split('_')[0]}
+            </div>
+          </div>
+        )}
+
         {activeRightTab === 'toolbox' && (
           <>
             <div className="p-3 pb-1 shrink-0">
@@ -87,7 +121,15 @@ export default function Toolbox({
                     {(expandedCategories[cat.name] || searchQuery !== '') && (
                       <div className="p-2 space-y-1 bg-slate-900/50">
                         {cat.tools.map(tool => (
-                          <div key={tool.id} draggable="true" onDragStart={(e) => handleDragStart(e, tool)} onClick={() => addNode(tool)} className="flex items-center px-3 py-2.5 text-xs bg-slate-800 hover:bg-slate-700 rounded-md cursor-grab active:cursor-grabbing border border-transparent hover:border-emerald-500/50 transition-all group shadow-sm">
+                          <div 
+                            key={tool.id} 
+                            draggable="true" 
+                            onDragStart={(e) => handleDragStart(e, tool)} 
+                            onClick={() => addNode(tool)} 
+                            onMouseEnter={() => setHoveredTool(tool)}
+                            onMouseLeave={() => setHoveredTool(null)}
+                            className="flex items-center px-3 py-2.5 text-xs bg-slate-800 hover:bg-slate-700 rounded-md cursor-grab active:cursor-grabbing border border-transparent hover:border-emerald-500/50 transition-all group shadow-sm"
+                          >
                             <div className={`w-3 h-3 rounded-full mr-3 ${tool.color} shadow-inner`}></div>
                             <span className="flex-1 text-slate-300 font-medium group-hover:text-white transition-colors">{tool.name}</span>
                           </div>
@@ -101,6 +143,7 @@ export default function Toolbox({
           </>
         )}
 
+        {/* ... INSPECTOR TAB (Unchanged) ... */}
         {activeRightTab === 'inspector' && (
           <div className="p-3">
             {!selectedNode ? (
@@ -111,18 +154,9 @@ export default function Toolbox({
             ) : (
               <div className="space-y-4 animate-fadeIn">
                 <div className={`px-2 py-2 rounded-lg text-white font-bold text-sm ${selectedNode.color} border border-t-white/20 border-b-black/50 shadow-lg flex items-center justify-between`}>
-                  
-                  {/* ENHANCED: Editable Node Name */}
                   <div className="flex items-center flex-1 mr-2">
-                    <input 
-                      type="text" 
-                      value={selectedNode.name} 
-                      onChange={(e) => updateNodeName(selectedNode.id, e.target.value)}
-                      className="bg-transparent border-none text-white font-bold text-sm outline-none w-full focus:ring-1 focus:ring-white/50 rounded px-2 py-1 placeholder-white/50"
-                      placeholder="Node Name"
-                    />
+                    <input type="text" value={selectedNode.name} onChange={(e) => updateNodeName(selectedNode.id, e.target.value)} className="bg-transparent border-none text-white font-bold text-sm outline-none w-full focus:ring-1 focus:ring-white/50 rounded px-2 py-1 placeholder-white/50" placeholder="Node Name" />
                   </div>
-                  
                   <div className="flex space-x-2 shrink-0 pr-2">
                     <button onClick={() => duplicateNode(selectedNode.id)} className="w-7 h-7 rounded bg-black/20 hover:bg-emerald-500/80 flex items-center justify-center transition-colors shadow-sm" title="Duplicate Node"><Copy size={13} /></button>
                     <button onClick={() => deleteNode(selectedNode.id)} className="w-7 h-7 rounded bg-black/20 hover:bg-red-500/80 flex items-center justify-center transition-colors shadow-sm" title="Delete Node"><Trash2 size={13} /></button>
