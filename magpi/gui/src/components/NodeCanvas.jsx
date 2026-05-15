@@ -17,7 +17,6 @@ export default function NodeCanvas({
   const [connectingFrom, setConnectingFrom] = useState(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   
-  // NEW: Explicit Pan Mode Toggle
   const [panMode, setPanMode] = useState(false);
 
   const handleDragOver = (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; };
@@ -39,7 +38,6 @@ export default function NodeCanvas({
   };
 
   const handlePointerDown = (e) => {
-    // UPDATED: Now also triggers if panMode is actively toggled on
     if (panMode || e.button === 1 || (e.button === 0 && e.altKey)) {
       setIsPanning(true);
       e.currentTarget.setPointerCapture(e.pointerId);
@@ -65,7 +63,7 @@ export default function NodeCanvas({
   };
 
   const startWire = (nodeId, e) => {
-    if (panMode) return; // Prevent wiring if in pan mode
+    if (panMode) return; 
     e.stopPropagation(); setConnectingFrom(nodeId);
     const rect = canvasRef.current.getBoundingClientRect();
     setMousePos({ x: (e.clientX - rect.left - pan.x) / zoom, y: (e.clientY - rect.top - pan.y) / zoom });
@@ -98,8 +96,11 @@ export default function NodeCanvas({
     >
       <style>{`.wire-pulse { animation: pulse-wire 2s infinite; } @keyframes pulse-wire { 0% { opacity: 0.6; } 50% { opacity: 1; stroke-width: 4px; } 100% { opacity: 0.6; } }`}</style>
 
-      {/* ENHANCED OVERLAY CONTROLS */}
-      <div className="absolute top-4 left-4 flex space-x-2 z-10 bg-slate-800/90 p-1.5 rounded-lg backdrop-blur-md border border-slate-600 shadow-xl">
+      {/* ENHANCED OVERLAY CONTROLS - Added stopPropagation to act as a shield! */}
+      <div 
+        className="absolute top-4 left-4 flex space-x-2 z-10 bg-slate-800/90 p-1.5 rounded-lg backdrop-blur-md border border-slate-600 shadow-xl"
+        onPointerDown={(e) => e.stopPropagation()} 
+      >
         <button 
             onClick={() => setPanMode(false)}
             className={`w-8 h-8 flex items-center justify-center rounded transition-colors ${!panMode ? 'bg-slate-700 text-emerald-400' : 'text-slate-400 hover:bg-slate-700'}`} 
