@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 
 // Imported Modular Components
 import TopRibbon from './components/TopRibbon';
@@ -31,7 +31,8 @@ export default function App() {
   const [logs, setLogs] = useState([]);
   const [nodeStatuses, setNodeStatuses] = useState({});
 
-  const handleAoiDrawn = (aoiData) => {
+  // OPTIMIZED: useCallback prevents the Map from re-rendering when it shouldn't!
+  const handleAoiDrawn = useCallback((aoiData) => {
     const newNode = { 
       id: `node_${Date.now()}`, toolId: 'mgt_clip', name: 'Clip to AOI (Map Draw)', icon: 'fa-cut', 
       x: 400 + Math.random() * 50, y: 200 + Math.random() * 50, color: 'bg-slate-600', border: 'border-slate-500', 
@@ -40,25 +41,24 @@ export default function App() {
     setNodes(prev => [...prev, newNode]);
     setSelectedNodeId(newNode.id);
     setActiveRightTab('inspector');
-  };
+  }, []);
 
-  const addNode = (tool, dropX = null, dropY = null) => {
+  const addNode = useCallback((tool, dropX = null, dropY = null) => {
     const newNode = { 
       id: `node_${Date.now()}`, toolId: tool.id, name: tool.name, icon: tool.icon, 
       x: dropX !== null ? dropX : 300 + Math.random() * 50, 
       y: dropY !== null ? dropY : 200 + Math.random() * 50, 
       color: tool.color, border: tool.border, params: { ...tool.params } 
     };
-    setNodes([...nodes, newNode]);
+    setNodes(prev => [...prev, newNode]);
     setSelectedNodeId(newNode.id);
     setActiveRightTab('inspector');
-  };
+  }, []);
 
   const updateNodeParam = (nodeId, paramKey, value) => {
     setNodes(nds => nds.map(n => n.id === nodeId ? { ...n, params: { ...n.params, [paramKey]: value } } : n));
   };
 
-  // NEW: Update Node Name function!
   const updateNodeName = (nodeId, newName) => {
     setNodes(nds => nds.map(n => n.id === nodeId ? { ...n, name: newName } : n));
   };
@@ -73,14 +73,7 @@ export default function App() {
   const duplicateNode = (nodeId) => {
     const nodeToCopy = nodes.find(n => n.id === nodeId);
     if (!nodeToCopy) return;
-    
-    const clonedNode = {
-      ...nodeToCopy,
-      id: `node_${Date.now()}`,
-      x: nodeToCopy.x + 40,
-      y: nodeToCopy.y + 40
-    };
-    
+    const clonedNode = { ...nodeToCopy, id: `node_${Date.now()}`, x: nodeToCopy.x + 40, y: nodeToCopy.y + 40 };
     setNodes([...nodes, clonedNode]);
     setSelectedNodeId(clonedNode.id);
   };
@@ -90,12 +83,8 @@ export default function App() {
   };
 
   const handleClear = () => {
-    setNodes([]);
-    setConnections([]);
-    setSelectedNodeId(null);
-    setNodeStatuses({});
-    setActiveRightTab('toolbox');
-    setLogs([{ type: 'info', msg: 'Matrix cleared. Ready for new input.' }]);
+    setNodes([]); setConnections([]); setSelectedNodeId(null); setNodeStatuses({});
+    setActiveRightTab('toolbox'); setLogs([{ type: 'info', msg: 'Matrix cleared. Ready for new input.' }]);
     setShowTerminal(true);
   };
 
@@ -109,9 +98,7 @@ export default function App() {
 
   const handleLoad = (file) => {
     loadProject(file, setNodes, setConnections, setCrs, (msg) => {
-        setLogs([msg]);
-        setShowTerminal(true);
-        setNodeStatuses({});
+        setLogs([msg]); setShowTerminal(true); setNodeStatuses({});
     });
   };
 
@@ -122,23 +109,16 @@ export default function App() {
   };
 
   const handleDeploy = () => {
-    setShowScript(false);
-    setShowTerminal(true);
-    setIsProcessing(true);
-    setLogs([]);
-    setNodeStatuses({});
-    
+    setShowScript(false); setShowTerminal(true); setIsProcessing(true); setLogs([]); setNodeStatuses({});
     const sortedNodes = [...nodes].sort((a, b) => a.x - b.x);
     const simulatedLogs = [
         { type: 'info', msg: 'MagPI Translation Matrix Online. Bypassing legacy dependencies.', delay: 500 },
         { type: 'info', msg: `Global Workspace set to: ./tmp_wksp`, delay: 500 }
     ];
-    
     sortedNodes.forEach((n) => {
         simulatedLogs.push({ type: 'info', msg: `[${n.name}] Initialization starting...`, nodeId: n.id, status: 'processing', delay: 1000 });
         simulatedLogs.push({ type: 'success', msg: `[PASS] ${n.name} execution complete.`, nodeId: n.id, status: 'success', delay: 1000 });
     });
-    
     simulatedLogs.push({ type: 'success', msg: `--- MAGPI PIPELINE EXECUTION COMPLETE ---`, delay: 500, isEnd: true });
 
     let currentLogIndex = 0;
@@ -155,10 +135,7 @@ export default function App() {
 
   return (
     <div className="flex flex-col h-screen bg-slate-900 text-slate-200 font-sans overflow-hidden select-none">
-      <TopRibbon 
-        crs={crs} setCrs={setCrs} processingScope={processingScope} setProcessingScope={setProcessingScope} 
-        onGenerate={handleGenerate} onSave={handleSave} onLoad={handleLoad} onClear={handleClear} 
-      />
+      <TopRibbon crs={crs} setCrs={setCrs} processingScope={processingScope} setProcessingScope={setProcessingScope} onGenerate={handleGenerate} onSave={handleSave} onLoad={handleLoad} onClear={handleClear} />
       <div className={`flex flex-1 overflow-hidden transition-all duration-500 ${showTerminal ? 'h-[65vh]' : 'h-full'}`}>
         <NodeCanvas 
           nodes={nodes} setNodes={setNodes} connections={connections} setConnections={setConnections}

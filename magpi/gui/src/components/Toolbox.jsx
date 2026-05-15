@@ -7,7 +7,6 @@ import {
   Search, Copy, Info
 } from 'lucide-react';
 
-// ENHANCED: Added rich descriptions to every tool
 const TOOLBOX_CATEGORIES = [
   {
     name: "Data Ingestion", icon: <Database size={18} className="text-emerald-500/70" />,
@@ -61,8 +60,8 @@ export default function Toolbox({
   const [expandedCategories, setExpandedCategories] = useState({ "Data Ingestion": true, "Image Analyst (ia)": true, "GeoAI (geoai)": true, "Data Management": true });
   const [searchQuery, setSearchQuery] = useState('');
   
-  // NEW: State to track which tool the mouse is currently hovering over
   const [hoveredTool, setHoveredTool] = useState(null);
+  const [mouseY, setMouseY] = useState(0);
 
   const toggleCategory = (name) => setExpandedCategories(prev => ({ ...prev, [name]: !prev[name] }));
 
@@ -70,7 +69,7 @@ export default function Toolbox({
     const dragPayload = { ...tool, _icon_key: tool.icon.type.name || 'Settings' };
     e.dataTransfer.setData("application/json", JSON.stringify(dragPayload));
     e.dataTransfer.effectAllowed = 'copy';
-    setHoveredTool(null); // Hide tooltip while dragging
+    setHoveredTool(null); 
   };
 
   const filteredCategories = TOOLBOX_CATEGORIES.map(cat => ({
@@ -78,30 +77,36 @@ export default function Toolbox({
   })).filter(cat => cat.tools.length > 0);
 
   return (
-    <div className="w-[320px] bg-slate-800 flex flex-col shadow-[-10px_0_20px_rgba(0,0,0,0.5)] z-20 relative">
+    <div 
+      className="w-[320px] bg-slate-800 flex flex-col shadow-[-10px_0_20px_rgba(0,0,0,0.5)] z-20"
+      onMouseMove={(e) => setMouseY(e.clientY)} // Track mouse for tooltip positioning
+    >
+      
+      {/* ENHANCED: Fixed Position Tooltip (Immune to scrollbar clipping!) */}
+      {hoveredTool && (
+        <div 
+          className="fixed right-[330px] w-72 bg-slate-800 border border-slate-600 rounded-lg shadow-[0_0_40px_rgba(0,0,0,0.8)] p-4 z-50 animate-fadeIn pointer-events-none"
+          style={{ top: Math.min(Math.max(mouseY - 50, 20), window.innerHeight - 150) }} // Keeps it on screen
+        >
+          <div className="flex items-center mb-2 text-emerald-400 font-bold text-sm border-b border-slate-700 pb-2">
+            <span className="bg-slate-900 p-1.5 rounded-md mr-3 shadow-inner">{hoveredTool.icon}</span> 
+            {hoveredTool.name}
+          </div>
+          <p className="text-xs text-slate-300 leading-relaxed mb-3">
+            {hoveredTool.description}
+          </p>
+          <div className="flex items-center text-[9px] text-slate-500 uppercase tracking-widest font-bold bg-slate-900 px-2 py-1 rounded">
+            <Info size={10} className="mr-1" /> Module: {hoveredTool.id.split('_')[0]}
+          </div>
+        </div>
+      )}
+
       <div className="flex bg-slate-900 border-b border-slate-700">
         <button onClick={() => setActiveRightTab('toolbox')} className={`flex-1 py-4 text-xs font-bold uppercase tracking-widest transition-all flex items-center justify-center ${activeRightTab === 'toolbox' ? 'text-emerald-400 border-b-2 border-emerald-400 bg-slate-800' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/50'}`}><Wrench size={14} className="mr-2" /> Tools</button>
         <button onClick={() => setActiveRightTab('inspector')} className={`flex-1 py-4 text-xs font-bold uppercase tracking-widest transition-all flex items-center justify-center ${activeRightTab === 'inspector' ? 'text-emerald-400 border-b-2 border-emerald-400 bg-slate-800' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/50'}`}><SlidersHorizontal size={14} className="mr-2" /> Params</button>
       </div>
       
-      <div className="flex-1 overflow-y-auto bg-slate-800 flex flex-col relative">
-        
-        {/* ENHANCED: Floating Rich Tooltip */}
-        {hoveredTool && (
-          <div className="absolute right-[330px] top-10 w-64 bg-slate-800 border border-slate-600 rounded-lg shadow-[0_0_30px_rgba(0,0,0,0.8)] p-4 z-50 animate-fadeIn pointer-events-none">
-            <div className="flex items-center mb-2 text-emerald-400 font-bold text-sm border-b border-slate-700 pb-2">
-              <span className="bg-slate-900 p-1.5 rounded-md mr-3 shadow-inner">{hoveredTool.icon}</span> 
-              {hoveredTool.name}
-            </div>
-            <p className="text-xs text-slate-300 leading-relaxed mb-3">
-              {hoveredTool.description}
-            </p>
-            <div className="flex items-center text-[9px] text-slate-500 uppercase tracking-widest font-bold bg-slate-900 px-2 py-1 rounded">
-              <Info size={10} className="mr-1" /> Module: {hoveredTool.id.split('_')[0]}
-            </div>
-          </div>
-        )}
-
+      <div className="flex-1 overflow-y-auto bg-slate-800 flex flex-col">
         {activeRightTab === 'toolbox' && (
           <>
             <div className="p-3 pb-1 shrink-0">

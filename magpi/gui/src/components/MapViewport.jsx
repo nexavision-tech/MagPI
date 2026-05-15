@@ -5,17 +5,15 @@ import 'leaflet/dist/leaflet.css';
 import 'leaflet-draw/dist/leaflet.draw.css';
 import { Map as MapIcon, Satellite } from 'lucide-react';
 
-export default function MapViewport({ onAoiDrawn }) {
+// OPTIMIZED: React.memo prevents the map from destroying/rebuilding itself when the Canvas changes!
+const MapViewport = React.memo(({ onAoiDrawn }) => {
     const mapRef = useRef(null);
     const mapInstance = useRef(null); 
 
     useEffect(() => {
         if (!mapRef.current) return;
-        
-        // Prevent React StrictMode from initializing the map twice
-        if (mapInstance.current) return; 
+        if (mapInstance.current) return; // Map already initialized, skip!
 
-        // Initialize map centered on Orange County, FL
         const map = L.map(mapRef.current, { zoomControl: false }).setView([28.5383, -81.3792], 10);
         mapInstance.current = map;
 
@@ -25,6 +23,7 @@ export default function MapViewport({ onAoiDrawn }) {
 
         L.control.zoom({ position: 'topright' }).addTo(map);
 
+        // This layer stays alive in memory now!
         const drawnItems = new L.FeatureGroup();
         map.addLayer(drawnItems);
 
@@ -38,9 +37,8 @@ export default function MapViewport({ onAoiDrawn }) {
         });
         map.addControl(drawControl);
 
-        // Map -> React Bridge: Send GPS coordinates up to the Canvas!
         map.on(L.Draw.Event.CREATED, function (e) {
-            drawnItems.addLayer(e.layer);
+            drawnItems.addLayer(e.layer); // Keeps the footprint on the map
             const bounds = e.layer.getBounds();
             if (onAoiDrawn) {
                 onAoiDrawn({
@@ -53,6 +51,7 @@ export default function MapViewport({ onAoiDrawn }) {
         });
 
         return () => {
+            // Only runs if the component is fully destroyed (like closing the app)
             map.remove();
             mapInstance.current = null;
         };
@@ -64,7 +63,6 @@ export default function MapViewport({ onAoiDrawn }) {
                 <MapIcon size={14} className="mr-2 text-emerald-500" /> LIVE VIEWPORT
             </div>
             
-            {/* The Leaflet Container with our Custom Dark Mode CSS Class */}
             <div className="flex-1 relative bg-[#111827] overflow-hidden z-0 leaflet-dark-mode-container">
                 <div ref={mapRef} style={{ width: '100%', height: '100%', backgroundColor: '#1f2937' }}></div>
             </div>
@@ -73,8 +71,10 @@ export default function MapViewport({ onAoiDrawn }) {
                 <p className="text-emerald-400 font-bold mb-2 flex items-center">
                    <Satellite size={14} className="mr-2" /> OSM Connected
                 </p>
-                <p className="opacity-80">Use the rectangle tool (top left of map) to draw an AOI. It will dynamically spawn a clipping node on your canvas.</p>
+                <p className="opacity-80">Use the rectangle tool to draw an AOI. The footprint will remain on the map while spawning a node on the canvas.</p>
             </div>
         </div>
     );
-}
+});
+
+export default MapViewport;
