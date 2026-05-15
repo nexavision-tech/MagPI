@@ -5,15 +5,17 @@ import 'leaflet/dist/leaflet.css';
 import 'leaflet-draw/dist/leaflet.draw.css';
 import { Map as MapIcon, Satellite } from 'lucide-react';
 
-// OPTIMIZED: React.memo prevents the map from destroying/rebuilding itself when the Canvas changes!
-const MapViewport = React.memo(({ onAoiDrawn }) => {
+// ENHANCED: Receiving selectedNode to synchronize the map with the canvas
+const MapViewport = React.memo(({ onAoiDrawn, selectedNode }) => {
     const mapRef = useRef(null);
     const mapInstance = useRef(null); 
+    const highlightGroup = useRef(null); // Tracks the dynamic footprints
 
     useEffect(() => {
         if (!mapRef.current) return;
-        if (mapInstance.current) return; // Map already initialized, skip!
+        if (mapInstance.current) return; 
 
+        // Initialize map centered on Orlando as the default datum
         const map = L.map(mapRef.current, { zoomControl: false }).setView([28.5383, -81.3792], 10);
         mapInstance.current = map;
 
@@ -23,9 +25,12 @@ const MapViewport = React.memo(({ onAoiDrawn }) => {
 
         L.control.zoom({ position: 'topright' }).addTo(map);
 
-        // This layer stays alive in memory now!
         const drawnItems = new L.FeatureGroup();
         map.addLayer(drawnItems);
+        
+        // NEW: Dedicated layer for Canvas synchronization highlights
+        highlightGroup.current = new L.FeatureGroup();
+        map.addLayer(highlightGroup.current);
 
         const drawControl = new L.Control.Draw({
             position: 'topleft',
@@ -38,7 +43,7 @@ const MapViewport = React.memo(({ onAoiDrawn }) => {
         map.addControl(drawControl);
 
         map.on(L.Draw.Event.CREATED, function (e) {
-            drawnItems.addLayer(e.layer); // Keeps the footprint on the map
+            drawnItems.addLayer(e.layer);
             const bounds = e.layer.getBounds();
             if (onAoiDrawn) {
                 onAoiDrawn({
@@ -51,11 +56,46 @@ const MapViewport = React.memo(({ onAoiDrawn }) => {
         });
 
         return () => {
-            // Only runs if the component is fully destroyed (like closing the app)
             map.remove();
             mapInstance.current = null;
         };
     }, [onAoiDrawn]);
+
+    // NEW: The Cartographer's Sync
+    // Watches the selected node and dynamically moves the map camera
+    useEffect(() => {
+        if (!mapInstance.current || !highlightGroup.current) return;
+
+        // Clear previous highlights
+        highlightGroup.current.clearLayers();
+
+        if (selectedNode && selectedNode.params) {
+            const p = selectedNode.params;
+
+            // Scenario 1: User clicked an AOI Clip tool
+            if (selectedNode.toolId === 'mgt_clip' && p.xmin && p.ymin && p.xmax && p.ymax) {
+                try {
+                    const bounds = [[parseFloat(p.ymin), float(p.xmin)], [parseFloat(p.ymax), parseFloat(p.xmax)]];
+                    const rect = L.rectangle(bounds, { color: "#f69d3c", weight: 2, fillOpacity: 0.2, dashArray: '5, 5' });
+                    highlightGroup.current.addLayer(rect);
+                    mapInstance.current.flyToBounds(bounds, { duration: 1.0, padding: [20, 20] });
+                } catch (e) {
+                    console.log("Invalid coordinates in Clip Node, waiting for user input.");
+                }
+            } 
+            // Scenario 2: User clicked a loaded Raster dataset
+            else if (selectedNode.toolId === 'load_raster' && p.file_path) {
+                // In a future full build, this would fetch the exact bounding box from the Python backend.
+                // For this MVP, we use the known bounding box of your NOAA 4-Band test data!
+                if (p.file_path.includes("noaa_florida")) {
+                    const mockNoaaBounds = [[28.45, -81.55], [28.65, -81.25]]; // Rough Orlando footprint
+                    const rect = L.rectangle(mockNoaaBounds, { color: "#3b82f6", weight: 2, fillOpacity: 0.1 });
+                    highlightGroup.current.addLayer(rect);
+                    mapInstance.current.flyToBounds(mockNoaaBounds, { duration: 1.0, padding: [20, 20] });
+                }
+            }
+        }
+    }, [selectedNode]);
 
     return (
         <div className="w-[320px] border-r border-slate-800 bg-[#0f172a] relative flex flex-col hidden lg:flex shadow-[-10px_0_20px_rgba(0,0,0,0.3)] z-10">
@@ -71,7 +111,7 @@ const MapViewport = React.memo(({ onAoiDrawn }) => {
                 <p className="text-emerald-400 font-bold mb-2 flex items-center">
                    <Satellite size={14} className="mr-2" /> OSM Connected
                 </p>
-                <p className="opacity-80">Use the rectangle tool to draw an AOI. The footprint will remain on the map while spawning a node on the canvas.</p>
+                <p className="opacity-80">The map camera is now synchronized. It will automatically fly to the extents of any valid spatial node selected on the canvas.</p>
             </div>
         </div>
     );

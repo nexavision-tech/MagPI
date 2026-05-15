@@ -31,7 +31,6 @@ export default function App() {
   const [logs, setLogs] = useState([]);
   const [nodeStatuses, setNodeStatuses] = useState({});
 
-  // OPTIMIZED: useCallback prevents the Map from re-rendering when it shouldn't!
   const handleAoiDrawn = useCallback((aoiData) => {
     const newNode = { 
       id: `node_${Date.now()}`, toolId: 'mgt_clip', name: 'Clip to AOI (Map Draw)', icon: 'fa-cut', 
@@ -143,7 +142,10 @@ export default function App() {
           setActiveRightTab={setActiveRightTab} nodeStatuses={nodeStatuses} 
           removeConnection={removeConnection} addNode={addNode} 
         />
-        <MapViewport onAoiDrawn={handleAoiDrawn} />
+        
+        {/* ENHANCED: We are now passing the selectedNode directly into the Map Viewport! */}
+        <MapViewport onAoiDrawn={handleAoiDrawn} selectedNode={selectedNode} />
+        
         <Toolbox 
           activeRightTab={activeRightTab} setActiveRightTab={setActiveRightTab} 
           selectedNode={selectedNode} updateNodeParam={updateNodeParam} updateNodeName={updateNodeName} 
