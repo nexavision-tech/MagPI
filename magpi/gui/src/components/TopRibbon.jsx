@@ -1,7 +1,7 @@
 import React from 'react';
-import { Compass, Server, Code, Save, Globe, Cpu } from 'lucide-react';
+import { Compass, Server, Code, Save, Globe, Cpu, FolderUp } from 'lucide-react';
 
-export default function TopRibbon({ crs, setCrs, processingScope, setProcessingScope, onGenerate }) {
+export default function TopRibbon({ crs, setCrs, processingScope, setProcessingScope, onGenerate, onSave, onLoad }) {
   return (
     <div className="flex flex-col bg-slate-800 border-b border-slate-700 shadow-md z-20">
       
@@ -33,10 +33,20 @@ export default function TopRibbon({ crs, setCrs, processingScope, setProcessingS
           >
             <Code size={18} className="mr-2" /> Generate Pipeline
           </button>
-          <button className="flex flex-col items-center justify-center p-2 hover:bg-slate-700 rounded text-slate-400 transition-colors ml-2">
+          
+          <button onClick={onSave} className="flex flex-col items-center justify-center p-2 hover:bg-slate-700 rounded text-slate-400 transition-colors ml-2" title="Save Project">
             <Save size={20} />
             <span className="text-[10px] mt-1">Save</span>
           </button>
+          
+          <label className="flex flex-col items-center justify-center p-2 hover:bg-slate-700 rounded text-slate-400 transition-colors ml-1 cursor-pointer" title="Load Project">
+            <FolderUp size={20} />
+            <span className="text-[10px] mt-1">Load</span>
+            <input type="file" accept=".mpjx,.json" className="hidden" onChange={(e) => {
+              if (e.target.files.length > 0) onLoad(e.target.files[0]);
+              e.target.value = null; // reset so the same file can be loaded twice if needed
+            }} />
+          </label>
         </div>
 
         {/* Environment Variables Group */}
