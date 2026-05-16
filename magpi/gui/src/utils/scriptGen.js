@@ -38,22 +38,28 @@ export const generatePythonScript = (nodes, connections, crs, processingScope) =
         const incomingCx = connections.find(c => c.to === n.id);
         const inVar = incomingCx ? varMap[incomingCx.from] : 'None';
 
+        // Core Parameters
+        if (n.toolId === 'core_extent') {
+            // Generates an arcpy.Extent object that can be passed to other tools!
+            funcCall = `${outVar} = arcpy.Extent(${p.xmin}, ${p.ymin}, ${p.xmax}, ${p.ymax})`;
+        }
         // Data Ingestion
-        if (n.toolId === 'load_raster') {
+        else if (n.toolId === 'load_raster') {
             funcCall = `${outVar} = arcpy.Raster("${p.file_path}")`;
         }
         else if (n.toolId === 'load_vector') {
             funcCall = `${outVar} = "${p.file_path}"`;
         }
         
-        // WFS Sovereign Cloud (NEW!)
+        // WFS Sovereign Cloud
         else if (n.toolId === 'wfs_sentinel2') {
             const outFileName = `s2_cloud_extract_${n.id.split('_')[1]}.tif`;
-            funcCall = `extent_poly = arcpy.Extent(${p.xmin}, ${p.ymin}, ${p.xmax}, ${p.ymax})\n${outVar} = arcpy.wfs.PullSentinel2(extent_poly, "${outFileName}", max_cloud_cover=${p.max_cloud_cover})`;
+            // Uses inVar (the wire coming from the Extent node)
+            funcCall = `${outVar} = arcpy.wfs.PullSentinel2(${inVar}, "${outFileName}", max_cloud_cover=${p.max_cloud_cover}, date_range="${p.start_date}/${p.end_date}")`;
         }
         else if (n.toolId === 'wfs_elevation') {
             const outFileName = `usgs_dem_extract_${n.id.split('_')[1]}.tif`;
-            funcCall = `extent_poly = arcpy.Extent(${p.xmin}, ${p.ymin}, ${p.xmax}, ${p.ymax})\n${outVar} = arcpy.wfs.PullUSGSElevation(extent_poly, "${outFileName}")`;
+            funcCall = `${outVar} = arcpy.wfs.PullUSGSElevation(${inVar}, "${outFileName}")`;
         }
         else if (n.toolId === 'wfs_census') {
             const outFileName = `census_tracts_${n.id.split('_')[1]}.shp`;

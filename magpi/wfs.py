@@ -43,16 +43,37 @@ def GetCensusTracts(state_fips, county_fips, year=2020, out_feature_class=None):
         logger.error(f"Failed to retrieve Census Data: {e}")
         return Result(None, status=3)
 
-def PullSentinel2(extent, out_raster, max_cloud_cover=10):
+def PullSentinel2(extent, out_raster, max_cloud_cover=10, date_range="2023-01-01/2023-12-31"):
+    """
+    MagPI Cloud Extractor (STAC/COG Bridge)
+    Queries AWS Earth Search for Sentinel-2 L2A imagery intersecting the given extent,
+    and streams the cropped RGB+NIR bands directly to the local hard drive.
+    """
     logger.info("Initializing MagPI Sovereign Data Pull (Sentinel-2 via AWS Earth Search)...")
+    
     try:
         import rasterio
         from rasterio.windows import from_bounds
-        if hasattr(extent, 'XMin'): min_lon, min_lat, max_lon, max_lat = extent.XMin, extent.YMin, extent.XMax, extent.YMax
-        else: min_lon, min_lat, max_lon, max_lat = map(float, str(extent).split())
+        
+        # 1. Parse the Extent (Assume WGS84 Lat/Lon for the API search)
+        if hasattr(extent, 'XMin'):
+            min_lon, min_lat, max_lon, max_lat = extent.XMin, extent.YMin, extent.XMax, extent.YMax
+        else:
+            parts = str(extent).split()
+            min_lon, min_lat, max_lon, max_lat = map(float, parts)
 
+        # 2. Query the STAC API with the TEMPORAL FILTER
         search_url = "https://earth-search.aws.element84.com/v1/search"
-        payload = { "collections": ["sentinel-2-l2a"], "bbox": [min_lon, min_lat, max_lon, max_lat], "query": {"eo:cloud_cover": {"lt": max_cloud_cover}}, "sortby": [{"field": "properties.datetime", "direction": "desc"}], "limit": 1 }
+        payload = {
+            "collections": ["sentinel-2-l2a"],
+            "bbox": [min_lon, min_lat, max_lon, max_lat],
+            "datetime": date_range, # NEW: Filtering by user-defined dates!
+            "query": {"eo:cloud_cover": {"lt": max_cloud_cover}},
+            "sortby": [{"field": "properties.datetime", "direction": "desc"}],
+            "limit": 1
+        }
+
+        logger.info(f"Querying AWS Earth STAC API for BBOX: {payload['bbox']} across {date_range}...")
         response = requests.post(search_url, json=payload)
         response.raise_for_status()
         data = response.json()

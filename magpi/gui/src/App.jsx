@@ -33,15 +33,17 @@ export default function App() {
   const [browserConfig, setBrowserConfig] = useState({ isOpen: false, nodeId: null, paramKey: null, initialPath: "." });
 
   const handleAoiDrawn = useCallback((aoiData) => {
+    // CRITICAL UPDATE: Drawing on the map now creates a raw Spatial Extent parameter node, not a Clip node!
     const newNode = { 
-      id: `node_${Date.now()}`, toolId: 'mgt_clip', name: 'Clip to AOI (Map Draw)', icon: 'fa-cut', 
-      x: 400 + Math.random() * 50, y: 200 + Math.random() * 50, color: 'bg-slate-600', border: 'border-slate-500', 
+      id: `node_${Date.now()}`, toolId: 'core_extent', name: 'Spatial Extent (AOI)', icon: 'fa-vector-square', 
+      x: 400 + Math.random() * 50, y: 200 + Math.random() * 50, color: 'bg-yellow-600', border: 'border-yellow-500', 
       params: { xmin: aoiData.xmin, ymin: aoiData.ymin, xmax: aoiData.xmax, ymax: aoiData.ymax } 
     };
     setNodes(prev => [...prev, newNode]);
     setSelectedNodeId(newNode.id);
     setActiveRightTab('inspector');
   }, []);
+
 
   const addNode = useCallback((tool, dropX = null, dropY = null) => {
     const newNode = { 

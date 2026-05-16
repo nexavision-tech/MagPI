@@ -13,14 +13,30 @@ const TOOLBOX_CATEGORIES = [
     name: "Sovereign Cloud (wfs)", icon: <Cloud size={18} className="text-cyan-400" />,
     tools: [
       { id: 'wfs_sentinel2', name: "Pull Sentinel-2", type: 'input', icon: <Satellite size={14}/>, color: 'bg-cyan-700', border: 'border-cyan-500', 
-        description: "Streams Cloud Optimized GeoTIFFs (COGs) from AWS Earth Search based on an AOI bounding box. Free, global, 10m 4-band imagery.",
-        params: { xmin: -81.450, ymin: 28.450, xmax: -81.250, ymax: 28.600, max_cloud_cover: 10 } },
+        description: "Streams Cloud Optimized GeoTIFFs (COGs) from AWS Earth Search based on an AOI. Includes temporal filtering.",
+        // ADDED TEMPORAL FILTERS (Dates)
+        params: { max_cloud_cover: 10, start_date: "2023-01-01", end_date: "2023-12-31" } },
       { id: 'wfs_elevation', name: "Pull USGS DEM", type: 'input', icon: <Layers size={14}/>, color: 'bg-cyan-700', border: 'border-cyan-500', 
         description: "Extracts a 3D Digital Elevation Model (DEM) natively from the USGS 3DEP Web Coverage Service.",
-        params: { xmin: -81.450, ymin: 28.450, xmax: -81.250, ymax: 28.600 } },
+        params: {} },
       { id: 'wfs_census', name: "US Census Tracts", type: 'input', icon: <MapIcon size={14}/>, color: 'bg-cyan-700', border: 'border-cyan-500', 
-        description: "Bypasses legacy REST services to download official TIGER shapefiles directly from the US Census Bureau to your hard drive.",
+        description: "Downloads official TIGER shapefiles directly from the US Census Bureau.",
         params: { state_fips: 12, county_fips: 95, year: 2020 } }
+    ]
+  },
+  {
+    name: "Core Inputs", icon: <Database size={18} className="text-yellow-500/70" />,
+    tools: [
+      // NEW: Universal Extent Node
+      { id: 'core_extent', name: "Spatial Extent (AOI)", type: 'input', icon: <Hexagon size={14}/>, color: 'bg-yellow-600', border: 'border-yellow-500', 
+        description: "A universal bounding box. Wire this into Cloud Pullers or Clip tools to define an area of interest.",
+        params: { xmin: "-81.450", ymin: "28.450", xmax: "-81.250", ymax: "28.600" } },
+      { id: 'load_raster', name: "Input Raster", type: 'input', icon: <ImageIcon size={14}/>, color: 'bg-blue-600', border: 'border-blue-500', 
+        description: "Loads a multi-band imagery file (TIFF, IMG, JP2) into the MagPI processing matrix.",
+        params: { file_path: "./test_data/noaa_florida/2021_4BandImagery.tif" } },
+      { id: 'load_vector', name: "Input Vector", type: 'input', icon: <Hexagon size={14}/>, color: 'bg-blue-600', border: 'border-blue-500', 
+        description: "Loads a vector feature class or shapefile containing points, lines, or polygons.",
+        params: { file_path: "./test_data/Orange_County_Tracts.shp" } },
     ]
   },
   {
