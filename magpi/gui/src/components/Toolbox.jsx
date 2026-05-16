@@ -4,16 +4,28 @@ import {
   Hexagon, Leaf, Grid, Crosshair, Scissors, CircleDashed, 
   ChevronDown, ChevronRight, MousePointer2, Trash2, 
   SlidersHorizontal, Wrench, Check, FolderOpen, ListFilter,
-  Search, Copy, Info, Fingerprint, Loader2, AlertCircle
+  Search, Copy, Info, Fingerprint, Loader2, AlertCircle, 
+  Cloud, Map as MapIcon, Satellite
 } from 'lucide-react';
 
 const TOOLBOX_CATEGORIES = [
+  {
+    name: "Sovereign Cloud (wfs)", icon: <Cloud size={18} className="text-cyan-400" />,
+    tools: [
+      { id: 'wfs_sentinel2', name: "Pull Sentinel-2", type: 'input', icon: <Satellite size={14}/>, color: 'bg-cyan-700', border: 'border-cyan-500', 
+        description: "Streams Cloud Optimized GeoTIFFs (COGs) from AWS Earth Search based on an AOI bounding box. Free, global, 10m 4-band imagery.",
+        params: { xmin: -81.450, ymin: 28.450, xmax: -81.250, ymax: 28.600, max_cloud_cover: 10 } },
+      { id: 'wfs_census', name: "US Census Tracts", type: 'input', icon: <MapIcon size={14}/>, color: 'bg-cyan-700', border: 'border-cyan-500', 
+        description: "Bypasses legacy REST services to download official TIGER shapefiles directly from the US Census Bureau to your hard drive.",
+        params: { state_fips: 12, county_fips: 95, year: 2020 } }
+    ]
+  },
   {
     name: "Data Ingestion", icon: <Database size={18} className="text-emerald-500/70" />,
     tools: [
       { id: 'load_raster', name: "Input Raster", type: 'input', icon: <ImageIcon size={14}/>, color: 'bg-blue-600', border: 'border-blue-500', 
         description: "Loads a multi-band imagery file (TIFF, IMG, JP2) into the MagPI processing matrix.",
-        params: { file_path: "./test_data/noaa_florida/2021_4BandImagery_Florida_J1378560tR0_C0.tif" } },
+        params: { file_path: "./test_data/noaa_florida/2021_4BandImagery.tif" } },
       { id: 'load_vector', name: "Input Vector", type: 'input', icon: <Hexagon size={14}/>, color: 'bg-blue-600', border: 'border-blue-500', 
         description: "Loads a vector feature class or shapefile containing points, lines, or polygons.",
         params: { file_path: "./test_data/Orange_County_Tracts.shp" } },
@@ -49,7 +61,6 @@ const TOOLBOX_CATEGORIES = [
         description: "Creates polygon boundaries at a specified distance around input vector features.",
         params: { distance: 50, unit: { value: "Meters", type: "select", options: ["Meters", "Kilometers", "Feet", "Miles"] } } 
       },
-      // NEW: Pyramid and Stats Builder Tool
       { id: 'mgt_pyramids', name: "Build Pyramids & Stats", type: 'process', icon: <Layers size={14}/>, color: 'bg-slate-600', border: 'border-slate-500', 
         description: "Calculates multi-band statistics and builds internal overviews (pyramids) for massive speed boosts when rendering in desktop software.",
         params: { build_pyramids: true, calculate_stats: true } 
@@ -63,7 +74,7 @@ export default function Toolbox({
   selectedNode, updateNodeParam, updateNodeName, deleteNode, addNode, duplicateNode,
   openFileBrowser 
 }) {
-  const [expandedCategories, setExpandedCategories] = useState({ "Data Ingestion": true, "Image Analyst (ia)": true, "GeoAI (geoai)": true, "Data Management": true });
+  const [expandedCategories, setExpandedCategories] = useState({ "Sovereign Cloud (wfs)": true, "Data Ingestion": true, "Image Analyst (ia)": true, "GeoAI (geoai)": true, "Data Management": true });
   const [searchQuery, setSearchQuery] = useState('');
   
   const [hoveredTool, setHoveredTool] = useState(null);
@@ -157,10 +168,7 @@ export default function Toolbox({
                             key={tool.id} 
                             draggable="true" 
                             onDragStart={(e) => handleDragStart(e, tool)} 
-                            
-                            // CRITICAL FIX: Destroy the tooltip on click!
                             onClick={() => { addNode(tool); setHoveredTool(null); }} 
-                            
                             onMouseEnter={() => setHoveredTool(tool)}
                             onMouseLeave={() => setHoveredTool(null)}
                             className="flex items-center px-3 py-2.5 text-xs bg-slate-800 hover:bg-slate-700 rounded-md cursor-grab active:cursor-grabbing border border-transparent hover:border-emerald-500/50 transition-all group shadow-sm"
