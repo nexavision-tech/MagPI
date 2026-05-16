@@ -8,6 +8,10 @@ from .objects import Result
 logger = logging.getLogger("MagPI_WFS")
 
 def GetCensusTracts(state_fips, county_fips, year=2020, out_feature_class=None):
+    """
+    MagPI Exclusive Tool.
+    Queries the US Census for Tract boundaries, bypassing brittle ESRI MapServers.
+    """
     state_str = str(state_fips).zfill(2)
     county_str = str(county_fips).zfill(3)
     logger.info(f"Querying US Census TIGER Data for State: {state_str}, County: {county_str}")
@@ -67,7 +71,7 @@ def PullSentinel2(extent, out_raster, max_cloud_cover=10, date_range="2023-01-01
         payload = {
             "collections": ["sentinel-2-l2a"],
             "bbox": [min_lon, min_lat, max_lon, max_lat],
-            "datetime": date_range, # NEW: Filtering by user-defined dates!
+            "datetime": date_range, 
             "query": {"eo:cloud_cover": {"lt": max_cloud_cover}},
             "sortby": [{"field": "properties.datetime", "direction": "desc"}],
             "limit": 1
@@ -115,7 +119,6 @@ def PullUSGSElevation(extent, out_raster, resolution_width=1000, resolution_heig
         else: 
             min_lon, min_lat, max_lon, max_lat = map(float, str(extent).split())
 
-        # Construct the precise WCS REST URL
         wcs_url = (
             f"https://elevation.nationalmap.gov/arcgis/services/3DEPElevation/ImageServer/WCSServer"
             f"?request=GetCoverage&service=WCS&version=1.0.0&coverage=3DEPElevation"
@@ -132,7 +135,6 @@ def PullUSGSElevation(extent, out_raster, resolution_width=1000, resolution_heig
             for chunk in response.iter_content(chunk_size=8192):
                 fd.write(chunk)
 
-        # Reproject if environment specifies
         from .env import env
         if env.outputCoordinateSystem:
             import rasterio
@@ -147,4 +149,64 @@ def PullUSGSElevation(extent, out_raster, resolution_width=1000, resolution_heig
 
     except Exception as e:
         logger.error(f"Elevation pull failed: {e}")
+        return Result(None, status=3)
+
+def PullNLCD(extent, out_raster, year=2023, product="LndCov"):
+    """
+    MagPI Deep Learning Label Extractor.
+    Streams Cloud Optimized GeoTIFFs directly from the USGS Annual NLCD AWS S3 Bucket.
+    Products: LndCov (Land Cover), FctImp (Impervious Surface), ImpDsc (Impervious Descriptor).
+    """
+    logger.info(f"Initializing Ground Truth Label Pull (NLCD {year} {product})...")
+    try:
+        import rasterio
+        from rasterio.windows import from_bounds
+        
+        if hasattr(extent, 'XMin'):
+            min_lon, min_lat, max_lon, max_lat = extent.XMin, extent.YMin, extent.XMax, extent.YMax
+        else:
+            min_lon, min_lat, max_lon, max_lat = map(float, str(extent).split())
+
+        # Constructed from Page 13 of the NLCD Collection 1 User Guide
+        base_url = "https://usgs-landcover.s3.us-west-2.amazonaws.com/annual-nlcd/c1/v0/cu/mosaic"
+        file_name = f"Annual_NLCD_{product}_{year}_CU_C1V0.tif"
+        cog_url = f"{base_url}/{file_name}"
+
+        logger.info(f"Streaming NLCD matrix directly from AWS Cloud: {cog_url}")
+
+        with rasterio.Env(CPL_VSIL_CURL_ALLOWED_EXTENSIONS="tif"):
+            with rasterio.open(cog_url) as src:
+                from rasterio.warp import transform_bounds
+                
+                # Project the UI's WGS84 Extent to the NLCD's native Albers Equal Area (EPSG:5070)
+                utm_bounds = transform_bounds('EPSG:4326', src.crs, min_lon, min_lat, max_lon, max_lat)
+                
+                window = from_bounds(*utm_bounds, src.transform)
+                window = window.round_offsets().round_lengths()
+
+                out_meta = src.meta.copy()
+                out_meta.update({
+                    "driver": "GTiff",
+                    "height": window.height,
+                    "width": window.width,
+                    "transform": src.window_transform(window)
+                })
+
+                with rasterio.open(out_raster, "w", **out_meta) as dest:
+                    dest.write(src.read(1, window=window), 1)
+                    
+                    # Ensure the beautiful NLCD Colormap is preserved in the output!
+                    try:
+                        dest.write_colormap(1, src.colormap(1))
+                    except ValueError:
+                        pass
+                        
+        logger.info(f"Sovereign Label Pull Complete. Saved NLCD chip to: {out_raster}")
+        return Result(out_raster)
+
+    except ImportError:
+        logger.error("Missing dependency 'rasterio'.")
+        return Result(None, status=3)
+    except Exception as e:
+        logger.error(f"NLCD Data pull failed: {e}")
         return Result(None, status=3)
