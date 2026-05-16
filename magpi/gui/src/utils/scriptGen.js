@@ -51,6 +51,10 @@ export const generatePythonScript = (nodes, connections, crs, processingScope) =
             const outFileName = `s2_cloud_extract_${n.id.split('_')[1]}.tif`;
             funcCall = `extent_poly = arcpy.Extent(${p.xmin}, ${p.ymin}, ${p.xmax}, ${p.ymax})\n${outVar} = arcpy.wfs.PullSentinel2(extent_poly, "${outFileName}", max_cloud_cover=${p.max_cloud_cover})`;
         }
+        else if (n.toolId === 'wfs_elevation') {
+            const outFileName = `usgs_dem_extract_${n.id.split('_')[1]}.tif`;
+            funcCall = `extent_poly = arcpy.Extent(${p.xmin}, ${p.ymin}, ${p.xmax}, ${p.ymax})\n${outVar} = arcpy.wfs.PullUSGSElevation(extent_poly, "${outFileName}")`;
+        }
         else if (n.toolId === 'wfs_census') {
             const outFileName = `census_tracts_${n.id.split('_')[1]}.shp`;
             funcCall = `${outVar} = arcpy.wfs.GetCensusTracts(${p.state_fips}, ${p.county_fips}, ${p.year}, "${outFileName}")`;
@@ -67,6 +71,9 @@ export const generatePythonScript = (nodes, connections, crs, processingScope) =
         // GeoAI
         else if (n.toolId === 'ai_detect') {
             funcCall = `${outVar} = arcpy.geoai.DetectObjectsUsingDeepLearning(getattr(${inVar}, 'name', ${inVar}), "${p.out_shp}", "${p.model}")`;
+        }
+        else if (n.toolId === 'ai_classify') {
+            funcCall = `${outVar} = arcpy.geoai.ClassifyPixelsUsingDeepLearning(getattr(${inVar}, 'name', ${inVar}), "${p.out_raster}", "${p.model}")`;
         }
 
         // Data Management

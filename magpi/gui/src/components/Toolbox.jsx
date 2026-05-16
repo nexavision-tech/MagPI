@@ -15,6 +15,9 @@ const TOOLBOX_CATEGORIES = [
       { id: 'wfs_sentinel2', name: "Pull Sentinel-2", type: 'input', icon: <Satellite size={14}/>, color: 'bg-cyan-700', border: 'border-cyan-500', 
         description: "Streams Cloud Optimized GeoTIFFs (COGs) from AWS Earth Search based on an AOI bounding box. Free, global, 10m 4-band imagery.",
         params: { xmin: -81.450, ymin: 28.450, xmax: -81.250, ymax: 28.600, max_cloud_cover: 10 } },
+      { id: 'wfs_elevation', name: "Pull USGS DEM", type: 'input', icon: <Layers size={14}/>, color: 'bg-cyan-700', border: 'border-cyan-500', 
+        description: "Extracts a 3D Digital Elevation Model (DEM) natively from the USGS 3DEP Web Coverage Service.",
+        params: { xmin: -81.450, ymin: 28.450, xmax: -81.250, ymax: 28.600 } },
       { id: 'wfs_census', name: "US Census Tracts", type: 'input', icon: <MapIcon size={14}/>, color: 'bg-cyan-700', border: 'border-cyan-500', 
         description: "Bypasses legacy REST services to download official TIGER shapefiles directly from the US Census Bureau to your hard drive.",
         params: { state_fips: 12, county_fips: 95, year: 2020 } }
@@ -46,8 +49,12 @@ const TOOLBOX_CATEGORIES = [
     name: "GeoAI (geoai)", icon: <Cpu size={18} className="text-emerald-500/70" />,
     tools: [
       { id: 'ai_detect', name: "Detect Objects", type: 'process', icon: <Crosshair size={14}/>, color: 'bg-purple-600', border: 'border-purple-500', 
-        description: "Executes a pre-trained Deep Learning vision model (like ResNet or SegFormer) across an input raster to extract vector features.",
-        params: { out_shp: "pools.shp", model: { value: "facebook/detr-resnet-50", type: "select", options: ["facebook/detr-resnet-50", "facebook/mask2former-swin", "nvidia/segformer-b0"] } } 
+        description: "Executes a pre-trained Deep Learning vision model across an input raster to extract vector features.",
+        params: { out_shp: "pools.shp", model: { value: "facebook/detr-resnet-50", type: "select", options: ["facebook/detr-resnet-50", "facebook/mask2former-swin"] } } 
+      },
+      { id: 'ai_classify', name: "Classify Pixels", type: 'process', icon: <ImageIcon size={14}/>, color: 'bg-purple-600', border: 'border-purple-500', 
+        description: "Performs Semantic Segmentation using Transformers to classify land cover (trees, roads, buildings).",
+        params: { out_raster: "classified_mask.tif", model: { value: "nvidia/segformer-b0-finetuned-ade-512-512", type: "select", options: ["nvidia/segformer-b0-finetuned-ade-512-512", "nvidia/segformer-b1-finetuned-cityscapes-1024-1024"] } } 
       },
     ]
   },
