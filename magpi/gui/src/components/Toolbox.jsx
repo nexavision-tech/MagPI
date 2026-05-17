@@ -5,7 +5,7 @@ import {
   ChevronDown, ChevronRight, MousePointer2, Trash2, 
   SlidersHorizontal, Wrench, Check, FolderOpen, ListFilter,
   Search, Copy, Info, Fingerprint, Loader2, AlertCircle, 
-  Cloud, Map as MapIcon, Satellite, Box
+  Cloud, Map as MapIcon, Satellite, Box, Globe
 } from 'lucide-react';
 
 const TOOLBOX_CATEGORIES = [
