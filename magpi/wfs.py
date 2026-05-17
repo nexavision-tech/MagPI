@@ -8,10 +8,6 @@ from .objects import Result
 logger = logging.getLogger("MagPI_WFS")
 
 def GetCensusTracts(state_fips, county_fips, year=2020, out_feature_class=None):
-    """
-    MagPI Exclusive Tool.
-    Queries the US Census for Tract boundaries, bypassing brittle ESRI MapServers.
-    """
     state_str = str(state_fips).zfill(2)
     county_str = str(county_fips).zfill(3)
     logger.info(f"Querying US Census TIGER Data for State: {state_str}, County: {county_str}")
@@ -64,30 +60,30 @@ def PullSentinel2(extent, out_raster, max_cloud_cover=10, date_range="2023-01-01
             parts = str(extent).split()
             min_lon, min_lat, max_lon, max_lat = map(float, parts)
 
-        # FIX: Ensure strict RFC3339 Timestamp Formatting for the STAC API
-        formatted_date = date_range
+        # STRICT RFC3339 FORMATTING
+        formatted_date = str(date_range).strip()
         if "T" not in formatted_date:
             try:
                 start_d, end_d = formatted_date.split('/')
-                formatted_date = f"{start_d}T00:00:00Z/{end_d}T23:59:59Z"
+                formatted_date = f"{start_d.strip()}T00:00:00Z/{end_d.strip()}T23:59:59Z"
             except Exception:
-                pass # Fallback to whatever the user provided if it doesn't split
+                pass 
 
-        # FIX: Update to the new Sentinel-2 Collection 1 identifier
         search_url = "https://earth-search.aws.element84.com/v1/search"
         payload = {
-            "collections": ["sentinel-2-c1-l2a"],
+            "collections": ["sentinel-2-l2a"], # FIX: Reverted to the stable Earth Search v1 collection tag
             "bbox": [min_lon, min_lat, max_lon, max_lat],
             "datetime": formatted_date, 
-            "query": {"eo:cloud_cover": {"lt": max_cloud_cover}},
+            "query": {"eo:cloud_cover": {"lt": int(max_cloud_cover)}},
             "limit": 1
         }
 
         logger.info(f"Querying AWS Earth STAC API for BBOX: {payload['bbox']} across {formatted_date}...")
         response = requests.post(search_url, json=payload)
         
+        # FIX: Print exact error from AWS if it fails!
         if not response.ok:
-            logger.error(f"STAC API Error: {response.status_code} - {response.text}")
+            logger.error(f"AWS STAC API Error ({response.status_code}): {response.text}")
             return Result(None, status=3)
             
         data = response.json()

@@ -1,6 +1,9 @@
 import React, { useState, useCallback } from 'react';
 
-import { GitBranch, XCircle, AlertTriangle, Bell, TerminalSquare } from 'lucide-react';
+// NEW ICONS for the Tabs and Footer
+import { GitBranch, XCircle, AlertTriangle, Bell, TerminalSquare, Compass, Server, Code, Save, FolderUp, Globe, Cpu, Wrench, Map as MapIcon, Edit3 } from 'lucide-react';
+
+// Imported Modular Components
 import TopRibbon from './components/TopRibbon';
 import Terminal from './components/Terminal';
 import Toolbox from './components/Toolbox';
@@ -9,14 +12,17 @@ import MapViewport from './components/MapViewport';
 import ScriptModal from './components/ScriptModal';
 import FileBrowserModal from './components/FileBrowserModal';
 
+// Utilities
 import { generatePythonScript } from './utils/scriptGen';
 import { saveProject, loadProject } from './utils/fileOps';
 
 export default function App() {
+  // THE NEW MASTER TAB ROUTER ('builder', 'globe', 'planar')
+  const [activeWorkspace, setActiveWorkspace] = useState('builder');
+
   const [crs, setCrs] = useState("EPSG:6438");
   const [processingScope, setProcessingScope] = useState("Local Python");
   
-  // CRITICAL UPDATE: The Canvas now boots up completely blank!
   const [nodes, setNodes] = useState([]);
   const [connections, setConnections] = useState([]);
   
@@ -33,7 +39,6 @@ export default function App() {
   const [browserConfig, setBrowserConfig] = useState({ isOpen: false, nodeId: null, paramKey: null, initialPath: "." });
 
   const handleAoiDrawn = useCallback((aoiData) => {
-    // CRITICAL UPDATE: Drawing on the map now creates a raw Spatial Extent parameter node, not a Clip node!
     const newNode = { 
       id: `node_${Date.now()}`, toolId: 'core_extent', name: 'Spatial Extent (AOI)', icon: 'fa-vector-square', 
       x: 400 + Math.random() * 50, y: 200 + Math.random() * 50, color: 'bg-yellow-600', border: 'border-yellow-500', 
@@ -42,8 +47,9 @@ export default function App() {
     setNodes(prev => [...prev, newNode]);
     setSelectedNodeId(newNode.id);
     setActiveRightTab('inspector');
+    // If they drew it in the Globe tab, automatically switch them back to the Builder to wire it up!
+    setActiveWorkspace('builder');
   }, []);
-
 
   const addNode = useCallback((tool, dropX = null, dropY = null) => {
     const newNode = { 
@@ -121,29 +127,14 @@ export default function App() {
   };
 
   const handleDeploy = async () => {
-    setShowScript(false); 
-    setShowTerminal(true); 
-    setIsProcessing(true); 
-    setNodeStatuses({});
-    
+    setShowScript(false); setShowTerminal(true); setIsProcessing(true); setNodeStatuses({});
     const processingStates = {};
     nodes.forEach(n => processingStates[n.id] = 'processing');
     setNodeStatuses(processingStates);
-    
-    setLogs([
-        { type: 'info', msg: 'Initiating Daemon Link on port 8080...' },
-        { type: 'info', msg: 'Transmitting payload to OS kernel...' }
-    ]);
-    
+    setLogs([{ type: 'info', msg: 'Initiating Daemon Link on port 8080...' }, { type: 'info', msg: 'Transmitting payload to OS kernel...' }]);
     try {
-        const response = await fetch("http://localhost:8080/api/run", {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ code: generatedCode })
-        });
-        
+        const response = await fetch("http://localhost:8080/api/run", { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: generatedCode }) });
         const data = await response.json();
-        
         if (response.ok) {
             const rawLogs = data.logs.split('\n').filter(l => l.trim() !== '');
             const parsedLogs = rawLogs.map(line => {
@@ -152,13 +143,10 @@ export default function App() {
                 else if (line.toLowerCase().includes('success') || line.toLowerCase().includes('pass')) logType = 'success';
                 return { type: logType, msg: line };
             });
-            
             setLogs(prev => [...prev, ...parsedLogs, { type: data.status === 'success' ? 'success' : 'error', msg: `Matrix Execution ${data.status.toUpperCase()}.` }]);
-            
             const finalStates = {};
             nodes.forEach(n => finalStates[n.id] = data.status === 'success' ? 'success' : null);
             setNodeStatuses(finalStates);
-            
         } else {
             setLogs(prev => [...prev, { type: 'error', msg: `Daemon execution failed: ${data.error}` }]);
             setNodeStatuses({});
@@ -174,27 +162,70 @@ export default function App() {
   return (
     <div className="absolute inset-0 w-full h-full flex flex-col bg-slate-900 text-slate-200 font-sans overflow-hidden select-none">
       
-      {/* TOP RIBBON */}
+      {/* THE NEW NEXUS TAB HEADER */}
       <div className="flex-none z-40 shadow-md">
         <TopRibbon crs={crs} setCrs={setCrs} processingScope={processingScope} setProcessingScope={setProcessingScope} onGenerate={handleGenerate} onSave={handleSave} onLoad={handleLoad} onClear={handleClear} />
+        
+        {/* Workspace Switcher Tabs */}
+        <div className="flex bg-slate-900 border-b border-slate-700 px-4 pt-2">
+            <button 
+                onClick={() => setActiveWorkspace('builder')}
+                className={`px-6 py-2 text-xs font-bold uppercase tracking-widest rounded-t-lg transition-colors flex items-center border border-b-0 ${activeWorkspace === 'builder' ? 'bg-slate-800 text-emerald-400 border-slate-600' : 'bg-transparent text-slate-500 border-transparent hover:bg-slate-800/50 hover:text-slate-300'}`}
+            >
+                <Wrench size={14} className="mr-2" /> Model Builder
+            </button>
+            <button 
+                onClick={() => setActiveWorkspace('globe')}
+                className={`px-6 py-2 text-xs font-bold uppercase tracking-widest rounded-t-lg transition-colors flex items-center border border-b-0 ml-1 ${activeWorkspace === 'globe' ? 'bg-slate-800 text-cyan-400 border-slate-600' : 'bg-transparent text-slate-500 border-transparent hover:bg-slate-800/50 hover:text-slate-300'}`}
+            >
+                <MapIcon size={14} className="mr-2" /> Globe Nexus
+            </button>
+            <button 
+                onClick={() => setActiveWorkspace('planar')}
+                className={`px-6 py-2 text-xs font-bold uppercase tracking-widest rounded-t-lg transition-colors flex items-center border border-b-0 ml-1 ${activeWorkspace === 'planar' ? 'bg-slate-800 text-purple-400 border-slate-600' : 'bg-transparent text-slate-500 border-transparent hover:bg-slate-800/50 hover:text-slate-300'}`}
+            >
+                <Edit3 size={14} className="mr-2" /> Planar Train Env
+            </button>
+        </div>
       </div>
       
-      {/* MAIN WORKSPACE */}
-      <div className="flex-1 flex overflow-hidden min-h-0 relative z-0">
-        <NodeCanvas 
-          nodes={nodes} setNodes={setNodes} connections={connections} setConnections={setConnections}
-          selectedNodeId={selectedNodeId} setSelectedNodeId={setSelectedNodeId}
-          setActiveRightTab={setActiveRightTab} nodeStatuses={nodeStatuses} 
-          removeConnection={removeConnection} addNode={addNode} 
-        />
-        <MapViewport onAoiDrawn={handleAoiDrawn} selectedNode={selectedNode} />
+      {/* MAIN DYNAMIC WORKSPACE */}
+      <div className="flex-1 flex overflow-hidden min-h-0 relative z-0 bg-slate-800">
         
-        <Toolbox 
-          activeRightTab={activeRightTab} setActiveRightTab={setActiveRightTab} 
-          selectedNode={selectedNode} updateNodeParam={updateNodeParam} updateNodeName={updateNodeName} 
-          deleteNode={deleteNode} addNode={addNode} duplicateNode={duplicateNode} 
-          openFileBrowser={openFileBrowser} 
-        />
+        {/* Node Canvas (Only visible in Builder) */}
+        <div className={`flex-1 relative ${activeWorkspace === 'builder' ? 'flex' : 'hidden'}`}>
+            <NodeCanvas 
+              nodes={nodes} setNodes={setNodes} connections={connections} setConnections={setConnections}
+              selectedNodeId={selectedNodeId} setSelectedNodeId={setSelectedNodeId}
+              setActiveRightTab={setActiveRightTab} nodeStatuses={nodeStatuses} 
+              removeConnection={removeConnection} addNode={addNode} 
+            />
+        </div>
+
+        {/* Map Viewport (Flexible Width based on Workspace) */}
+        <div className={`relative ${activeWorkspace === 'builder' ? 'w-[320px] hidden lg:flex' : 'flex-1 w-full'} flex-col shadow-[-10px_0_20px_rgba(0,0,0,0.3)] z-10 border-l border-r border-slate-800`}>
+            <MapViewport onAoiDrawn={handleAoiDrawn} selectedNode={selectedNode} activeWorkspace={activeWorkspace} />
+        </div>
+        
+        {/* Toolbox (Only visible in Builder) */}
+        <div className={`w-[320px] relative ${activeWorkspace === 'builder' ? 'flex' : 'hidden'} flex-col z-20`}>
+            <Toolbox 
+              activeRightTab={activeRightTab} setActiveRightTab={setActiveRightTab} 
+              selectedNode={selectedNode} updateNodeParam={updateNodeParam} updateNodeName={updateNodeName} 
+              deleteNode={deleteNode} addNode={addNode} duplicateNode={duplicateNode} 
+              openFileBrowser={openFileBrowser} 
+            />
+        </div>
+
+        {/* Planar Training Placeholder */}
+        {activeWorkspace === 'planar' && (
+            <div className="absolute inset-0 z-50 bg-slate-900/90 flex flex-col items-center justify-center backdrop-blur-sm">
+                <Edit3 size={48} className="text-purple-500 mb-4 opacity-50" />
+                <h2 className="text-xl font-bold text-slate-300 tracking-widest uppercase">Planar Training Environment</h2>
+                <p className="text-slate-500 mt-2">Ground Truth Labeling & Vector Digitization coming in Phase 3.</p>
+            </div>
+        )}
+
       </div>
 
       {/* TERMINAL WRAPPER */}
@@ -224,14 +255,7 @@ export default function App() {
       </div>
       
       <ScriptModal showScript={showScript} setShowScript={setShowScript} generatedCode={generatedCode} processingScope={processingScope} onDeploy={handleDeploy} />
-      
-      <FileBrowserModal 
-        isOpen={browserConfig.isOpen} 
-        onClose={() => setBrowserConfig(prev => ({ ...prev, isOpen: false }))} 
-        onSelect={handleFileSelected}
-        initialPath={browserConfig.initialPath}
-      />
-
+      <FileBrowserModal isOpen={browserConfig.isOpen} onClose={() => setBrowserConfig(prev => ({ ...prev, isOpen: false }))} onSelect={handleFileSelected} initialPath={browserConfig.initialPath} />
     </div>
   );
 }

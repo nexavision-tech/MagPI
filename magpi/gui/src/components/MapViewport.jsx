@@ -7,7 +7,7 @@ import { Map as MapIcon, Satellite, Edit } from 'lucide-react';
 
 window.type = ''; 
 
-const MapViewport = React.memo(({ onAoiDrawn, selectedNode }) => {
+const MapViewport = React.memo(({ onAoiDrawn, selectedNode, activeWorkspace }) => {
     const mapRef = useRef(null);
     const mapInstance = useRef(null); 
     const highlightGroup = useRef(null);
@@ -31,7 +31,7 @@ const MapViewport = React.memo(({ onAoiDrawn, selectedNode }) => {
         const drawControl = new L.Control.Draw({
             draw: {
                 polyline: false, polygon: false, circle: false, marker: false, circlemarker: false,
-                rectangle: { shapeOptions: { color: '#00ffff', weight: 2, fillOpacity: 0.15 } } // Kepler Cyan
+                rectangle: { shapeOptions: { color: '#00ffff', weight: 2, fillOpacity: 0.15 } } 
             },
             edit: false 
         });
@@ -70,35 +70,38 @@ const MapViewport = React.memo(({ onAoiDrawn, selectedNode }) => {
     const selectedNodeId = selectedNode?.id;
     const selectedNodeParamsString = JSON.stringify(selectedNode?.params || {});
 
-    // THE OVERLAY ENGINE
+    // THE OVERLAY ENGINE (Snapping Fix)
     useEffect(() => {
         if (!mapInstance.current || !highlightGroup.current) return;
 
-        // Clear the map every time to preserve screen real estate!
         highlightGroup.current.clearLayers();
 
         if (selectedNode && selectedNode.params) {
             const p = selectedNode.params;
 
-            // Render Extent Nodes or Clip Nodes
+            // FIX: Robustly parse floats to ensure Leaflet accepts them instantly
             if ((selectedNode.toolId === 'core_extent' || selectedNode.toolId === 'mgt_clip') && p.xmin && p.ymin && p.xmax && p.ymax) {
                 try {
-                    const bounds = [[parseFloat(p.ymin), parseFloat(p.xmin)], [parseFloat(p.ymax), parseFloat(p.xmax)]];
-                    // Kepler.gl Cyberpunk Cyan Box
-                    const rect = L.rectangle(bounds, { color: "#00ffff", weight: 2, fillOpacity: 0.15, dashArray: '4, 4' });
-                    highlightGroup.current.addLayer(rect);
-                    mapInstance.current.flyToBounds(bounds, { duration: 1.0, padding: [20, 20] });
+                    const y1 = parseFloat(p.ymin);
+                    const x1 = parseFloat(p.xmin);
+                    const y2 = parseFloat(p.ymax);
+                    const x2 = parseFloat(p.xmax);
+                    
+                    if (!isNaN(y1) && !isNaN(x1) && !isNaN(y2) && !isNaN(x2)) {
+                        const bounds = [[y1, x1], [y2, x2]];
+                        const rect = L.rectangle(bounds, { color: "#00ffff", weight: 2, fillOpacity: 0.15, dashArray: '4, 4' });
+                        highlightGroup.current.addLayer(rect);
+                        mapInstance.current.flyToBounds(bounds, { duration: 0.8, padding: [30, 30] });
+                    }
                 } catch (e) {
-                    console.log("Invalid coordinates in Node.");
+                    console.log("Waiting for complete coordinates...");
                 }
             } 
-            // Render Raster Footprints dynamically
             else if (selectedNode.toolId === 'load_raster' && p.file_path) {
                 fetch(`http://localhost:8080/api/describe?file=${encodeURIComponent(p.file_path)}`)
                     .then(res => res.json())
                     .then(data => {
                         if (data && data.wgs84_extent) {
-                            // Data footprint is a deep blue
                             const rect = L.rectangle(data.wgs84_extent, { color: "#3b82f6", weight: 2, fillOpacity: 0.1 });
                             highlightGroup.current.addLayer(rect);
                             mapInstance.current.flyToBounds(data.wgs84_extent, { duration: 1.0, padding: [20, 20] });
@@ -118,28 +121,36 @@ const MapViewport = React.memo(({ onAoiDrawn, selectedNode }) => {
     };
 
     return (
-        <div className="w-[320px] border-r border-slate-800 bg-[#0f172a] relative hidden lg:flex flex-col shadow-[-10px_0_20px_rgba(0,0,0,0.3)] z-10">
-            <div className="px-4 py-3 bg-slate-800 text-xs font-bold tracking-widest text-slate-300 flex items-center justify-between border-b border-slate-700">
+        <div className="w-full h-full flex flex-col relative bg-[#111827]">
+            {/* Header */}
+            <div className="px-4 py-3 bg-slate-800 text-xs font-bold tracking-widest text-slate-300 flex items-center justify-between border-b border-slate-700 z-10 shrink-0">
                 <div className="flex items-center">
-                    <MapIcon size={14} className="mr-2 text-emerald-500" /> LIVE VIEWPORT
+                    <MapIcon size={14} className={`mr-2 ${activeWorkspace === 'globe' ? 'text-cyan-400' : 'text-emerald-500'}`} /> 
+                    {activeWorkspace === 'globe' ? 'GLOBE NEXUS' : 'LIVE VIEWPORT'}
                 </div>
                 <button 
                     onClick={activateDrawTool}
                     className="text-cyan-400 hover:text-cyan-200 bg-cyan-900/30 hover:bg-cyan-800/50 px-2 py-1 rounded transition-colors flex items-center border border-cyan-900/50"
                     title="Draw AOI Rectangle"
                 >
-                    <Edit size={14} className="mr-1" /> DRAW
+                    <Edit size={14} className="mr-1" /> DRAW AOI
                 </button>
             </div>
-            <div className="flex-1 relative bg-[#111827] overflow-hidden z-0 leaflet-dark-mode-container">
+            
+            {/* Map Container */}
+            <div className="flex-1 relative overflow-hidden z-0 leaflet-dark-mode-container">
                 <div ref={mapRef} style={{ width: '100%', height: '100%', backgroundColor: '#1f2937', touchAction: 'none' }}></div>
             </div>
-            <div className="bg-slate-900 p-4 border-t border-slate-700 text-xs text-slate-400 font-mono leading-relaxed">
-                <p className="text-emerald-400 font-bold mb-2 flex items-center">
-                   <Satellite size={14} className="mr-2" /> OSM Connected
-                </p>
-                <p className="opacity-80">Click <strong className="text-cyan-400">DRAW</strong> to drag a bounding box. It will spawn a universal <strong className="text-yellow-500">Spatial Extent</strong> node on the canvas.</p>
-            </div>
+            
+            {/* Footer Text (Only show if in compact Builder mode to save space in Globe mode) */}
+            {activeWorkspace === 'builder' && (
+                <div className="bg-slate-900 p-4 border-t border-slate-700 text-xs text-slate-400 font-mono leading-relaxed shrink-0">
+                    <p className="text-emerald-400 font-bold mb-2 flex items-center">
+                    <Satellite size={14} className="mr-2" /> OSM Connected
+                    </p>
+                    <p className="opacity-80">Click <strong className="text-cyan-400">DRAW</strong> to drag a bounding box. It will spawn a universal <strong className="text-yellow-500">Spatial Extent</strong> node on the canvas.</p>
+                </div>
+            )}
         </div>
     );
 });
