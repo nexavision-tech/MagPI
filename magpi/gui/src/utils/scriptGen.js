@@ -122,6 +122,10 @@ export const generatePythonScript = (nodes, connections, crs, processingScope) =
                 funcCall = `extent_poly = arcpy.Extent(${p.xmin}, ${p.ymin}, ${p.xmax}, ${p.ymax})\n${outVar} = arcpy.management.Clip(${inRasterVar}, extent_poly, "${outFileName}")`;
             }
         }
+        else if (n.toolId === 'mgt_project_raster') {
+            const outFileName = `proj_raster_${n.id.split('_')[1]}.tif`;
+            funcCall = `${outVar} = arcpy.management.ProjectRaster(${inRasterVar}, "${outFileName}", "${p.out_crs}", resampling_type="${p.resampling}")`;
+        }
         else if (n.toolId === 'mgt_buffer') {
             funcCall = `${outVar} = arcpy.analysis.Buffer(${primaryInVar}, "out_buf.shp", "${p.distance} ${p.unit || ''}".strip())`;
         }
