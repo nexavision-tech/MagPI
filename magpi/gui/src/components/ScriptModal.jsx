@@ -38,7 +38,7 @@ export default function ScriptModal({
         </div>
         
         <div className="p-6 bg-[#0d1117] flex-1 relative group">
-          <pre className="text-[13px] font-mono text-emerald-400/90 overflow-auto h-[400px] whitespace-pre-wrap selection:bg-emerald-900 selection:text-white leading-relaxed">
+          <pre className="text-[13px] font-mono text-emerald-400/90 overflow-auto h-[400px] whitespace-pre-wrap selection:bg-emerald-900 selection:text-white leading-relaxed custom-scrollbar">
             {generatedCode}
           </pre>
           
