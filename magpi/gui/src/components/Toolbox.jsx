@@ -5,7 +5,7 @@ import {
   ChevronDown, ChevronRight, MousePointer2, Trash2, 
   SlidersHorizontal, Wrench, Check, FolderOpen, ListFilter,
   Search, Copy, Info, Fingerprint, Loader2, AlertCircle, 
-  Cloud, Map as MapIcon, Satellite
+  Cloud, Map as MapIcon, Satellite, Box
 } from 'lucide-react';
 
 const TOOLBOX_CATEGORIES = [
@@ -18,7 +18,6 @@ const TOOLBOX_CATEGORIES = [
       { id: 'wfs_elevation', name: "Pull USGS DEM", type: 'input', icon: <Layers size={14}/>, color: 'bg-cyan-700', border: 'border-cyan-500', 
         description: "Extracts a 3D Digital Elevation Model (DEM) natively from the USGS 3DEP Web Coverage Service.",
         params: {} },
-      // NEW: NLCD Label Puller for AI Ground Truth
       { id: 'wfs_nlcd', name: "Pull NLCD Labels", type: 'input', icon: <Grid size={14}/>, color: 'bg-cyan-700', border: 'border-cyan-500', 
         description: "Streams categorical ground-truth labels (Land Cover, Impervious) from the USGS NLCD AWS S3 Bucket.",
         params: { year: 2023, product: { value: "LndCov", type: "select", options: ["LndCov", "FctImp", "ImpDsc"] } } },
@@ -42,13 +41,21 @@ const TOOLBOX_CATEGORIES = [
     ]
   },
   {
+    name: "3D Analyst (ddd)", icon: <Box size={18} className="text-orange-500/70" />,
+    tools: [
+      { id: 'ddd_las_to_raster', name: "LAS to Raster (DEM)", type: 'process', icon: <Layers size={14}/>, color: 'bg-orange-600', border: 'border-orange-500', 
+        description: "Converts a LiDAR point cloud (.las/.laz) into a continuous Digital Elevation Model (DEM) grid.",
+        params: { value_field: { value: "ELEVATION", type: "select", options: ["ELEVATION", "INTENSITY", "RETURN_NUMBER"] }, sampling_value: 1.0 } },
+    ]
+  },
+  {
     name: "Image Analyst (ia)", icon: <Layers size={18} className="text-emerald-500/70" />,
     tools: [
       { id: 'ia_ndvi', name: "NDVI Calculator", type: 'process', icon: <Leaf size={14}/>, color: 'bg-emerald-600', border: 'border-emerald-500', 
         description: "Calculates the Normalized Difference Vegetation Index using Near-Infrared and Red bands.",
         params: { nir_band: 4, red_band: 1 } },
       { id: 'ia_export_dl', name: "Export DL Tensors", type: 'process', icon: <Grid size={14}/>, color: 'bg-emerald-600', border: 'border-emerald-500', 
-        description: "Chips massive rasters into perfectly sized tensors (tiles) for PyTorch/TensorFlow deep learning models.",
+        description: "Chips massive rasters and paired ground-truth labels into perfectly sized tensors for PyTorch AI training.",
         params: { out_folder: "./dl_chips", tile_size: 256, stride: 128, shuffle: true } },
     ]
   },
@@ -69,8 +76,8 @@ const TOOLBOX_CATEGORIES = [
     name: "Data Management", icon: <Settings size={18} className="text-emerald-500/70" />,
     tools: [
       { id: 'mgt_clip', name: "Clip to AOI", type: 'process', icon: <Scissors size={14}/>, color: 'bg-slate-600', border: 'border-slate-500', 
-        description: "Extracts a spatial subset of a raster or vector based on a defined bounding box.",
-        params: { xmin: "", ymin: "", xmax: "", ymax: "" } },
+        description: "Extracts a spatial subset of a raster or vector based on a drawn Spatial Extent node.",
+        params: {} },
       { id: 'mgt_buffer', name: "Buffer", type: 'process', icon: <CircleDashed size={14}/>, color: 'bg-slate-600', border: 'border-slate-500', 
         description: "Creates polygon boundaries at a specified distance around input vector features.",
         params: { distance: 50, unit: { value: "Meters", type: "select", options: ["Meters", "Kilometers", "Feet", "Miles"] } } 
@@ -88,7 +95,7 @@ export default function Toolbox({
   selectedNode, updateNodeParam, updateNodeName, deleteNode, addNode, duplicateNode,
   openFileBrowser 
 }) {
-  const [expandedCategories, setExpandedCategories] = useState({ "Sovereign Cloud (wfs)": true, "Core Inputs": true, "Image Analyst (ia)": true, "GeoAI (geoai)": true, "Data Management": true });
+  const [expandedCategories, setExpandedCategories] = useState({ "Sovereign Cloud (wfs)": true, "Core Inputs": true, "Image Analyst (ia)": true, "GeoAI (geoai)": true, "Data Management": true, "3D Analyst (ddd)": true });
   const [searchQuery, setSearchQuery] = useState('');
   
   const [hoveredTool, setHoveredTool] = useState(null);
@@ -252,6 +259,10 @@ export default function Toolbox({
                       )}
                     </div>
                   )})}
+                  
+                  {Object.keys(selectedNode.params || {}).length === 0 && (
+                    <p className="text-xs text-slate-500 italic bg-slate-800/50 p-3 rounded-md text-center">Wire inputs directly into this node on the canvas to configure parameters dynamically.</p>
+                  )}
                 </div>
 
                 {selectedNode.params && selectedNode.params.file_path && (
