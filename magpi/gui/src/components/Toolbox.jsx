@@ -110,7 +110,8 @@ export default function Toolbox({
   selectedNode, updateNodeParam, updateNodeName, deleteNode, addNode, duplicateNode,
   openFileBrowser 
 }) {
-  const [expandedCategories, setExpandedCategories] = useState({ "Sovereign Cloud (wfs)": true, "Core Inputs": true, "Image Analyst (ia)": true, "GeoAI (geoai)": true, "Data Management": true, "3D Analyst (ddd)": true });
+  // CRITICAL UI FIX: Set initial state to an empty object `{}` so ALL categories are collapsed by default!
+  const [expandedCategories, setExpandedCategories] = useState({});
   const [searchQuery, setSearchQuery] = useState('');
   
   const [hoveredTool, setHoveredTool] = useState(null);
