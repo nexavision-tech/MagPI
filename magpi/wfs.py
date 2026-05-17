@@ -116,22 +116,21 @@ def PullUSGSElevation(extent, out_raster, resolution_width=1000, resolution_heig
         return Result(None, status=3)
 
 def PullNLCD(extent, out_raster, year=2021, product="Land_Cover"):
-    """
-    Bypasses the AWS 'Requester Pays' 403 wall by using the official MRLC GeoServer WCS endpoint!
-    Downloads categorical ground-truth labels directly based on the AOI.
-    """
-    logger.info(f"Initializing Ground Truth Label Pull (MRLC GeoServer WCS: NLCD {year})...")
     try:
+        import numpy as np
         if hasattr(extent, 'XMin'): min_lon, min_lat, max_lon, max_lat = extent.XMin, extent.YMin, extent.XMax, extent.YMax
         else: min_lon, min_lat, max_lon, max_lat = map(float, str(extent).split())
 
-        # Construct the WCS Request to bypass the AWS S3 paywall
+        # FIX: Calculate exact WCS pixel dimensions based on native 30m NLCD resolution!
+        lon_dist = (max_lon - min_lon) * 111320 * np.cos(np.radians((min_lat + max_lat) / 2))
+        lat_dist = (max_lat - min_lat) * 111320
+        width_px = max(10, int(abs(lon_dist) / 30.0))
+        height_px = max(10, int(abs(lat_dist) / 30.0))
+
         coverage_id = f"mrlc_display:NLCD_{year}_{product}_L48"
-        
-        # CRITICAL FIX: Added width=1024&height=1024 so the server knows how many pixels to generate!
         wcs_url = (f"https://www.mrlc.gov/geoserver/wcs?service=WCS&version=1.0.0&request=GetCoverage"
                    f"&coverage={coverage_id}&bbox={min_lon},{min_lat},{max_lon},{max_lat}"
-                   f"&crs=EPSG:4326&format=GeoTIFF&width=1024&height=1024")
+                   f"&crs=EPSG:4326&format=GeoTIFF&width={width_px}&height={height_px}")
 
         logger.info(f"Streaming NLCD matrix directly from MRLC WCS...")
         response = requests.get(wcs_url, stream=True)
