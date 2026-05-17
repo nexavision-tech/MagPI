@@ -14,11 +14,14 @@ const TOOLBOX_CATEGORIES = [
     tools: [
       { id: 'wfs_sentinel2', name: "Pull Sentinel-2", type: 'input', icon: <Satellite size={14}/>, color: 'bg-cyan-700', border: 'border-cyan-500', 
         description: "Streams Cloud Optimized GeoTIFFs (COGs) from AWS Earth Search based on an AOI. Includes temporal filtering.",
-        // ADDED TEMPORAL FILTERS (Dates)
         params: { max_cloud_cover: 10, start_date: "2023-01-01", end_date: "2023-12-31" } },
       { id: 'wfs_elevation', name: "Pull USGS DEM", type: 'input', icon: <Layers size={14}/>, color: 'bg-cyan-700', border: 'border-cyan-500', 
         description: "Extracts a 3D Digital Elevation Model (DEM) natively from the USGS 3DEP Web Coverage Service.",
         params: {} },
+      // NEW: NLCD Label Puller for AI Ground Truth
+      { id: 'wfs_nlcd', name: "Pull NLCD Labels", type: 'input', icon: <Grid size={14}/>, color: 'bg-cyan-700', border: 'border-cyan-500', 
+        description: "Streams categorical ground-truth labels (Land Cover, Impervious) from the USGS NLCD AWS S3 Bucket.",
+        params: { year: 2023, product: { value: "LndCov", type: "select", options: ["LndCov", "FctImp", "ImpDsc"] } } },
       { id: 'wfs_census', name: "US Census Tracts", type: 'input', icon: <MapIcon size={14}/>, color: 'bg-cyan-700', border: 'border-cyan-500', 
         description: "Downloads official TIGER shapefiles directly from the US Census Bureau.",
         params: { state_fips: 12, county_fips: 95, year: 2020 } }
@@ -27,21 +30,9 @@ const TOOLBOX_CATEGORIES = [
   {
     name: "Core Inputs", icon: <Database size={18} className="text-yellow-500/70" />,
     tools: [
-      // NEW: Universal Extent Node
       { id: 'core_extent', name: "Spatial Extent (AOI)", type: 'input', icon: <Hexagon size={14}/>, color: 'bg-yellow-600', border: 'border-yellow-500', 
         description: "A universal bounding box. Wire this into Cloud Pullers or Clip tools to define an area of interest.",
         params: { xmin: "-81.450", ymin: "28.450", xmax: "-81.250", ymax: "28.600" } },
-      { id: 'load_raster', name: "Input Raster", type: 'input', icon: <ImageIcon size={14}/>, color: 'bg-blue-600', border: 'border-blue-500', 
-        description: "Loads a multi-band imagery file (TIFF, IMG, JP2) into the MagPI processing matrix.",
-        params: { file_path: "./test_data/noaa_florida/2021_4BandImagery.tif" } },
-      { id: 'load_vector', name: "Input Vector", type: 'input', icon: <Hexagon size={14}/>, color: 'bg-blue-600', border: 'border-blue-500', 
-        description: "Loads a vector feature class or shapefile containing points, lines, or polygons.",
-        params: { file_path: "./test_data/Orange_County_Tracts.shp" } },
-    ]
-  },
-  {
-    name: "Data Ingestion", icon: <Database size={18} className="text-emerald-500/70" />,
-    tools: [
       { id: 'load_raster', name: "Input Raster", type: 'input', icon: <ImageIcon size={14}/>, color: 'bg-blue-600', border: 'border-blue-500', 
         description: "Loads a multi-band imagery file (TIFF, IMG, JP2) into the MagPI processing matrix.",
         params: { file_path: "./test_data/noaa_florida/2021_4BandImagery.tif" } },
@@ -97,7 +88,7 @@ export default function Toolbox({
   selectedNode, updateNodeParam, updateNodeName, deleteNode, addNode, duplicateNode,
   openFileBrowser 
 }) {
-  const [expandedCategories, setExpandedCategories] = useState({ "Sovereign Cloud (wfs)": true, "Data Ingestion": true, "Image Analyst (ia)": true, "GeoAI (geoai)": true, "Data Management": true });
+  const [expandedCategories, setExpandedCategories] = useState({ "Sovereign Cloud (wfs)": true, "Core Inputs": true, "Image Analyst (ia)": true, "GeoAI (geoai)": true, "Data Management": true });
   const [searchQuery, setSearchQuery] = useState('');
   
   const [hoveredTool, setHoveredTool] = useState(null);
@@ -167,7 +158,7 @@ export default function Toolbox({
         <button onClick={() => setActiveRightTab('inspector')} className={`flex-1 py-4 text-xs font-bold uppercase tracking-widest transition-all flex items-center justify-center ${activeRightTab === 'inspector' ? 'text-emerald-400 border-b-2 border-emerald-400 bg-slate-800' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/50'}`}><SlidersHorizontal size={14} className="mr-2" /> Params</button>
       </div>
       
-      <div className="flex-1 overflow-y-auto bg-slate-800 flex flex-col">
+      <div className="flex-1 overflow-y-auto bg-slate-800 flex flex-col custom-scrollbar">
         {activeRightTab === 'toolbox' && (
           <>
             <div className="p-3 pb-1 shrink-0">
@@ -176,7 +167,7 @@ export default function Toolbox({
                 <input type="text" placeholder="Search tools..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-md pl-9 pr-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-500 transition-colors placeholder:text-slate-600" />
               </div>
             </div>
-            <div className="p-3 space-y-3 flex-1 overflow-y-auto">
+            <div className="p-3 space-y-3 flex-1 overflow-y-auto custom-scrollbar">
               {filteredCategories.length === 0 ? ( <div className="text-center text-slate-500 text-xs mt-4">No tools found for "{searchQuery}"</div> ) : (
                 filteredCategories.map((cat, idx) => (
                   <div key={idx} className="bg-slate-900/80 rounded-lg border border-slate-700/80 overflow-hidden shadow-sm">
