@@ -31,7 +31,7 @@ const MapViewport = React.memo(({ onAoiDrawn, selectedNode }) => {
         const drawControl = new L.Control.Draw({
             draw: {
                 polyline: false, polygon: false, circle: false, marker: false, circlemarker: false,
-                rectangle: { shapeOptions: { color: '#f69d3c', weight: 2, fillOpacity: 0.1 } }
+                rectangle: { shapeOptions: { color: '#00ffff', weight: 2, fillOpacity: 0.15 } } // Kepler Cyan
             },
             edit: false 
         });
@@ -70,30 +70,35 @@ const MapViewport = React.memo(({ onAoiDrawn, selectedNode }) => {
     const selectedNodeId = selectedNode?.id;
     const selectedNodeParamsString = JSON.stringify(selectedNode?.params || {});
 
+    // THE OVERLAY ENGINE
     useEffect(() => {
         if (!mapInstance.current || !highlightGroup.current) return;
 
+        // Clear the map every time to preserve screen real estate!
         highlightGroup.current.clearLayers();
 
         if (selectedNode && selectedNode.params) {
             const p = selectedNode.params;
 
-            if (selectedNode.toolId === 'mgt_clip' && p.xmin && p.ymin && p.xmax && p.ymax) {
+            // Render Extent Nodes or Clip Nodes
+            if ((selectedNode.toolId === 'core_extent' || selectedNode.toolId === 'mgt_clip') && p.xmin && p.ymin && p.xmax && p.ymax) {
                 try {
                     const bounds = [[parseFloat(p.ymin), parseFloat(p.xmin)], [parseFloat(p.ymax), parseFloat(p.xmax)]];
-                    const rect = L.rectangle(bounds, { color: "#f69d3c", weight: 2, fillOpacity: 0.2, dashArray: '5, 5' });
+                    // Kepler.gl Cyberpunk Cyan Box
+                    const rect = L.rectangle(bounds, { color: "#00ffff", weight: 2, fillOpacity: 0.15, dashArray: '4, 4' });
                     highlightGroup.current.addLayer(rect);
                     mapInstance.current.flyToBounds(bounds, { duration: 1.0, padding: [20, 20] });
                 } catch (e) {
-                    console.log("Invalid coordinates in Clip Node.");
+                    console.log("Invalid coordinates in Node.");
                 }
             } 
+            // Render Raster Footprints dynamically
             else if (selectedNode.toolId === 'load_raster' && p.file_path) {
-                // TRUE DYNAMIC FOOTPRINT! We ask the Daemon where the raster lives on Earth!
                 fetch(`http://localhost:8080/api/describe?file=${encodeURIComponent(p.file_path)}`)
                     .then(res => res.json())
                     .then(data => {
                         if (data && data.wgs84_extent) {
+                            // Data footprint is a deep blue
                             const rect = L.rectangle(data.wgs84_extent, { color: "#3b82f6", weight: 2, fillOpacity: 0.1 });
                             highlightGroup.current.addLayer(rect);
                             mapInstance.current.flyToBounds(data.wgs84_extent, { duration: 1.0, padding: [20, 20] });
@@ -107,7 +112,7 @@ const MapViewport = React.memo(({ onAoiDrawn, selectedNode }) => {
     const activateDrawTool = () => {
         if (mapInstance.current) {
             new L.Draw.Rectangle(mapInstance.current, { 
-                shapeOptions: { color: '#f69d3c', weight: 2, fillOpacity: 0.2 } 
+                shapeOptions: { color: '#00ffff', weight: 2, fillOpacity: 0.15 } 
             }).enable();
         }
     };
@@ -120,7 +125,7 @@ const MapViewport = React.memo(({ onAoiDrawn, selectedNode }) => {
                 </div>
                 <button 
                     onClick={activateDrawTool}
-                    className="text-emerald-500 hover:text-white bg-emerald-900/30 hover:bg-emerald-600 px-2 py-1 rounded transition-colors flex items-center border border-emerald-900/50"
+                    className="text-cyan-400 hover:text-cyan-200 bg-cyan-900/30 hover:bg-cyan-800/50 px-2 py-1 rounded transition-colors flex items-center border border-cyan-900/50"
                     title="Draw AOI Rectangle"
                 >
                     <Edit size={14} className="mr-1" /> DRAW
@@ -133,7 +138,7 @@ const MapViewport = React.memo(({ onAoiDrawn, selectedNode }) => {
                 <p className="text-emerald-400 font-bold mb-2 flex items-center">
                    <Satellite size={14} className="mr-2" /> OSM Connected
                 </p>
-                <p className="opacity-80">Click the <strong className="text-emerald-400">DRAW</strong> button above to drag a bounding box. It will instantly generate a Clipping node on the canvas.</p>
+                <p className="opacity-80">Click <strong className="text-cyan-400">DRAW</strong> to drag a bounding box. It will spawn a universal <strong className="text-yellow-500">Spatial Extent</strong> node on the canvas.</p>
             </div>
         </div>
     );
