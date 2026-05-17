@@ -127,9 +127,11 @@ def PullNLCD(extent, out_raster, year=2021, product="Land_Cover"):
 
         # Construct the WCS Request to bypass the AWS S3 paywall
         coverage_id = f"mrlc_display:NLCD_{year}_{product}_L48"
+        
+        # CRITICAL FIX: Added width=1024&height=1024 so the server knows how many pixels to generate!
         wcs_url = (f"https://www.mrlc.gov/geoserver/wcs?service=WCS&version=1.0.0&request=GetCoverage"
                    f"&coverage={coverage_id}&bbox={min_lon},{min_lat},{max_lon},{max_lat}"
-                   f"&crs=EPSG:4326&format=GeoTIFF")
+                   f"&crs=EPSG:4326&format=GeoTIFF&width=1024&height=1024")
 
         logger.info(f"Streaming NLCD matrix directly from MRLC WCS...")
         response = requests.get(wcs_url, stream=True)
