@@ -99,6 +99,21 @@ export const generatePythonScript = (nodes, connections, crs, processingScope) =
             funcCall = `${outVar} = arcpy.ia.NDVI(${primaryInVar}, nir_band_id=${p.nir_band}, red_band_id=${p.red_band})`;
         }
         else if (n.toolId === 'ia_export_dl') {
+            // FIXED: Now correctly assigns the Image and the Label independently!
+            funcCall = `${outVar} = arcpy.ia.ExportTrainingDataForDeepLearning(in_raster=getattr(${inRasterVar}, 'name', ${inRasterVar}), out_folder="${p.out_folder}", in_class_data=getattr(${inLabelVar}, 'name', ${inLabelVar}), tile_size_x=${p.tile_size}, tile_size_y=${p.tile_size}, stride_x=${p.stride}, stride_y=${p.stride}, shuffle_chips=${p.shuffle ? 'True' : 'False'})`;
+        }
+
+        // 4. 3D Analyst (LiDAR)
+        else if (n.toolId === 'ddd_las_to_raster') {
+            const outFileName = `lidar_dem_${n.id.split('_')[1]}.tif`;
+            funcCall = `${outVar} = arcpy.ddd.LasDatasetToRaster(${primaryInVar}, "${outFileName}", value_field="${p.value_field}", sampling_value=${p.sampling_value})`;
+        }
+
+        // 5. Image Analyst
+        else if (n.toolId === 'ia_ndvi') {
+            funcCall = `${outVar} = arcpy.ia.NDVI(${primaryInVar}, nir_band_id=${p.nir_band}, red_band_id=${p.red_band})`;
+        }
+        else if (n.toolId === 'ia_export_dl') {
             funcCall = `${outVar} = arcpy.ia.ExportTrainingDataForDeepLearning(in_raster=getattr(${inRasterVar}, 'name', ${inRasterVar}), out_folder="${p.out_folder}", in_class_data=getattr(${inVectorVar}, 'name', ${inVectorVar}), tile_size_x=${p.tile_size}, tile_size_y=${p.tile_size}, stride_x=${p.stride}, stride_y=${p.stride}, shuffle_chips=${p.shuffle ? 'True' : 'False'})`;
         }
 

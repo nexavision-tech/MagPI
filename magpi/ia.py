@@ -73,6 +73,20 @@ def ExportTrainingDataForDeepLearning(in_raster, out_folder, in_class_data=None,
     if label_path: logger.info(f"Ground Truth Labels: {label_path}")
     logger.info(f"Target Tile Size: {tile_size_x}x{tile_size_y} px (Stride: {stride_x} px)")
 
+    # --- ROBUST FILE CHECKING (The WCS/STAC Guard) ---
+    # If a cloud service fails, it often returns an HTTP 200 but writes XML/HTML to the file.
+    # This catches the error before GDAL crashes the entire pipeline.
+    for path, name in [(raster_path, "Source Imagery"), (label_path, "Ground Truth Labels")]:
+        if path and str(path) != 'None' and os.path.exists(path):
+            try:
+                with open(path, 'rb') as f:
+                    header = f.read(250).decode('utf-8', errors='ignore').lower()
+                    if "<html>" in header or "<?xml" in header or "<serviceexception" in header or "<ows:exception" in header:
+                        logger.error(f"CORRUPT CLOUD ASSET: {name} ('{os.path.basename(path)}') is an XML/HTML error page, not a GeoTIFF. The server likely rejected the bounding box.")
+                        return Result(None, status=3)
+            except Exception:
+                pass
+
     try:
         import rasterio
         from rasterio.windows import Window
@@ -80,12 +94,15 @@ def ExportTrainingDataForDeepLearning(in_raster, out_folder, in_class_data=None,
         images_dir = os.path.join(out_folder, "images")
         labels_dir = os.path.join(out_folder, "labels")
         os.makedirs(images_dir, exist_ok=True)
-        if label_path: os.makedirs(labels_dir, exist_ok=True)
+        
+        # Ensure label path is valid and not a string 'None' from script generator
+        has_labels = label_path and str(label_path) != 'None'
+        if has_labels: os.makedirs(labels_dir, exist_ok=True)
 
         chip_count = 0
         
         with rasterio.open(raster_path) as src_img:
-            src_lbl = rasterio.open(label_path) if label_path else None
+            src_lbl = rasterio.open(label_path) if has_labels else None
             
             width = src_img.width
             height = src_img.height
