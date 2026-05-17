@@ -5,7 +5,7 @@ import {
   ChevronDown, ChevronRight, MousePointer2, Trash2, 
   SlidersHorizontal, Wrench, Check, FolderOpen, ListFilter,
   Search, Copy, Info, Fingerprint, Loader2, AlertCircle, 
-  Cloud, Map as MapIcon, Satellite, Box, Globe
+  Cloud, Map as MapIcon, Satellite, Box, Globe, DownloadCloud
 } from 'lucide-react';
 
 const TOOLBOX_CATEGORIES = [
@@ -19,12 +19,14 @@ const TOOLBOX_CATEGORIES = [
         description: "Extracts a 3D Digital Elevation Model (DEM) natively from the USGS 3DEP Web Coverage Service.",
         params: {} },
       { id: 'wfs_nlcd', name: "Pull NLCD Labels", type: 'input', icon: <Grid size={14}/>, color: 'bg-cyan-700', border: 'border-cyan-500', 
-        description: "Streams categorical ground-truth labels (Land Cover, Impervious) from the USGS NLCD AWS S3 Bucket.",
-        params: { year: 2023, product: { value: "LndCov", type: "select", options: ["LndCov", "FctImp", "ImpDsc"] } } },
+        description: "Streams categorical ground-truth labels via the free MRLC GeoServer WCS (bypassing the AWS 403 block).",
+        params: { year: { value: "2021", type: "select", options: ["2021", "2019", "2016", "2011", "2001"] }, product: { value: "Land_Cover", type: "select", options: ["Land_Cover", "Impervious"] } } },
+      { id: 'wfs_sciencebase', name: "USGS ScienceBase", type: 'input', icon: <DownloadCloud size={14}/>, color: 'bg-cyan-700', border: 'border-cyan-500', 
+        description: "Downloads raw science assets directly from the USGS ScienceBase catalog using sciencebasepy.",
+        params: { item_id: "655ceb8ad34ee4b6e05cc51a", out_folder: "./sb_downloads" } },
       { id: 'wfs_census', name: "US Census Tracts", type: 'input', icon: <MapIcon size={14}/>, color: 'bg-cyan-700', border: 'border-cyan-500', 
         description: "Downloads official TIGER shapefiles directly from the US Census Bureau.",
         params: { state_fips: 12, county_fips: 95, year: 2020 } },
-      // NEW: Universal Global Data Puller
       { id: 'wfs_universal', name: "Universal REST/WFS", type: 'input', icon: <Globe size={14}/>, color: 'bg-cyan-700', border: 'border-cyan-500', 
         description: "Connects to ANY global Open Data portal (e.g., Thai MOT, EU Inspire) via GeoJSON or REST API endpoints.",
         params: { url: "https://datagov.mot.go.th/dataset/...", format: { value: "GeoJSON", type: "select", options: ["GeoJSON", "ESRI REST", "WFS"] } } }

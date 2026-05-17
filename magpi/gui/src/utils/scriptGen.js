@@ -75,6 +75,10 @@ export const generatePythonScript = (nodes, connections, crs, processingScope) =
             const outFileName = `nlcd_labels_${n.id.split('_')[1]}.tif`;
             funcCall = `${outVar} = arcpy.wfs.PullNLCD(${inExtentVar}, "${outFileName}", year=${p.year}, product="${p.product}")`;
         }
+        else if (n.toolId === 'wfs_sciencebase') {
+            // NEW: ScienceBase Extraction!
+            funcCall = `${outVar} = arcpy.wfs.PullScienceBase("${p.item_id}", "${p.out_folder}")`;
+        }
         else if (n.toolId === 'wfs_census') {
             const outFileName = `census_tracts_${n.id.split('_')[1]}.shp`;
             funcCall = `${outVar} = arcpy.wfs.GetCensusTracts(${p.state_fips}, ${p.county_fips}, ${p.year}, "${outFileName}")`;
@@ -95,7 +99,6 @@ export const generatePythonScript = (nodes, connections, crs, processingScope) =
             funcCall = `${outVar} = arcpy.ia.NDVI(${primaryInVar}, nir_band_id=${p.nir_band}, red_band_id=${p.red_band})`;
         }
         else if (n.toolId === 'ia_export_dl') {
-            // MULTI-WIRE MAGIC: It finds the Image wire AND the Ground Truth Label wire!
             funcCall = `${outVar} = arcpy.ia.ExportTrainingDataForDeepLearning(in_raster=getattr(${inRasterVar}, 'name', ${inRasterVar}), out_folder="${p.out_folder}", in_class_data=getattr(${inVectorVar}, 'name', ${inVectorVar}), tile_size_x=${p.tile_size}, tile_size_y=${p.tile_size}, stride_x=${p.stride}, stride_y=${p.stride}, shuffle_chips=${p.shuffle ? 'True' : 'False'})`;
         }
 
@@ -110,7 +113,6 @@ export const generatePythonScript = (nodes, connections, crs, processingScope) =
         // 7. Data Management
         else if (n.toolId === 'mgt_clip') {
             const outFileName = `aoi_clip_${n.id.split('_')[1]}.tif`;
-            // If they wired an extent directly into the clip tool, use it! Otherwise, use the manual params.
             if (inExtentVar !== 'None') {
                 funcCall = `${outVar} = arcpy.management.Clip(${inRasterVar}, ${inExtentVar}, "${outFileName}")`;
             } else {
