@@ -1,143 +1,142 @@
 # magpi/ia.py
-import rasterio
-from rasterio.windows import Window
-import numpy as np
-import geopandas as gpd
-import logging
 import os
-import random
-import csv
+import logging
+import numpy as np
 from .objects import Result
-from .sa import Raster
 
 logger = logging.getLogger("MagPI_ImageAnalyst")
 
 def NDVI(in_raster, nir_band_id=4, red_band_id=1):
     """
     MagPI Translation of arcpy.ia.NDVI.
-    Calculates the Normalized Difference Vegetation Index using Near-Infrared and Red bands.
+    Calculates Normalized Difference Vegetation Index using vectorized NumPy math.
     Formula: (NIR - Red) / (NIR + Red)
     """
-    logger.info(f"Executing Open-Source NDVI on: {in_raster}")
-    try:
-        with rasterio.open(in_raster) as src:
-            # Check if the raster actually has enough bands
-            if src.count < max(nir_band_id, red_band_id):
-                logger.error(f"NDVI Failed: Raster only has {src.count} bands. Requires at least {max(nir_band_id, red_band_id)}.")
-                return Result(None, status=3)
+    if hasattr(in_raster, 'name'): raster_path = in_raster.name
+    elif hasattr(in_raster, 'output'): raster_path = in_raster.output
+    else: raster_path = str(in_raster)
 
-            logger.info(f"Reading Band {nir_band_id} (NIR) and Band {red_band_id} (Red) into memory...")
+    out_raster = raster_path.replace(".tif", "_NDVI.tif")
+    logger.info(f"Executing Open-Source NDVI Calculation on: {raster_path}")
+
+    try:
+        import rasterio
+        with rasterio.open(raster_path) as src:
+            # Read the requested bands as 32-bit floats to avoid integer division errors
             nir = src.read(nir_band_id).astype('float32')
             red = src.read(red_band_id).astype('float32')
             
-            # Suppress divide-by-zero warnings for empty pixel regions
+            # Suppress division-by-zero warnings for empty pixels
             np.seterr(divide='ignore', invalid='ignore')
             
-            # The C-backend NumPy Band Math
-            ndvi_array = (nir - red) / (nir + red)
+            # Vectorized Matrix Math (Blazing Fast)
+            ndvi = (nir - red) / (nir + red)
             
-            # Clean up NaNs from divide-by-zero back to a standard NoData value (-9999.0)
-            ndvi_array = np.nan_to_num(ndvi_array, nan=-9999.0)
+            # Handle NaN values (where NIR+Red was 0)
+            ndvi = np.nan_to_num(ndvi, nan=-1.0)
             
             out_meta = src.meta.copy()
             out_meta.update({
                 "driver": "GTiff",
                 "count": 1,
-                "dtype": 'float32',
-                "nodata": -9999.0
+                "dtype": 'float32'
             })
             
-            out_name = str(in_raster).replace(".tif", "_NDVI.tif")
-            
-            with rasterio.open(out_name, 'w', **out_meta) as dst:
-                dst.write(ndvi_array, 1)
-                
-            logger.info(f"NDVI calculation complete. Saved to: {out_name}")
-            return Raster(out_name, array=ndvi_array, meta=out_meta)
-            
+            with rasterio.open(out_raster, "w", **out_meta) as dest:
+                dest.write(ndvi, 1)
+
+        logger.info(f"NDVI successfully generated: {out_raster}")
+        return Result(out_raster)
+
     except Exception as e:
-        logger.error(f"Failed to calculate NDVI: {e}")
+        logger.error(f"NDVI Calculation failed: {e}")
         return Result(None, status=3)
 
-def ExportTrainingDataForDeepLearning(in_raster, out_folder, in_class_data=None, image_chip_format="TIFF", tile_size_x=256, tile_size_y=256, stride_x=128, stride_y=128, meta_data_format="PASCAL_VOC", shuffle_chips=True, apply_jitter=False):
+def ExportTrainingDataForDeepLearning(in_raster, out_folder, in_class_data=None, image_chip_format="TIFF", tile_size_x=256, tile_size_y=256, stride_x=128, stride_y=128, output_nofeature_tiles="ONLY_TILES_WITH_FEATURES", metadata_format="Classified_Tiles", start_index=0, class_value_field=None, buffer_radius=None, input_mask_polygons=None, rotation_angle=0, reference_system="MAP_SPACE", processing_mode="PROCESS_AS_MOSAICKED_IMAGE", blacken_around_feature="NO_BLACKEN", crop_mode="FIXED_SIZE", input_point_features=None, target_classes=None, shuffle_chips=False):
     """
     MagPI Translation of arcpy.ia.ExportTrainingDataForDeepLearning.
-    Chips massive rasters into small training tensors for PyTorch/TensorFlow.
-    *Enhanced with MagPI Jitter & Anti-Spatial-Autocorrelation Shuffling.*
+    Slices massive optical rasters and their corresponding ground-truth label rasters
+    into perfectly paired Tensors (Chips) for PyTorch / TensorFlow Semantic Segmentation.
     """
-    logger.info(f"Executing Open-Source Deep Learning Export on: {in_raster}")
+    if hasattr(in_raster, 'name'): raster_path = in_raster.name
+    elif hasattr(in_raster, 'output'): raster_path = in_raster.output
+    else: raster_path = str(in_raster)
+
+    label_path = None
+    if in_class_data:
+        if hasattr(in_class_data, 'name'): label_path = in_class_data.name
+        elif hasattr(in_class_data, 'output'): label_path = in_class_data.output
+        else: label_path = str(in_class_data)
+
+    logger.info(f"Initializing Deep Learning Tensor Chipper...")
+    logger.info(f"Source Imagery: {raster_path}")
+    if label_path: logger.info(f"Ground Truth Labels: {label_path}")
+    logger.info(f"Target Tile Size: {tile_size_x}x{tile_size_y} px (Stride: {stride_x} px)")
+
     try:
-        if not os.path.exists(out_folder):
-            os.makedirs(out_folder)
-            
-        img_folder = os.path.join(out_folder, "images")
-        label_folder = os.path.join(out_folder, "labels")
-        os.makedirs(img_folder, exist_ok=True)
-        os.makedirs(label_folder, exist_ok=True)
+        import rasterio
+        from rasterio.windows import Window
+        
+        images_dir = os.path.join(out_folder, "images")
+        labels_dir = os.path.join(out_folder, "labels")
+        os.makedirs(images_dir, exist_ok=True)
+        if label_path: os.makedirs(labels_dir, exist_ok=True)
 
-        chip_manifest = [] # To track and shuffle our data
-
-        with rasterio.open(in_raster) as src:
-            logger.info(f"Source Raster: {src.width}x{src.height} pixels, {src.count} bands.")
-            logger.info(f"Chipping into {tile_size_x}x{tile_size_y} tensors with stride {stride_x}...")
+        chip_count = 0
+        
+        with rasterio.open(raster_path) as src_img:
+            src_lbl = rasterio.open(label_path) if label_path else None
             
-            chip_count = 0
+            width = src_img.width
+            height = src_img.height
             
-            # Slide the window across the massive raster
-            for j in range(0, src.height - tile_size_y + 1, stride_y):
-                for i in range(0, src.width - tile_size_x + 1, stride_x):
+            # Sliding window iteration
+            for y in range(0, height - tile_size_y + 1, stride_y):
+                for x in range(0, width - tile_size_x + 1, stride_x):
                     
-                    # Apply Jitter (Data Augmentation Shift) if requested
-                    offset_x = random.randint(-10, 10) if apply_jitter else 0
-                    offset_y = random.randint(-10, 10) if apply_jitter else 0
+                    window = Window(x, y, tile_size_x, tile_size_y)
+                    img_array = src_img.read(window=window)
                     
-                    # Ensure jitter doesn't push us off the edge of the image
-                    win_x = max(0, min(i + offset_x, src.width - tile_size_x))
-                    win_y = max(0, min(j + offset_y, src.height - tile_size_y))
-                    
-                    window = Window(win_x, win_y, tile_size_x, tile_size_y)
-                    chip_array = src.read(window=window)
-                    
-                    # Skip chips that are mostly NoData/Black (e.g., edges of aerial photos)
-                    if np.all(chip_array == 0):
+                    # Check for Nodatas or empty chips
+                    if np.all(img_array == 0) or np.all(img_array == src_img.nodata):
                         continue
-                        
-                    chip_name = f"chip_{chip_count:06d}.tif"
-                    out_path = os.path.join(img_folder, chip_name)
                     
-                    out_meta = src.meta.copy()
+                    chip_name = f"chip_{chip_count:05d}.tif"
+                    img_out = os.path.join(images_dir, chip_name)
+                    
+                    # Write Image Chip
+                    out_meta = src_img.meta.copy()
                     out_meta.update({
                         "height": tile_size_y,
                         "width": tile_size_x,
-                        "transform": src.window_transform(window)
+                        "transform": src_img.window_transform(window)
                     })
+                    with rasterio.open(img_out, "w", **out_meta) as dest_img:
+                        dest_img.write(img_array)
                     
-                    with rasterio.open(out_path, "w", **out_meta) as dest:
-                        dest.write(chip_array)
-                        
-                    # Add to manifest for shuffling
-                    chip_manifest.append({"image": chip_name, "label": "unclassified_for_now"})
+                    # Write corresponding Label Chip
+                    if src_lbl:
+                        lbl_array = src_lbl.read(window=window)
+                        lbl_out = os.path.join(labels_dir, chip_name)
+                        lbl_meta = src_lbl.meta.copy()
+                        lbl_meta.update({
+                            "height": tile_size_y,
+                            "width": tile_size_x,
+                            "transform": src_lbl.window_transform(window)
+                        })
+                        with rasterio.open(lbl_out, "w", **lbl_meta) as dest_lbl:
+                            dest_lbl.write(lbl_array)
+                            
                     chip_count += 1
-                    
-        # The Shuffling Protocol: Destroy Spatial Auto-Correlation
-        if shuffle_chips:
-            logger.info("Shuffling training data to prevent spatial auto-correlation...")
-            random.shuffle(chip_manifest)
+
+            if src_lbl: src_lbl.close()
             
-        # Write the manifest CSV for PyTorch Dataloaders to read
-        manifest_path = os.path.join(out_folder, "train_manifest.csv")
-        with open(manifest_path, 'w', newline='') as csvfile:
-            writer = csv.DictWriter(csvfile, fieldnames=["image", "label"])
-            writer.writeheader()
-            for row in chip_manifest:
-                writer.writerow(row)
-                    
-        logger.info(f"Deep Learning Export complete. Generated {chip_count} training chips at {out_folder}")
+        logger.info(f"SUCCESS: Generated {chip_count} training tensors in {out_folder}")
         return Result(out_folder)
 
     except ImportError:
-        logger.error("Missing dependency. Run: conda install -c conda-forge rasterio numpy -y")
+        logger.error("Missing dependency: 'rasterio'.")
         return Result(None, status=3)
     except Exception as e:
-        logger.error(f"Failed to export training data: {e}")
+        logger.error(f"Failed to export deep learning tensors: {e}")
         return Result(None, status=3)
