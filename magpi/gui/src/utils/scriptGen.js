@@ -53,20 +53,25 @@ export const generatePythonScript = (nodes, connections, crs, processingScope) =
         // WFS Sovereign Cloud
         else if (n.toolId === 'wfs_sentinel2') {
             const outFileName = `s2_cloud_extract_${n.id.split('_')[1]}.tif`;
-            funcCall = `${outVar} = arcpy.wfs.PullSentinel2(${inVar}, "${outFileName}", max_cloud_cover=${p.max_cloud_cover}, date_range="${p.start_date}/${p.end_date}")`;
+            funcCall = `${outVar} = arcpy.wfs.PullSentinel2(${inExtentVar}, "${outFileName}", max_cloud_cover=${p.max_cloud_cover}, date_range="${p.start_date}/${p.end_date}")`;
         }
         else if (n.toolId === 'wfs_elevation') {
             const outFileName = `usgs_dem_extract_${n.id.split('_')[1]}.tif`;
-            funcCall = `${outVar} = arcpy.wfs.PullUSGSElevation(${inVar}, "${outFileName}")`;
+            funcCall = `${outVar} = arcpy.wfs.PullUSGSElevation(${inExtentVar}, "${outFileName}")`;
         }
         else if (n.toolId === 'wfs_nlcd') {
             const outFileName = `nlcd_labels_${n.id.split('_')[1]}.tif`;
-            // Uses the connection from the Extent Node, requests the exact product year and type!
-            funcCall = `${outVar} = arcpy.wfs.PullNLCD(${inVar}, "${outFileName}", year=${p.year}, product="${p.product}")`;
+            funcCall = `${outVar} = arcpy.wfs.PullNLCD(${inExtentVar}, "${outFileName}", year=${p.year}, product="${p.product}")`;
         }
         else if (n.toolId === 'wfs_census') {
             const outFileName = `census_tracts_${n.id.split('_')[1]}.shp`;
             funcCall = `${outVar} = arcpy.wfs.GetCensusTracts(${p.state_fips}, ${p.county_fips}, ${p.year}, "${outFileName}")`;
+        }
+        // NEW: Universal Data Puller Translation!
+        else if (n.toolId === 'wfs_universal') {
+            const outFileName = `global_data_extract_${n.id.split('_')[1]}.shp`;
+            // Uses the server.py module we wrote earlier to download the API data!
+            funcCall = `${outVar} = arcpy.server.DownloadArcGISRESTFeatureLayer("${p.url}", "${outFileName}")`;
         }
 
         // Image Analyst

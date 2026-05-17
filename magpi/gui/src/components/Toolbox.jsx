@@ -23,9 +23,14 @@ const TOOLBOX_CATEGORIES = [
         params: { year: 2023, product: { value: "LndCov", type: "select", options: ["LndCov", "FctImp", "ImpDsc"] } } },
       { id: 'wfs_census', name: "US Census Tracts", type: 'input', icon: <MapIcon size={14}/>, color: 'bg-cyan-700', border: 'border-cyan-500', 
         description: "Downloads official TIGER shapefiles directly from the US Census Bureau.",
-        params: { state_fips: 12, county_fips: 95, year: 2020 } }
+        params: { state_fips: 12, county_fips: 95, year: 2020 } },
+      // NEW: Universal Global Data Puller
+      { id: 'wfs_universal', name: "Universal REST/WFS", type: 'input', icon: <Globe size={14}/>, color: 'bg-cyan-700', border: 'border-cyan-500', 
+        description: "Connects to ANY global Open Data portal (e.g., Thai MOT, EU Inspire) via GeoJSON or REST API endpoints.",
+        params: { url: "https://datagov.mot.go.th/dataset/...", format: { value: "GeoJSON", type: "select", options: ["GeoJSON", "ESRI REST", "WFS"] } } }
     ]
   },
+  
   {
     name: "Core Inputs", icon: <Database size={18} className="text-yellow-500/70" />,
     tools: [
