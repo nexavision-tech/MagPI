@@ -105,14 +105,6 @@ export const generatePythonScript = (nodes, connections, crs, processingScope) =
             funcCall = `${outVar} = arcpy.ddd.LasDatasetToRaster(${primaryInVar}, "${outFileName}", value_field="${p.value_field}", sampling_value=${p.sampling_value})`;
         }
 
-        // 5. Image Analyst
-        else if (n.toolId === 'ia_ndvi') {
-            funcCall = `${outVar} = arcpy.ia.NDVI(${primaryInVar}, nir_band_id=${p.nir_band}, red_band_id=${p.red_band})`;
-        }
-        else if (n.toolId === 'ia_export_dl') {
-            funcCall = `${outVar} = arcpy.ia.ExportTrainingDataForDeepLearning(in_raster=getattr(${inRasterVar}, 'name', ${inRasterVar}), out_folder="${p.out_folder}", in_class_data=getattr(${inVectorVar}, 'name', ${inVectorVar}), tile_size_x=${p.tile_size}, tile_size_y=${p.tile_size}, stride_x=${p.stride}, stride_y=${p.stride}, shuffle_chips=${p.shuffle ? 'True' : 'False'})`;
-        }
-
         // 6. GeoAI
         else if (n.toolId === 'ai_detect') {
             funcCall = `${outVar} = arcpy.geoai.DetectObjectsUsingDeepLearning(getattr(${primaryInVar}, 'name', ${primaryInVar}), "${p.out_shp}", "${p.model}")`;
