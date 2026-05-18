@@ -29,6 +29,7 @@ from . import ga
 from . import ia       # Image Analyst (Chipping)
 from . import geoai    # AI Training & Inference
 from .ui import LaunchCanvas
+from . import mgt
 
 # 4. Expose the Global Environment
 from .env import env
