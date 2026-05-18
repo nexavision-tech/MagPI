@@ -99,13 +99,12 @@ export const generatePythonScript = (nodes, connections, crs, processingScope) =
             funcCall = `${outVar} = arcpy.ia.ExportTrainingDataForDeepLearning(in_raster=getattr(${inRasterVar}, 'name', ${inRasterVar}), out_folder="${p.out_folder}", in_class_data=getattr(${inLabelVar}, 'name', ${inLabelVar}), tile_size_x=${p.tile_size}, tile_size_y=${p.tile_size}, stride_x=${p.stride}, stride_y=${p.stride}, shuffle_chips=${p.shuffle ? 'True' : 'False'})`;
         }
 
-        // 4. 3D Analyst (LiDAR)
-        else if (n.toolId === 'ddd_las_to_raster') {
-            const outFileName = `lidar_dem_${n.id.split('_')[1]}.tif`;
-            funcCall = `${outVar} = arcpy.ddd.LasDatasetToRaster(${primaryInVar}, "${outFileName}", value_field="${p.value_field}", sampling_value=${p.sampling_value})`;
-        }
-
         // 6. GeoAI
+        else if (n.toolId === 'ai_train') {
+            // primaryInVar will be the out_folder from the 'Export DL Tensors' node!
+            const inFolderStr = primaryInVar !== 'None' ? `getattr(${primaryInVar}, 'output', ${primaryInVar})` : `"${p.in_folder}"`;
+            funcCall = `${outVar} = arcpy.geoai.TrainDeepLearningModel(in_folder=${inFolderStr}, out_folder="${p.out_folder}", max_epochs=${p.max_epochs}, batch_size=${p.batch_size}, model_type="${p.model_type}")`;
+        }
         else if (n.toolId === 'ai_detect') {
             funcCall = `${outVar} = arcpy.geoai.DetectObjectsUsingDeepLearning(getattr(${primaryInVar}, 'name', ${primaryInVar}), "${p.out_shp}", "${p.model}")`;
         }

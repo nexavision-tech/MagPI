@@ -69,6 +69,11 @@ const TOOLBOX_CATEGORIES = [
   {
     name: "GeoAI (geoai)", icon: <Cpu size={18} className="text-emerald-500/70" />,
     tools: [
+      // NEW: Train Deep Learning Model
+      { id: 'ai_train', name: "Train Deep Learning Model", type: 'process', icon: <Cpu size={14}/>, color: 'bg-purple-600', border: 'border-purple-500', 
+        description: "Ingests exported DL chips and trains a PyTorch Neural Network (U-Net, ResNet) for semantic segmentation or object detection.",
+        params: { out_folder: "./trained_model", max_epochs: 20, batch_size: 4, model_type: { value: "UNET", type: "select", options: ["UNET", "MASKRCNN", "DEEPLAB", "SEGFORMER"] } } 
+      },
       { id: 'ai_detect', name: "Detect Objects", type: 'process', icon: <Crosshair size={14}/>, color: 'bg-purple-600', border: 'border-purple-500', 
         description: "Executes a pre-trained Deep Learning vision model across an input raster to extract vector features.",
         params: { out_shp: "pools.shp", model: { value: "facebook/detr-resnet-50", type: "select", options: ["facebook/detr-resnet-50", "facebook/mask2former-swin"] } } 
