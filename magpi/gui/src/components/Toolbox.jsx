@@ -10,7 +10,7 @@ import {
 
 const TOOLBOX_CATEGORIES = [
   {
-    name: "Sovereign Cloud (wfs)", icon: <Cloud size={18} className="text-cyan-400" />,
+    name: "API Connector Hub", icon: <Cloud size={18} className="text-cyan-400" />,
     tools: [
       { id: 'wfs_sentinel2', name: "Pull Sentinel-2", type: 'input', icon: <Satellite size={14}/>, color: 'bg-cyan-700', border: 'border-cyan-500', 
         description: "Streams Cloud Optimized GeoTIFFs (COGs) from AWS Earth Search based on an AOI. Includes temporal filtering.",
@@ -64,7 +64,6 @@ const TOOLBOX_CATEGORIES = [
       { id: 'ia_pansharpen', name: "Pansharpen Image", type: 'process', icon: <ImageIcon size={14}/>, color: 'bg-emerald-600', border: 'border-emerald-500', 
         description: "Fuses high-res black-and-white panchromatic data with blurry color data to create a high-res color output.",
         params: { method: { value: "BROVEY", type: "select", options: ["BROVEY", "ESRI", "IHS", "Gram-Schmidt"] } } },
-      // NEW: Reclassify Tool (Critical for simplifying NLCD for AI!)
       { id: 'ia_reclassify', name: "Reclassify Pixels", type: 'process', icon: <PaintBucket size={14}/>, color: 'bg-emerald-600', border: 'border-emerald-500', 
         description: "Maps specific pixel values to new values. e.g., mapping all NLCD Developed classes (21,22,23,24) to 1, and everything else (*) to 0.",
         params: { remap_string: "21:1,22:1,23:1,24:1,*:0" } },
@@ -167,7 +166,6 @@ export default function Toolbox({
       onMouseMove={(e) => setMouseY(e.clientY)} 
     >
       
-      {/* Floating Tooltip */}
       {hoveredTool && (
         <div 
           className="fixed right-[330px] w-72 bg-slate-800 border border-slate-600 rounded-lg shadow-[0_0_40px_rgba(0,0,0,0.8)] p-4 z-50 animate-fadeIn pointer-events-none"
