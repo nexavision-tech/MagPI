@@ -5,7 +5,7 @@ import {
   ChevronDown, ChevronRight, MousePointer2, Trash2, 
   SlidersHorizontal, Wrench, Check, FolderOpen, ListFilter,
   Search, Copy, Info, Fingerprint, Loader2, AlertCircle, 
-  Cloud, Map as MapIcon, Satellite, Box, Globe, DownloadCloud
+  Cloud, Map as MapIcon, Satellite, Box, Globe, DownloadCloud, PaintBucket
 } from 'lucide-react';
 
 const TOOLBOX_CATEGORIES = [
@@ -55,16 +55,19 @@ const TOOLBOX_CATEGORIES = [
         params: { value_field: { value: "ELEVATION", type: "select", options: ["ELEVATION", "INTENSITY", "RETURN_NUMBER"] }, sampling_value: 1.0 } },
     ]
   },
-{
+  {
     name: "Image Analyst (ia)", icon: <Layers size={18} className="text-emerald-500/70" />,
     tools: [
       { id: 'ia_ndvi', name: "NDVI Calculator", type: 'process', icon: <Leaf size={14}/>, color: 'bg-emerald-600', border: 'border-emerald-500', 
         description: "Calculates the Normalized Difference Vegetation Index using Near-Infrared and Red bands.",
         params: { nir_band: 4, red_band: 1 } },
-      // NEW: Pansharpening Tool
       { id: 'ia_pansharpen', name: "Pansharpen Image", type: 'process', icon: <ImageIcon size={14}/>, color: 'bg-emerald-600', border: 'border-emerald-500', 
         description: "Fuses high-res black-and-white panchromatic data with blurry color data to create a high-res color output.",
         params: { method: { value: "BROVEY", type: "select", options: ["BROVEY", "ESRI", "IHS", "Gram-Schmidt"] } } },
+      // NEW: Reclassify Tool (Critical for simplifying NLCD for AI!)
+      { id: 'ia_reclassify', name: "Reclassify Pixels", type: 'process', icon: <PaintBucket size={14}/>, color: 'bg-emerald-600', border: 'border-emerald-500', 
+        description: "Maps specific pixel values to new values. e.g., mapping all NLCD Developed classes (21,22,23,24) to 1, and everything else (*) to 0.",
+        params: { remap_string: "21:1,22:1,23:1,24:1,*:0" } },
       { id: 'ia_export_dl', name: "Export DL Tensors", type: 'process', icon: <Grid size={14}/>, color: 'bg-emerald-600', border: 'border-emerald-500', 
         description: "Chips massive rasters and paired ground-truth labels into perfectly sized tensors for PyTorch AI training.",
         params: { out_folder: "./dl_chips", tile_size: 256, stride: 128, shuffle: true } },
@@ -73,7 +76,6 @@ const TOOLBOX_CATEGORIES = [
   {
     name: "GeoAI (geoai)", icon: <Cpu size={18} className="text-emerald-500/70" />,
     tools: [
-      // NEW: Train Deep Learning Model
       { id: 'ai_train', name: "Train Deep Learning Model", type: 'process', icon: <Cpu size={14}/>, color: 'bg-purple-600', border: 'border-purple-500', 
         description: "Ingests exported DL chips and trains a PyTorch Neural Network (U-Net, ResNet) for semantic segmentation or object detection.",
         params: { out_folder: "./trained_model", max_epochs: 20, batch_size: 4, model_type: { value: "UNET", type: "select", options: ["UNET", "MASKRCNN", "DEEPLAB", "SEGFORMER"] } } 
@@ -119,7 +121,6 @@ export default function Toolbox({
   selectedNode, updateNodeParam, updateNodeName, deleteNode, addNode, duplicateNode,
   openFileBrowser 
 }) {
-  // CRITICAL UI FIX: Set initial state to an empty object `{}` so ALL categories are collapsed by default!
   const [expandedCategories, setExpandedCategories] = useState({});
   const [searchQuery, setSearchQuery] = useState('');
   
