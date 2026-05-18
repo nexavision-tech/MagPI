@@ -1,0 +1,26 @@
+{
+    "Framework": "PyTorch",
+    "ModelConfiguration": "UNET",
+    "ModelType": "ImageClassification",
+    "InferenceFunction": "MagPI_Inference.py",
+    "ModelFile": "magpi_model.pth",
+    "ImageHeight": 256,
+    "ImageWidth": 256,
+    "ExtractBands": [
+        0,
+        1,
+        2,
+        3
+    ],
+    "Classes": [
+        {
+            "Value": 41,
+            "Name": "Forest",
+            "Color": [
+                34,
+                139,
+                34
+            ]
+        }
+    ]
+}
