@@ -84,11 +84,6 @@ def Pansharpen(in_raster, panchromatic_image, out_raster, method="BROVEY", weigh
         return Result(None, status=3)
 
 def Reclassify(in_raster, out_raster, remap_string):
-    """
-    MagPI Translation of arcpy.sa.Reclassify.
-    Takes a string like "21:1,22:1,23:1,24:1,*:0" (NLCD Impervious mapping)
-    and executes blistering fast NumPy reclassification.
-    """
     if hasattr(in_raster, 'name'): raster_path = in_raster.name
     elif hasattr(in_raster, 'output'): raster_path = in_raster.output
     else: raster_path = str(in_raster)
@@ -98,7 +93,6 @@ def Reclassify(in_raster, out_raster, remap_string):
     try:
         import rasterio
         
-        # Parse the remap rules
         rules = {}
         fallback = None
         for pair in remap_string.split(','):
@@ -111,11 +105,10 @@ def Reclassify(in_raster, out_raster, remap_string):
             data = src.read(1)
             out_data = np.copy(data)
             
-            # Apply fallback first
-            if fallback !== None:
+            # FIXED: Python '!=' instead of Javascript '!=='
+            if fallback != None:
                 out_data[:] = fallback
                 
-            # Apply specific rules
             for old_val, new_val in rules.items():
                 out_data[data == old_val] = new_val
                 
