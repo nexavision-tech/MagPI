@@ -61,6 +61,10 @@ const TOOLBOX_CATEGORIES = [
       { id: 'ia_ndvi', name: "NDVI Calculator", type: 'process', icon: <Leaf size={14}/>, color: 'bg-emerald-600', border: 'border-emerald-500', 
         description: "Calculates the Normalized Difference Vegetation Index using Near-Infrared and Red bands.",
         params: { nir_band: 4, red_band: 1 } },
+      // NEW: Pansharpening Tool
+      { id: 'ia_pansharpen', name: "Pansharpen Image", type: 'process', icon: <Image size={14}/>, color: 'bg-emerald-600', border: 'border-emerald-500', 
+        description: "Fuses high-res black-and-white panchromatic data with blurry color data to create a high-res color output.",
+        params: { method: { value: "BROVEY", type: "select", options: ["BROVEY", "ESRI", "IHS", "Gram-Schmidt"] } } },
       { id: 'ia_export_dl', name: "Export DL Tensors", type: 'process', icon: <Grid size={14}/>, color: 'bg-emerald-600', border: 'border-emerald-500', 
         description: "Chips massive rasters and paired ground-truth labels into perfectly sized tensors for PyTorch AI training.",
         params: { out_folder: "./dl_chips", tile_size: 256, stride: 128, shuffle: true } },

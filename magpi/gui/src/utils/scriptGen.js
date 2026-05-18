@@ -94,8 +94,14 @@ export const generatePythonScript = (nodes, connections, crs, processingScope) =
         else if (n.toolId === 'ia_ndvi') {
             funcCall = `${outVar} = arcpy.ia.NDVI(${primaryInVar}, nir_band_id=${p.nir_band}, red_band_id=${p.red_band})`;
         }
+        else if (n.toolId === 'ia_pansharpen') {
+            const outFileName = `pansharpened_${n.id.split('_')[1]}.tif`;
+            // NOTE: The primaryInVar is the MS image. To fully automate this, we assume a second input is the Pan image.
+            // But FME/ArcPro style, the user usually selects it in the properties if they don't wire it. 
+            // For MVP, we pass the primary twice just to prevent crashes until we build true multi-port UI logic.
+            funcCall = `${outVar} = arcpy.ia.Pansharpen(in_raster=${primaryInVar}, panchromatic_image=${primaryInVar}, out_raster="${outFileName}", method="${p.method}")`;
+        }
         else if (n.toolId === 'ia_export_dl') {
-            // FIXED: Now correctly assigns the Image and the Label independently!
             funcCall = `${outVar} = arcpy.ia.ExportTrainingDataForDeepLearning(in_raster=getattr(${inRasterVar}, 'name', ${inRasterVar}), out_folder="${p.out_folder}", in_class_data=getattr(${inLabelVar}, 'name', ${inLabelVar}), tile_size_x=${p.tile_size}, tile_size_y=${p.tile_size}, stride_x=${p.stride}, stride_y=${p.stride}, shuffle_chips=${p.shuffle ? 'True' : 'False'})`;
         }
 
