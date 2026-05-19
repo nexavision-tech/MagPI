@@ -1,5 +1,5 @@
 import React from 'react';
-import { Compass, Server, Code, Save, Globe, Cpu, FolderUp, Trash2 } from 'lucide-react';
+import { Compass, Server, Code, Save, Globe, Cpu, FolderUp, Trash2, Rss } from 'lucide-react';
 
 export default function TopRibbon({ 
   crs, setCrs, 
@@ -7,7 +7,6 @@ export default function TopRibbon({
   onGenerate, onSave, onLoad, onClear 
 }) {
   return (
-    // CRITICAL FIX: Added 'shrink-0' so the canvas never pushes this off-screen
     <div className="flex flex-col bg-slate-800 border-b border-slate-700 shadow-md z-20 shrink-0">
       
       {/* Top Thin Status Bar */}
@@ -19,6 +18,10 @@ export default function TopRibbon({
           <span className="bg-slate-800 px-2 py-0.5 rounded border border-slate-700">Project: Local_Daemon_Active</span>
         </div>
         <div className="flex items-center space-x-3">
+          {/* RSS Feed Link */}
+          <a href="https://nexavision.tech/feed.xml" target="_blank" rel="noreferrer" className="flex items-center text-orange-400 hover:text-orange-300 transition-colors mr-3 font-bold">
+            <Rss size={12} className="mr-1" /> SIGNAL LOGS
+          </a>
           <span className="flex items-center text-emerald-500 font-bold">
             <Server size={14} className="mr-2 animate-pulse" /> Matrix Connected
           </span>

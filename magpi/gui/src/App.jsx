@@ -1,9 +1,5 @@
-import React, { useState, useCallback } from 'react';
-
-// Modular icons
+import React, { useState, useCallback, useEffect } from 'react';
 import { GitBranch, XCircle, AlertTriangle, Bell, TerminalSquare, Save, Map as MapIcon, Edit3, Wrench } from 'lucide-react';
-
-// Imported Modular Components
 import TopRibbon from './components/TopRibbon';
 import Terminal from './components/Terminal';
 import Toolbox from './components/Toolbox';
@@ -11,8 +7,6 @@ import NodeCanvas from './components/NodeCanvas';
 import MapViewport from './components/MapViewport';
 import ScriptModal from './components/ScriptModal';
 import FileBrowserModal from './components/FileBrowserModal';
-
-// Utilities
 import { generatePythonScript } from './utils/scriptGen';
 import { saveProject, loadProject } from './utils/fileOps';
 
@@ -36,16 +30,33 @@ export default function App() {
 
   const [browserConfig, setBrowserConfig] = useState({ isOpen: false, nodeId: null, paramKey: null, initialPath: "." });
 
+  // --- AUTO-SAVE ENGINE (Prevents Losing Work!) ---
+  useEffect(() => {
+    // Load from LocalStorage on initial boot
+    const savedNodes = localStorage.getItem('magpi_autosave_nodes');
+    const savedCxs = localStorage.getItem('magpi_autosave_cxs');
+    if (savedNodes && savedCxs) {
+        try {
+            setNodes(JSON.parse(savedNodes));
+            setConnections(JSON.parse(savedCxs));
+            setLogs([{ type: 'success', msg: 'Previous matrix state auto-restored.' }]);
+            setShowTerminal(true);
+        } catch (e) { console.error("Failed to restore matrix state."); }
+    }
+  }, []);
+
+  useEffect(() => {
+    // Save to LocalStorage whenever the matrix changes
+    if (nodes.length > 0 || connections.length > 0) {
+        localStorage.setItem('magpi_autosave_nodes', JSON.stringify(nodes));
+        localStorage.setItem('magpi_autosave_cxs', JSON.stringify(connections));
+    }
+  }, [nodes, connections]);
+
   const handleAoiDrawn = useCallback((aoiData) => {
     const newNode = { 
-      id: `node_${Date.now()}`, 
-      toolId: 'core_extent', 
-      name: 'Spatial Extent (AOI)', 
-      icon: 'core_extent', // FIXED: Now uses the Lucide string router!
-      x: 400 + Math.random() * 50, 
-      y: 200 + Math.random() * 50, 
-      color: 'bg-yellow-600', 
-      border: 'border-yellow-500', 
+      id: `node_${Date.now()}`, toolId: 'core_extent', name: 'Spatial Extent (AOI)', icon: 'core_extent', 
+      x: 400 + Math.random() * 50, y: 200 + Math.random() * 50, color: 'bg-yellow-600', border: 'border-yellow-500', 
       params: { xmin: aoiData.xmin, ymin: aoiData.ymin, xmax: aoiData.xmax, ymax: aoiData.ymax } 
     };
     setNodes(prev => [...prev, newNode]);
@@ -56,15 +67,9 @@ export default function App() {
 
   const addNode = useCallback((tool, dropX = null, dropY = null) => {
     const newNode = { 
-      id: `node_${Date.now()}`, 
-      toolId: tool.id, 
-      name: tool.name, 
-      icon: tool.id, 
-      x: dropX !== null ? dropX : 300 + Math.random() * 50, 
-      y: dropY !== null ? dropY : 200 + Math.random() * 50, 
-      color: tool.color, 
-      border: tool.border, 
-      params: { ...tool.params } 
+      id: `node_${Date.now()}`, toolId: tool.id, name: tool.name, icon: tool.id, 
+      x: dropX !== null ? dropX : 300 + Math.random() * 50, y: dropY !== null ? dropY : 200 + Math.random() * 50, 
+      color: tool.color, border: tool.border, params: { ...tool.params } 
     };
     setNodes(prev => [...prev, newNode]);
     setSelectedNodeId(newNode.id);
@@ -80,9 +85,7 @@ export default function App() {
   };
 
   const handleFileSelected = (absolutePath) => {
-    if (browserConfig.nodeId && browserConfig.paramKey) {
-       updateNodeParam(browserConfig.nodeId, browserConfig.paramKey, absolutePath);
-    }
+    if (browserConfig.nodeId && browserConfig.paramKey) updateNodeParam(browserConfig.nodeId, browserConfig.paramKey, absolutePath);
   };
 
   const updateNodeName = (nodeId, newName) => {
@@ -109,12 +112,9 @@ export default function App() {
   };
 
   const handleClear = () => {
-    setNodes([]); 
-    setConnections([]); 
-    setSelectedNodeId(null); 
-    setNodeStatuses({});
-    setActiveRightTab('toolbox'); 
-    setLogs([{ type: 'info', msg: 'Matrix cleared. Ready for new input.' }]);
+    setNodes([]); setConnections([]); setSelectedNodeId(null); setNodeStatuses({});
+    localStorage.removeItem('magpi_autosave_nodes'); localStorage.removeItem('magpi_autosave_cxs');
+    setActiveRightTab('toolbox'); setLogs([{ type: 'info', msg: 'Matrix cleared. Ready for new input.' }]);
     setShowTerminal(true);
   };
 
@@ -128,9 +128,7 @@ export default function App() {
 
   const handleLoad = (file) => {
     loadProject(file, setNodes, setConnections, setCrs, (msg) => {
-        setLogs([msg]); 
-        setShowTerminal(true); 
-        setNodeStatuses({});
+        setLogs([msg]); setShowTerminal(true); setNodeStatuses({});
     });
   };
 
@@ -141,10 +139,7 @@ export default function App() {
   };
 
   const handleDeploy = async () => {
-    setShowScript(false); 
-    setShowTerminal(true); 
-    setIsProcessing(true); 
-    setNodeStatuses({});
+    setShowScript(false); setShowTerminal(true); setIsProcessing(true); setNodeStatuses({});
     const processingStates = {};
     nodes.forEach(n => processingStates[n.id] = 'processing');
     setNodeStatuses(processingStates);
@@ -178,91 +173,34 @@ export default function App() {
 
   return (
     <div className="absolute inset-0 w-full h-full flex flex-col bg-slate-900 text-slate-200 font-sans overflow-hidden select-none">
-      
-      {/* Top Ribbon Control */}
       <div className="flex-none z-40 shadow-md">
         <TopRibbon crs={crs} setCrs={setCrs} processingScope={processingScope} setProcessingScope={setProcessingScope} onGenerate={handleGenerate} onSave={handleSave} onLoad={handleLoad} onClear={handleClear} />
-        
-        {/* Workspace Switcher Tabs */}
         <div className="flex bg-slate-900 border-b border-slate-700 px-4 pt-2">
-            <button 
-                onClick={() => setActiveWorkspace('builder')}
-                className={`px-6 py-2 text-xs font-bold uppercase tracking-widest rounded-t-lg transition-colors flex items-center border border-b-0 ${activeWorkspace === 'builder' ? 'bg-slate-800 text-emerald-400 border-slate-600' : 'bg-transparent text-slate-500 border-transparent hover:bg-slate-800/50 hover:text-slate-300'}`}
-            >
-                <Wrench size={14} className="mr-2" /> Model Builder
-            </button>
-            <button 
-                onClick={() => setActiveWorkspace('globe')}
-                className={`px-6 py-2 text-xs font-bold uppercase tracking-widest rounded-t-lg transition-colors flex items-center border border-b-0 ml-1 ${activeWorkspace === 'globe' ? 'bg-slate-800 text-cyan-400 border-slate-600' : 'bg-transparent text-slate-500 border-transparent hover:bg-slate-800/50 hover:text-slate-300'}`}
-            >
-                <MapIcon size={14} className="mr-2" /> Globe Nexus
-            </button>
-            <button 
-                onClick={() => setActiveWorkspace('planar')}
-                className={`px-6 py-2 text-xs font-bold uppercase tracking-widest rounded-t-lg transition-colors flex items-center border border-b-0 ml-1 ${activeWorkspace === 'planar' ? 'bg-slate-800 text-purple-400 border-slate-600' : 'bg-transparent text-slate-500 border-transparent hover:bg-slate-800/50 hover:text-slate-300'}`}
-            >
-                <Edit3 size={14} className="mr-2" /> Planar Train Env
-            </button>
+            <button onClick={() => setActiveWorkspace('builder')} className={`px-6 py-2 text-xs font-bold uppercase tracking-widest rounded-t-lg transition-colors flex items-center border border-b-0 ${activeWorkspace === 'builder' ? 'bg-slate-800 text-emerald-400 border-slate-600' : 'bg-transparent text-slate-500 border-transparent hover:bg-slate-800/50 hover:text-slate-300'}`}><Wrench size={14} className="mr-2" /> Model Builder</button>
+            <button onClick={() => setActiveWorkspace('globe')} className={`px-6 py-2 text-xs font-bold uppercase tracking-widest rounded-t-lg transition-colors flex items-center border border-b-0 ml-1 ${activeWorkspace === 'globe' ? 'bg-slate-800 text-cyan-400 border-slate-600' : 'bg-transparent text-slate-500 border-transparent hover:bg-slate-800/50 hover:text-slate-300'}`}><MapIcon size={14} className="mr-2" /> Globe Nexus</button>
+            <button onClick={() => setActiveWorkspace('planar')} className={`px-6 py-2 text-xs font-bold uppercase tracking-widest rounded-t-lg transition-colors flex items-center border border-b-0 ml-1 ${activeWorkspace === 'planar' ? 'bg-slate-800 text-purple-400 border-slate-600' : 'bg-transparent text-slate-500 border-transparent hover:bg-slate-800/50 hover:text-slate-300'}`}><Edit3 size={14} className="mr-2" /> Planar Train Env</button>
         </div>
       </div>
       
-      {/* Workspace Area */}
       <div className="flex-1 flex overflow-hidden min-h-0 relative z-0 bg-slate-800">
-        
-        {/* Canvas Workspace */}
         <div className={`flex-1 relative ${activeWorkspace === 'builder' ? 'flex' : 'hidden'}`}>
-            <NodeCanvas 
-              nodes={nodes} setNodes={setNodes} connections={connections} setConnections={setConnections}
-              selectedNodeId={selectedNodeId} setSelectedNodeId={setSelectedNodeId}
-              setActiveRightTab={setActiveRightTab} nodeStatuses={nodeStatuses} 
-              removeConnection={removeConnection} addNode={addNode} 
-            />
+            <NodeCanvas nodes={nodes} setNodes={setNodes} connections={connections} setConnections={setConnections} selectedNodeId={selectedNodeId} setSelectedNodeId={setSelectedNodeId} setActiveRightTab={setActiveRightTab} nodeStatuses={nodeStatuses} removeConnection={removeConnection} addNode={addNode} />
         </div>
-
-        {/* Dynamic Mapping Viewport */}
         <div className={`relative ${activeWorkspace === 'builder' ? 'w-[320px] hidden lg:flex' : 'flex-1 w-full'} flex-col shadow-[-10px_0_20px_rgba(0,0,0,0.3)] z-10 border-l border-r border-slate-800`}>
             <MapViewport onAoiDrawn={handleAoiDrawn} selectedNode={selectedNode} activeWorkspace={activeWorkspace} />
         </div>
-        
-        {/* Inspector Sidebar */}
         <div className={`w-[320px] relative ${activeWorkspace === 'builder' ? 'flex' : 'hidden'} flex-col z-20`}>
-            <Toolbox 
-              activeRightTab={activeRightTab} setActiveRightTab={setActiveRightTab} 
-              selectedNode={selectedNode} updateNodeParam={updateNodeParam} updateNodeName={updateNodeName} 
-              deleteNode={deleteNode} addNode={addNode} duplicateNode={duplicateNode} 
-              openFileBrowser={openFileBrowser} 
-            />
+            <Toolbox activeRightTab={activeRightTab} setActiveRightTab={setActiveRightTab} selectedNode={selectedNode} updateNodeParam={updateNodeParam} updateNodeName={updateNodeName} deleteNode={deleteNode} addNode={addNode} duplicateNode={duplicateNode} openFileBrowser={openFileBrowser} />
         </div>
-
-        {/* Planar Lab */}
-        {activeWorkspace === 'planar' && (
-            <div className="absolute inset-0 z-50 bg-slate-900/90 flex flex-col items-center justify-center backdrop-blur-sm">
-                <Edit3 size={48} className="text-purple-500 mb-4 opacity-50 animate-bounce" />
-                <h2 className="text-xl font-bold text-slate-300 tracking-widest uppercase">Planar Training Environment</h2>
-                <p className="text-slate-500 mt-2 font-mono">Real-time Ground Control Point matrices & confusion accuracy testing.</p>
-            </div>
-        )}
-
       </div>
 
-      {/* Output Console Panel */}
-      <div className="flex-none z-30">
-        <Terminal showTerminal={showTerminal} setShowTerminal={setShowTerminal} logs={logs} isProcessing={isProcessing} />
-      </div>
+      <div className="flex-none z-30"><Terminal showTerminal={showTerminal} setShowTerminal={setShowTerminal} logs={logs} isProcessing={isProcessing} /></div>
       
-      {/* Persistent Status bar */}
       <div className="flex-none shrink-0 bg-slate-950 border-t border-slate-800 text-[10.5px] text-slate-400 flex items-center justify-between px-3 py-1.5 z-50 font-sans shadow-[0_-2px_5px_rgba(0,0,0,0.5)]">
         <div className="flex items-center space-x-4">
           <span className="flex items-center cursor-pointer hover:text-slate-200 transition-colors"><GitBranch size={11} className="mr-1 text-emerald-500" /> main*</span>
           <span className="flex items-center cursor-pointer hover:text-slate-200 transition-colors"><XCircle size={11} className="mr-1 text-red-500" />0 <AlertTriangle size={11} className="ml-2 mr-1 text-yellow-500" />0</span>
-          
-          <span 
-            className="flex items-center cursor-pointer hover:text-slate-200 transition-colors" 
-            onClick={() => setShowTerminal(!showTerminal)}
-            title="Toggle MagPI Console"
-          >
-            <TerminalSquare size={11} className="mr-1 text-blue-400" /> {showTerminal ? "Hide Console" : "Show Console"}
-          </span>
+          <span className="flex items-center cursor-pointer hover:text-slate-200 transition-colors" onClick={() => setShowTerminal(!showTerminal)} title="Toggle MagPI Console"><TerminalSquare size={11} className="mr-1 text-blue-400" /> {showTerminal ? "Hide Console" : "Show Console"}</span>
         </div>
         <div className="flex items-center space-x-4 font-mono">
           <span className="cursor-pointer hover:text-slate-200 transition-colors hidden sm:block text-slate-600">UTF-8</span>
