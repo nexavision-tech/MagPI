@@ -2,7 +2,7 @@
 """
 MagPI: Matrix Automated Geospatial Processing Interface
 An open-source, AI-native drop-in replacement for ArcPy and FME.
-Created by Geographic Data Dynamics LLC / NexaVision.tech
+Created by www.nexavision.tech
 """
 
 import logging
@@ -15,6 +15,7 @@ from . import ia
 from . import geoai
 from . import mgt as management # Aliased to match arcpy.management
 from . import ddd
+from . import conversion # NEW: Conversion Tools
 
 # Configure global MagPI logger
 logging.basicConfig(
@@ -25,16 +26,12 @@ logging.basicConfig(
 logger = logging.getLogger("MagPI_Core")
 
 def AddMessage(msg):
-    """Prints a message to the MagPI console."""
     logger.info(msg)
 
 def AddError(msg):
-    """Prints an error to the MagPI console."""
     logger.error(msg)
 
 def AddWarning(msg):
-    """Prints a warning to the MagPI console."""
     logger.warning(msg)
 
-# Initialize the environment upon import
 logger.info("MagPI Translation Matrix Online. Bypassing legacy dependencies.")

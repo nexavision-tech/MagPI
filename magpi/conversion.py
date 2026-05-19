@@ -88,47 +88,61 @@ def RasterToOtherFormat(Input_Rasters, Output_Workspace, Raster_Format="TIFF"):
             
     return Result(results[0] if results else None)
 
-def RasterToPolygon(in_raster, out_polygon_features, simplify="SIMPLIFY", raster_field="Value", create_multipart_features="SINGLE_OUTER_PART", max_vertices_per_feature=None):
+def RasterToPolygon(in_raster, out_polygon_features, simplify="SIMPLIFY", value_field="Value", background_value=0):
     """
     MagPI Translation of arcpy.conversion.RasterToPolygon.
-    Converts gridded raster pixels into smooth vector geometry footprints.
+    Converts a classified AI mask (pixels) into a Vector Shapefile/GeoJSON (polygons).
     """
-    import rasterio
-    from rasterio import features
-    import numpy as np
+    if hasattr(in_raster, 'name'): raster_path = in_raster.name
+    elif hasattr(in_raster, 'output'): raster_path = in_raster.output
+    else: raster_path = str(in_raster)
 
-    logger.info(f"Executing Open-Source RasterToPolygon on: {in_raster}")
+    logger.info(f"Initiating Vector Extraction: {os.path.basename(raster_path)} -> Polygons")
+
     try:
-        with rasterio.open(in_raster) as src:
+        import rasterio
+        from rasterio.features import shapes
+        from shapely.geometry import shape
+        import geopandas as gpd
+
+        with rasterio.open(raster_path) as src:
             image = src.read(1)
             
-            # Mask out the NoData pixels so we only draw polygons around actual features
-            if src.nodata is not None:
-                # Handle both exact matches and floating point nan
-                if np.isnan(src.nodata):
-                    mask = ~np.isnan(image)
-                else:
-                    mask = image != src.nodata
+            # Mask out the background (e.g. 0) so we don't draw massive polygons for empty space
+            if background_value is not None:
+                mask = image != background_value
             else:
                 mask = None
 
-            logger.info("Tracing pixel boundaries into vector shapes via Rasterio C-backend...")
-            # rasterio.features.shapes returns a generator of (GeoJSON_polygon, pixel_value)
+            logger.info("Tracing pixel boundaries and converting to mathematical geometry...")
+            
+            # Extract the shapes using rasterio's blazing fast C-engine
             results = (
-                {'properties': {raster_field: float(v)}, 'geometry': s}
-                for i, (s, v) in enumerate(features.shapes(image, mask=mask, transform=src.transform))
+                {'properties': {value_field: v}, 'geometry': s}
+                for i, (s, v) in enumerate(
+                    shapes(image, mask=mask, transform=src.transform)
+                )
             )
 
-            # Instantly load the GeoJSON shapes into a GeoPandas dataframe
-            gdf = gpd.GeoDataFrame.from_features(list(results))
+            geoms = list(results)
             
-            if src.crs:
-                gdf.set_crs(src.crs, inplace=True)
+            if not geoms:
+                logger.warning("No features found to extract! (Is the image entirely background?)")
+                return Result(None, status=3)
 
-            gdf.to_file(out_polygon_features)
-            logger.info(f"Raster successfully converted to Polygon. Saved to: {out_polygon_features}")
-            return Result(out_polygon_features)
+            # Convert to a GeoDataFrame
+            logger.info(f"Generated {len(geoms)} raw vector features. Compiling to file...")
+            gdf = gpd.GeoDataFrame.from_features(geoms, crs=src.crs)
             
+            # Save the vectors
+            gdf.to_file(out_polygon_features)
+            
+        logger.info(f"SUCCESS: Vector extraction complete. Saved to: {out_polygon_features}")
+        return Result(out_polygon_features)
+
+    except ImportError:
+        logger.error("Missing dependency! Run: conda install geopandas shapely -y")
+        return Result(None, status=3)
     except Exception as e:
-        logger.error(f"Failed to convert Raster to Polygon: {e}")
+        logger.error(f"Raster to Polygon conversion failed: {e}")
         return Result(None, status=3)

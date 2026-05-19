@@ -5,7 +5,8 @@ import {
   ChevronDown, ChevronRight, MousePointer2, Trash2, 
   SlidersHorizontal, Wrench, Check, FolderOpen, ListFilter,
   Search, Copy, Info, Fingerprint, Loader2, AlertCircle, 
-  Cloud, Map as MapIcon, Satellite, Box, Globe, DownloadCloud, PaintBucket
+  Cloud, Map as MapIcon, Satellite, Box, Globe, DownloadCloud, PaintBucket, 
+  FileOutput // New icon for conversion
 } from 'lucide-react';
 
 const TOOLBOX_CATEGORIES = [
@@ -110,6 +111,16 @@ const TOOLBOX_CATEGORIES = [
       { id: 'mgt_pyramids', name: "Build Pyramids & Stats", type: 'process', icon: <Layers size={14}/>, color: 'bg-slate-600', border: 'border-slate-500', 
         description: "Calculates multi-band statistics and builds internal overviews (pyramids) for massive speed boosts when rendering in desktop software.",
         params: { build_pyramids: true, calculate_stats: true } 
+      },
+    ]
+  },
+  // NEW CATEGORY: Conversion
+  {
+    name: "Conversion Tools", icon: <FileOutput size={18} className="text-orange-400" />,
+    tools: [
+      { id: 'conv_raster_to_polygon', name: "Raster to Polygon", type: 'process', icon: <Hexagon size={14}/>, color: 'bg-orange-600', border: 'border-orange-500', 
+        description: "Converts a classified pixel mask (e.g. AI inference output) into discrete vector polygons (Shapefile/GeoJSON).",
+        params: { out_polygon_features: "extracted_features.shp", background_value: 0 } 
       },
     ]
   }
@@ -273,7 +284,7 @@ export default function Toolbox({
                         </div>
                       ) : typeof displayVal === 'number' ? (
                         <input type="number" value={displayVal} onChange={(e) => updateNodeParam(selectedNode.id, key, Number(e.target.value))} className="w-full bg-slate-800 border border-slate-600 rounded-md px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all font-mono"/>
-                      ) : key === 'file_path' || key === 'out_folder' ? (
+                      ) : key === 'file_path' || key === 'out_folder' || key === 'out_polygon_features' ? (
                         <div className="flex items-center space-x-2">
                            <input type="text" value={displayVal} onChange={(e) => updateNodeParam(selectedNode.id, key, e.target.value)} className="flex-1 bg-slate-800 border border-slate-600 rounded-md px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all font-mono"/>
                           <button onClick={() => openFileBrowser(selectedNode.id, key, displayVal)} className="p-2 bg-slate-700 hover:bg-slate-600 rounded border border-slate-600 transition-colors text-emerald-400" title="Browse OS Files"><FolderOpen size={16} /></button>
