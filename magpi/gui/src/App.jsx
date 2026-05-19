@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 
-// NEW ICONS for the Tabs and Footer
-import { GitBranch, XCircle, AlertTriangle, Bell, TerminalSquare, Compass, Server, Code, Save, FolderUp, Globe, Cpu, Wrench, Map as MapIcon, Edit3 } from 'lucide-react';
+// Modular icons
+import { GitBranch, XCircle, AlertTriangle, Bell, TerminalSquare, Save, Map as MapIcon, Edit3, Wrench } from 'lucide-react';
 
 // Imported Modular Components
 import TopRibbon from './components/TopRibbon';
@@ -17,9 +17,7 @@ import { generatePythonScript } from './utils/scriptGen';
 import { saveProject, loadProject } from './utils/fileOps';
 
 export default function App() {
-  // THE NEW MASTER TAB ROUTER ('builder', 'globe', 'planar')
   const [activeWorkspace, setActiveWorkspace] = useState('builder');
-
   const [crs, setCrs] = useState("EPSG:6438");
   const [processingScope, setProcessingScope] = useState("Local Python");
   
@@ -40,23 +38,33 @@ export default function App() {
 
   const handleAoiDrawn = useCallback((aoiData) => {
     const newNode = { 
-      id: `node_${Date.now()}`, toolId: 'core_extent', name: 'Spatial Extent (AOI)', icon: 'fa-vector-square', 
-      x: 400 + Math.random() * 50, y: 200 + Math.random() * 50, color: 'bg-yellow-600', border: 'border-yellow-500', 
+      id: `node_${Date.now()}`, 
+      toolId: 'core_extent', 
+      name: 'Spatial Extent (AOI)', 
+      icon: 'core_extent', // Replaced legacy FontAwesome string with structural identifier
+      x: 400 + Math.random() * 50, 
+      y: 200 + Math.random() * 50, 
+      color: 'bg-yellow-600', 
+      border: 'border-yellow-500', 
       params: { xmin: aoiData.xmin, ymin: aoiData.ymin, xmax: aoiData.xmax, ymax: aoiData.ymax } 
     };
     setNodes(prev => [...prev, newNode]);
     setSelectedNodeId(newNode.id);
     setActiveRightTab('inspector');
-    // If they drew it in the Globe tab, automatically switch them back to the Builder to wire it up!
     setActiveWorkspace('builder');
   }, []);
 
   const addNode = useCallback((tool, dropX = null, dropY = null) => {
     const newNode = { 
-      id: `node_${Date.now()}`, toolId: tool.id, name: tool.name, icon: tool.icon, 
+      id: `node_${Date.now()}`, 
+      toolId: tool.id, 
+      name: tool.name, 
+      icon: tool.id, // Carry the tool ID as the icon reference for precise rendering
       x: dropX !== null ? dropX : 300 + Math.random() * 50, 
       y: dropY !== null ? dropY : 200 + Math.random() * 50, 
-      color: tool.color, border: tool.border, params: { ...tool.params } 
+      color: tool.color, 
+      border: tool.border, 
+      params: { ...tool.params } 
     };
     setNodes(prev => [...prev, newNode]);
     setSelectedNodeId(newNode.id);
@@ -101,8 +109,12 @@ export default function App() {
   };
 
   const handleClear = () => {
-    setNodes([]); setConnections([]); setSelectedNodeId(null); setNodeStatuses({});
-    setActiveRightTab('toolbox'); setLogs([{ type: 'info', msg: 'Matrix cleared. Ready for new input.' }]);
+    setNodes([]); 
+    setConnections([]); 
+    setSelectedNodeId(null); 
+    setNodeStatuses({});
+    setActiveRightTab('toolbox'); 
+    setLogs([{ type: 'info', msg: 'Matrix cleared. Ready for new input.' }]);
     setShowTerminal(true);
   };
 
@@ -116,7 +128,9 @@ export default function App() {
 
   const handleLoad = (file) => {
     loadProject(file, setNodes, setConnections, setCrs, (msg) => {
-        setLogs([msg]); setShowTerminal(true); setNodeStatuses({});
+        setLogs([msg]); 
+        setShowTerminal(true); 
+        setNodeStatuses({});
     });
   };
 
@@ -127,7 +141,10 @@ export default function App() {
   };
 
   const handleDeploy = async () => {
-    setShowScript(false); setShowTerminal(true); setIsProcessing(true); setNodeStatuses({});
+    setShowScript(false); 
+    setShowTerminal(true); 
+    setIsProcessing(true); 
+    setNodeStatuses({});
     const processingStates = {};
     nodes.forEach(n => processingStates[n.id] = 'processing');
     setNodeStatuses(processingStates);
@@ -162,7 +179,7 @@ export default function App() {
   return (
     <div className="absolute inset-0 w-full h-full flex flex-col bg-slate-900 text-slate-200 font-sans overflow-hidden select-none">
       
-      {/* THE NEW NEXUS TAB HEADER */}
+      {/* Top Ribbon Control */}
       <div className="flex-none z-40 shadow-md">
         <TopRibbon crs={crs} setCrs={setCrs} processingScope={processingScope} setProcessingScope={setProcessingScope} onGenerate={handleGenerate} onSave={handleSave} onLoad={handleLoad} onClear={handleClear} />
         
@@ -189,10 +206,10 @@ export default function App() {
         </div>
       </div>
       
-      {/* MAIN DYNAMIC WORKSPACE */}
+      {/* Workspace Area */}
       <div className="flex-1 flex overflow-hidden min-h-0 relative z-0 bg-slate-800">
         
-        {/* Node Canvas (Only visible in Builder) */}
+        {/* Canvas Workspace */}
         <div className={`flex-1 relative ${activeWorkspace === 'builder' ? 'flex' : 'hidden'}`}>
             <NodeCanvas 
               nodes={nodes} setNodes={setNodes} connections={connections} setConnections={setConnections}
@@ -202,12 +219,12 @@ export default function App() {
             />
         </div>
 
-        {/* Map Viewport (Flexible Width based on Workspace) */}
+        {/* Dynamic Mapping Viewport */}
         <div className={`relative ${activeWorkspace === 'builder' ? 'w-[320px] hidden lg:flex' : 'flex-1 w-full'} flex-col shadow-[-10px_0_20px_rgba(0,0,0,0.3)] z-10 border-l border-r border-slate-800`}>
             <MapViewport onAoiDrawn={handleAoiDrawn} selectedNode={selectedNode} activeWorkspace={activeWorkspace} />
         </div>
         
-        {/* Toolbox (Only visible in Builder) */}
+        {/* Inspector Sidebar */}
         <div className={`w-[320px] relative ${activeWorkspace === 'builder' ? 'flex' : 'hidden'} flex-col z-20`}>
             <Toolbox 
               activeRightTab={activeRightTab} setActiveRightTab={setActiveRightTab} 
@@ -217,27 +234,27 @@ export default function App() {
             />
         </div>
 
-        {/* Planar Training Placeholder */}
+        {/* Planar Lab */}
         {activeWorkspace === 'planar' && (
             <div className="absolute inset-0 z-50 bg-slate-900/90 flex flex-col items-center justify-center backdrop-blur-sm">
-                <Edit3 size={48} className="text-purple-500 mb-4 opacity-50" />
+                <Edit3 size={48} className="text-purple-500 mb-4 opacity-50 animate-bounce" />
                 <h2 className="text-xl font-bold text-slate-300 tracking-widest uppercase">Planar Training Environment</h2>
-                <p className="text-slate-500 mt-2">Ground Truth Labeling & Vector Digitization coming in Phase 3.</p>
+                <p className="text-slate-500 mt-2 font-mono">Real-time Ground Control Point matrices & confusion accuracy testing.</p>
             </div>
         )}
 
       </div>
 
-      {/* TERMINAL WRAPPER */}
+      {/* Output Console Panel */}
       <div className="flex-none z-30">
         <Terminal showTerminal={showTerminal} setShowTerminal={setShowTerminal} logs={logs} isProcessing={isProcessing} />
       </div>
       
-      {/* MAGPI THEME PERSISTENT FOOTER */}
+      {/* Persistent Status bar */}
       <div className="flex-none shrink-0 bg-slate-950 border-t border-slate-800 text-[10.5px] text-slate-400 flex items-center justify-between px-3 py-1.5 z-50 font-sans shadow-[0_-2px_5px_rgba(0,0,0,0.5)]">
         <div className="flex items-center space-x-4">
           <span className="flex items-center cursor-pointer hover:text-slate-200 transition-colors"><GitBranch size={11} className="mr-1 text-emerald-500" /> main*</span>
-          <span className="flex items-center cursor-pointer hover:text-slate-200 transition-colors"><XCircle size={11} className="mr-1" />0 <AlertTriangle size={11} className="ml-2 mr-1" />0</span>
+          <span className="flex items-center cursor-pointer hover:text-slate-200 transition-colors"><XCircle size={11} className="mr-1 text-red-500" />0 <AlertTriangle size={11} className="ml-2 mr-1 text-yellow-500" />0</span>
           
           <span 
             className="flex items-center cursor-pointer hover:text-slate-200 transition-colors" 
@@ -248,7 +265,7 @@ export default function App() {
           </span>
         </div>
         <div className="flex items-center space-x-4 font-mono">
-          <span className="cursor-pointer hover:text-slate-200 transition-colors hidden sm:block">UTF-8</span>
+          <span className="cursor-pointer hover:text-slate-200 transition-colors hidden sm:block text-slate-600">UTF-8</span>
           <span className="cursor-pointer hover:text-slate-200 transition-colors">Python 3.10 <span className="text-emerald-500 font-bold ml-1">(magpi-env)</span></span>
           <span className="cursor-pointer hover:text-emerald-400 transition-colors"><Bell size={11} /></span>
         </div>
