@@ -7,17 +7,30 @@ Created by www.nexavision.tech
 
 import logging
 from .env import env
-from .objects import Extent, Raster, FeatureClass, Result
+from .objects import Extent, SpatialReference, Describe, Result
+from .sa import Raster # CRITICAL FIX: Raster belongs to Spatial Analyst (sa.py)
 
-# Import all subsystem modules so they can be accessed as arcpy.module.Tool()
+# 1. Expose Submodules (The Structural Tree)
 from . import wfs
 from . import ia
 from . import geoai
 from . import mgt as management # Aliased to match arcpy.management
 from . import ddd
-from . import conversion # NEW: Conversion Tools
+from . import conversion
+from . import analysis
+from . import sa
+from . import da
+from . import stats
+from . import mp
+from . import server
+from . import geocoding
+from . import lr
+from . import ga
 
-# Configure global MagPI logger
+# 2. Expose Core Root Functions directly to the arcpy.* level
+from .core import ListFeatureClasses, ListRasters, ListFiles, Exists
+
+# 3. Configure global MagPI logger
 logging.basicConfig(
     level=logging.INFO,
     format='[%(levelname)s] MagPI \u2728 [%(levelname)s]: %(message)s',
@@ -25,6 +38,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger("MagPI_Core")
 
+# 4. Core Messaging Functions
 def AddMessage(msg):
     logger.info(msg)
 
@@ -34,4 +48,20 @@ def AddError(msg):
 def AddWarning(msg):
     logger.warning(msg)
 
+# 5. The Ultimate Fallback Interceptor
+def __getattr__(name):
+    """Catches calls to unsupported legacy functions and prevents fatal crashes."""
+    logger.warning(f"Unsupported legacy call intercepted: arcpy.{name}")
+    
+    class MockArcPyObject:
+        def __call__(self, *args, **kwargs):
+            logger.warning(f"Mock executed for arcpy.{name} with args: {args}")
+            return Result("Mock_Fallback_Output")
+            
+        def __getattr__(self, attr):
+            return MockArcPyObject()
+            
+    return MockArcPyObject()
+
+# Initialize the environment upon import
 logger.info("MagPI Translation Matrix Online. Bypassing legacy dependencies.")
