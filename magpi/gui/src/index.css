@@ -6,7 +6,7 @@
 body {
   margin: 0;
   padding: 0;
-  background-color: #0f172a; /* matches Tailwind slate-900 */
+  background-color: #0f172a; /* slate-900 */
 }
 
 /* Custom scrollbar for dark mode */
@@ -25,6 +25,33 @@ body {
 
 .leaflet-dark-mode-container .leaflet-draw-toolbar a { 
     filter: invert(80%); 
+}
+
+/* ----------------------------------------- */
+/* REACT FLOW OVERRIDES (DARK MODE CONTROLS) */
+/* ----------------------------------------- */
+.react-flow__controls {
+  background-color: #1e293b !important; /* slate-800 */
+  border: 1px solid #334155 !important; /* slate-700 */
+  border-radius: 6px !important;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5) !important;
+  overflow: hidden;
+}
+
+.react-flow__controls-button {
+  background-color: #0f172a !important; /* slate-900 */
+  border-bottom: 1px solid #334155 !important;
+  fill: #94a3b8 !important; /* slate-400 */
+  transition: all 0.2s ease !important;
+}
+
+.react-flow__controls-button:hover {
+  background-color: #10b981 !important; /* emerald-500 */
+  fill: #ffffff !important; /* white icon on hover */
+}
+
+.react-flow__controls-button:last-child {
+  border-bottom: none !important;
 }
 
 /* Wiring Animation for Node Canvas */

@@ -41,7 +41,7 @@ export default function App() {
       id: `node_${Date.now()}`, 
       toolId: 'core_extent', 
       name: 'Spatial Extent (AOI)', 
-      icon: 'core_extent', // Replaced legacy FontAwesome string with structural identifier
+      icon: 'core_extent', // FIXED: Now uses the Lucide string router!
       x: 400 + Math.random() * 50, 
       y: 200 + Math.random() * 50, 
       color: 'bg-yellow-600', 
@@ -59,7 +59,7 @@ export default function App() {
       id: `node_${Date.now()}`, 
       toolId: tool.id, 
       name: tool.name, 
-      icon: tool.id, // Carry the tool ID as the icon reference for precise rendering
+      icon: tool.id, 
       x: dropX !== null ? dropX : 300 + Math.random() * 50, 
       y: dropY !== null ? dropY : 200 + Math.random() * 50, 
       color: tool.color, 
