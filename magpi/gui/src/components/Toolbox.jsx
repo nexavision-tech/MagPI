@@ -6,7 +6,7 @@ import {
   SlidersHorizontal, Wrench, Check, FolderOpen, ListFilter,
   Search, Copy, Info, Fingerprint, Loader2, AlertCircle, 
   Cloud, Map as MapIcon, Satellite, Box, Globe, DownloadCloud, PaintBucket, 
-  FileOutput, LineChart // New icon for spatial stats
+  FileOutput, LineChart
 } from 'lucide-react';
 
 const TOOLBOX_CATEGORIES = [
@@ -114,7 +114,7 @@ const TOOLBOX_CATEGORIES = [
       },
     ]
   },
-  // NEW SUBSYSTEM CATEGORY: Spatial Statistics (stats)
+  // NEW: Spatial Statistics Subsystem (Chris's Academic Verification Module)
   {
     name: "Spatial Statistics", icon: <LineChart size={18} className="text-rose-400" />,
     tools: [
@@ -186,7 +186,7 @@ export default function Toolbox({
             <span className="bg-slate-900 p-1.5 rounded-md mr-3 shadow-inner">{hoveredTool.icon}</span> 
             {hoveredTool.name}
           </div>
-          <p class="text-xs text-slate-300 leading-relaxed mb-3">
+          <p className="text-xs text-slate-300 leading-relaxed mb-3">
             {hoveredTool.description}
           </p>
           <div className="flex items-center text-[9px] text-slate-500 uppercase tracking-widest font-bold bg-slate-900 px-2 py-1 rounded">
@@ -277,9 +277,7 @@ export default function Toolbox({
                       ) : isComplexObj ? (
                         <div className="relative">
                             <ListFilter size={14} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-500" />
-                            <select value={displayVal} onChange={(e) => updateNodeParam(selectedNode.id, key, { ...val, value: e.target.value })} className="w-full bg-slate-800 border border-slate-600 rounded-md pl-9 pr-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all font-mono appearance-none cursor-pointer">
-                                {val.options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                            </select>
+                            <select value={displayVal} onChange={(e) => updateNodeParam(selectedNode.id, key, { ...val, value: e.target.value })} className="w-full bg-slate-800 border border-slate-600 rounded-md pl-9 pr-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all font-mono appearance-none cursor-pointer">{val.options.map(opt => <option key={opt} value={opt}>{opt}</option>)}</select>
                             <ChevronDown size={14} className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-500 pointer-events-none" />
                         </div>
                       ) : typeof displayVal === 'number' ? (

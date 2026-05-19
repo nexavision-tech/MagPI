@@ -1,4 +1,10 @@
 # magpi/stats.py
+"""
+MagPI: Matrix Automated Geospatial Processing Interface
+Spatial Statistics Module - Mathematical Verification Engine
+Created by www.nexavision.tech
+"""
+
 import os
 import logging
 import numpy as np
@@ -12,6 +18,7 @@ def ComputeConfusionMatrix(in_ground_truth, in_classified, out_table, value_fiel
     Computes a pixel-by-pixel spatial error matrix comparing ground truth to predictions.
     Calculates Overall Accuracy, Producer's Accuracy, User's Accuracy, and Kappa Coefficient.
     """
+    # Dynamic parameter duck-typing
     if hasattr(in_ground_truth, 'name'): gt_path = in_ground_truth.name
     elif hasattr(in_ground_truth, 'output'): gt_path = in_ground_truth.output
     else: gt_path = str(in_ground_truth)
@@ -29,6 +36,7 @@ def ComputeConfusionMatrix(in_ground_truth, in_classified, out_table, value_fiel
         from rasterio.vrt import WarpedVRT
         from rasterio.enums import Resampling
 
+        # Securely read and align datasets in memory
         with rasterio.open(gt_path) as src_gt:
             with rasterio.open(pred_path) as src_pred:
                 # Align prediction grid to the ground truth grid dynamically in memory if they mismatch
@@ -79,7 +87,7 @@ def ComputeConfusionMatrix(in_ground_truth, in_classified, out_table, value_fiel
         # Kappa Calculation Math
         pe = np.sum((row_sums * col_sums) / total_pixels) / total_pixels
         po = overall_accuracy
-        kappa = (po - pe) / (1 - pe) if pe < 1 else 1.0
+        kappa = (po - pe) / (1 - pe) if pe < 1.0 else 1.0
 
         # Build clean string report to match NexaVision standards
         report = []
@@ -102,14 +110,14 @@ def ComputeConfusionMatrix(in_ground_truth, in_classified, out_table, value_fiel
             pred_total = col_sums[idx]
             correct = matrix[idx, idx]
             
-            pa = (correct / gt_total * 100) if gt_total > 0 else 0.0
-            ua = (correct / pred_total * 100) if pred_total > 0 else 0.0
+            pa = (correct / gt_total * 100.0) if gt_total > 0 else 0.0
+            ua = (correct / pred_total * 100.0) if pred_total > 0 else 0.0
             
             report.append(f"{str(val):<12} | {gt_total:<10,} | {pred_total:<10,} | {pa:.2f}%{'':<11} | {ua:.2f}%")
 
         report.append("=====================================================================")
 
-        # Log to daemon console
+        # Log directly to local daemon console
         for line in report:
             logger.info(line)
 
