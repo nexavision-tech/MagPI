@@ -6,7 +6,7 @@ import {
   SlidersHorizontal, Wrench, Check, FolderOpen, ListFilter,
   Search, Copy, Info, Fingerprint, Loader2, AlertCircle, 
   Cloud, Map as MapIcon, Satellite, Box, Globe, DownloadCloud, PaintBucket, 
-  FileOutput // New icon for conversion
+  FileOutput, LineChart // New icon for spatial stats
 } from 'lucide-react';
 
 const TOOLBOX_CATEGORIES = [
@@ -33,7 +33,6 @@ const TOOLBOX_CATEGORIES = [
         params: { url: "https://datagov.mot.go.th/dataset/...", format: { value: "GeoJSON", type: "select", options: ["GeoJSON", "ESRI REST", "WFS"] } } }
     ]
   },
-  
   {
     name: "Core Inputs", icon: <Database size={18} className="text-yellow-500/70" />,
     tools: [
@@ -46,14 +45,6 @@ const TOOLBOX_CATEGORIES = [
       { id: 'load_vector', name: "Input Vector", type: 'input', icon: <Hexagon size={14}/>, color: 'bg-blue-600', border: 'border-blue-500', 
         description: "Loads a vector feature class or shapefile containing points, lines, or polygons.",
         params: { file_path: "./test_data/Orange_County_Tracts.shp" } },
-    ]
-  },
-  {
-    name: "3D Analyst (ddd)", icon: <Box size={18} className="text-orange-500/70" />,
-    tools: [
-      { id: 'ddd_las_to_raster', name: "LAS to Raster (DEM)", type: 'process', icon: <Layers size={14}/>, color: 'bg-orange-600', border: 'border-orange-500', 
-        description: "Converts a LiDAR point cloud (.las/.laz) into a continuous Digital Elevation Model (DEM) grid.",
-        params: { value_field: { value: "ELEVATION", type: "select", options: ["ELEVATION", "INTENSITY", "RETURN_NUMBER"] }, sampling_value: 1.0 } },
     ]
   },
   {
@@ -114,13 +105,22 @@ const TOOLBOX_CATEGORIES = [
       },
     ]
   },
-  // NEW CATEGORY: Conversion
   {
     name: "Conversion Tools", icon: <FileOutput size={18} className="text-orange-400" />,
     tools: [
       { id: 'conv_raster_to_polygon', name: "Raster to Polygon", type: 'process', icon: <Hexagon size={14}/>, color: 'bg-orange-600', border: 'border-orange-500', 
         description: "Converts a classified pixel mask (e.g. AI inference output) into discrete vector polygons (Shapefile/GeoJSON).",
         params: { out_polygon_features: "extracted_features.shp", background_value: 0 } 
+      },
+    ]
+  },
+  // NEW SUBSYSTEM CATEGORY: Spatial Statistics (stats)
+  {
+    name: "Spatial Statistics", icon: <LineChart size={18} className="text-rose-400" />,
+    tools: [
+      { id: 'stats_confusion_matrix', name: "Compute Confusion Matrix", type: 'process', icon: <Grid size={14}/>, color: 'bg-rose-600', border: 'border-rose-500', 
+        description: "Compares ground truth labels against AI classifications. Calculates User/Producer accuracies and Kappa coefficients.",
+        params: { out_table: "confusion_matrix.csv" } 
       },
     ]
   }
@@ -186,7 +186,7 @@ export default function Toolbox({
             <span className="bg-slate-900 p-1.5 rounded-md mr-3 shadow-inner">{hoveredTool.icon}</span> 
             {hoveredTool.name}
           </div>
-          <p className="text-xs text-slate-300 leading-relaxed mb-3">
+          <p class="text-xs text-slate-300 leading-relaxed mb-3">
             {hoveredTool.description}
           </p>
           <div className="flex items-center text-[9px] text-slate-500 uppercase tracking-widest font-bold bg-slate-900 px-2 py-1 rounded">
@@ -284,7 +284,7 @@ export default function Toolbox({
                         </div>
                       ) : typeof displayVal === 'number' ? (
                         <input type="number" value={displayVal} onChange={(e) => updateNodeParam(selectedNode.id, key, Number(e.target.value))} className="w-full bg-slate-800 border border-slate-600 rounded-md px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all font-mono"/>
-                      ) : key === 'file_path' || key === 'out_folder' || key === 'out_polygon_features' ? (
+                      ) : key === 'file_path' || key === 'out_folder' || key === 'out_polygon_features' || key === 'out_table' ? (
                         <div className="flex items-center space-x-2">
                            <input type="text" value={displayVal} onChange={(e) => updateNodeParam(selectedNode.id, key, e.target.value)} className="flex-1 bg-slate-800 border border-slate-600 rounded-md px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all font-mono"/>
                           <button onClick={() => openFileBrowser(selectedNode.id, key, displayVal)} className="p-2 bg-slate-700 hover:bg-slate-600 rounded border border-slate-600 transition-colors text-emerald-400" title="Browse OS Files"><FolderOpen size={16} /></button>

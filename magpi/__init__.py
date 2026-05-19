@@ -8,7 +8,7 @@ Created by www.nexavision.tech
 import logging
 from .env import env
 from .objects import Extent, SpatialReference, Describe, Result
-from .sa import Raster # CRITICAL FIX: Raster belongs to Spatial Analyst (sa.py)
+from .sa import Raster 
 
 # 1. Expose Submodules (The Structural Tree)
 from . import wfs
@@ -20,7 +20,7 @@ from . import conversion
 from . import analysis
 from . import sa
 from . import da
-from . import stats
+from . import stats # NEW: Spatial Statistics (stats.py)
 from . import mp
 from . import server
 from . import geocoding

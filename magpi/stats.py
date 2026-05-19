@@ -1,119 +1,134 @@
 # magpi/stats.py
-import geopandas as gpd
-import numpy as np
-import logging
 import os
+import logging
+import numpy as np
 from .objects import Result
 
-logger = logging.getLogger("MagPI_SpatialStats")
+logger = logging.getLogger("MagPI_Stats")
 
-def HotSpots(Input_Feature_Class, Input_Field, Output_Feature_Class, Conceptualization_of_Spatial_Relationships="INVERSE_DISTANCE", Distance_Band_or_Threshold_Distance=None):
+def ComputeConfusionMatrix(in_ground_truth, in_classified, out_table, value_field="Value"):
     """
-    MagPI Translation of arcpy.stats.HotSpots (Getis-Ord Gi*).
-    Identifies statistically significant spatial clusters of high values (hot spots) and low values (cold spots).
-    Uses 'esda' and 'libpysal' (The engines behind GeoDa).
+    MagPI Translation of arcpy.stats.ComputeConfusionMatrix.
+    Computes a pixel-by-pixel spatial error matrix comparing ground truth to predictions.
+    Calculates Overall Accuracy, Producer's Accuracy, User's Accuracy, and Kappa Coefficient.
     """
-    logger.info(f"Executing Open-Source HotSpots (Getis-Ord Gi*) on: {Input_Feature_Class}")
+    if hasattr(in_ground_truth, 'name'): gt_path = in_ground_truth.name
+    elif hasattr(in_ground_truth, 'output'): gt_path = in_ground_truth.output
+    else: gt_path = str(in_ground_truth)
+
+    if hasattr(in_classified, 'name'): pred_path = in_classified.name
+    elif hasattr(in_classified, 'output'): pred_path = in_classified.output
+    else: pred_path = str(in_classified)
+
+    logger.info("Initializing Spatial Confusion Matrix Engine...")
+    logger.info(f"Ground Truth Reference: {os.path.basename(gt_path)}")
+    logger.info(f"Classified Map: {os.path.basename(pred_path)}")
+
     try:
-        import libpysal
-        from esda.getisord import G_Local
+        import rasterio
+        from rasterio.vrt import WarpedVRT
+        from rasterio.enums import Resampling
 
-        # 1. Load the vector data
-        gdf = gpd.read_file(Input_Feature_Class)
-        
-        # Ensure the field exists and is numeric
-        if Input_Field not in gdf.columns:
-            logger.error(f"Field '{Input_Field}' not found in {Input_Feature_Class}")
+        with rasterio.open(gt_path) as src_gt:
+            with rasterio.open(pred_path) as src_pred:
+                # Align prediction grid to the ground truth grid dynamically in memory if they mismatch
+                if src_pred.shape != src_gt.shape or src_pred.transform != src_gt.transform:
+                    logger.info("Grid dimensions or projections mismatch. Auto-aligning via WarpedVRT...")
+                    with WarpedVRT(src_pred, crs=src_gt.crs, transform=src_gt.transform, width=src_gt.width, height=src_gt.height, resampling=Resampling.nearest) as vrt:
+                        pred_data = vrt.read(1)
+                else:
+                    pred_data = src_pred.read(1)
+                
+                gt_data = src_gt.read(1)
+
+        # Flatten arrays for matching
+        gt_flat = gt_data.flatten()
+        pred_flat = pred_data.flatten()
+
+        # Filter out nodata values (e.g. 255)
+        valid_mask = (gt_flat != 255) & (pred_flat != 255)
+        gt_valid = gt_flat[valid_mask]
+        pred_valid = pred_flat[valid_mask]
+
+        # Identify unique classes
+        classes = np.unique(np.concatenate((gt_valid, pred_valid)))
+        num_classes = len(classes)
+        logger.info(f"Identified {num_classes} distinct classes for matrix comparison: {classes}")
+
+        # Compute confusion matrix array
+        matrix = np.zeros((num_classes, num_classes), dtype=np.int64)
+        class_to_idx = {val: idx for idx, val in enumerate(classes)}
+
+        for gt_val, pred_val in zip(gt_valid, pred_valid):
+            matrix[class_to_idx[gt_val], class_to_idx[pred_val]] += 1
+
+        total_pixels = np.sum(matrix)
+        if total_pixels == 0:
+            logger.error("No valid pixels found for comparison!")
             return Result(None, status=3)
-            
-        y = gdf[Input_Field].astype(float).values
-        
-        # 2. Build the Spatial Weights Matrix (How neighbors relate to each other)
-        logger.info("Building Spatial Weights Matrix...")
-        if Conceptualization_of_Spatial_Relationships == "INVERSE_DISTANCE":
-            # Using Distance Band. If none provided, PySAL calculates a default KNN or minimum threshold.
-            if Distance_Band_or_Threshold_Distance:
-                w = libpysal.weights.DistanceBand.from_dataframe(gdf, float(Distance_Band_or_Threshold_Distance), binary=False)
-            else:
-                w = libpysal.weights.KNN.from_dataframe(gdf, k=8) # Default to 8 nearest neighbors
-        else:
-            # Default fallback to Contiguity (Queen's case - touching borders/corners)
-            w = libpysal.weights.Queen.from_dataframe(gdf)
-            
-        w.transform = 'R' # Row-standardize the weights
-        
-        # 3. Calculate Getis-Ord Gi*
-        logger.info("Calculating Local G Statistics...")
-        g_local = G_Local(y, w, transform='R', star=True)
-        
-        # 4. Append Results to the GeoDataFrame
-        gdf['Gi_Zscore'] = g_local.Zs
-        gdf['Gi_Pvalue'] = g_local.p_sim
-        
-        # Categorize confidence intervals (99%, 95%, 90% Hot/Cold Spots)
-        conditions = [
-            (gdf['Gi_Pvalue'] < 0.01) & (gdf['Gi_Zscore'] > 0),
-            (gdf['Gi_Pvalue'] < 0.05) & (gdf['Gi_Zscore'] > 0),
-            (gdf['Gi_Pvalue'] < 0.10) & (gdf['Gi_Zscore'] > 0),
-            (gdf['Gi_Pvalue'] < 0.01) & (gdf['Gi_Zscore'] < 0),
-            (gdf['Gi_Pvalue'] < 0.05) & (gdf['Gi_Zscore'] < 0),
-            (gdf['Gi_Pvalue'] < 0.10) & (gdf['Gi_Zscore'] < 0)
-        ]
-        choices = [3, 2, 1, -3, -2, -1] # +3 is 99% Hot, -3 is 99% Cold
-        gdf['Gi_Bin'] = np.select(conditions, choices, default=0)
 
-        # 5. Save Output
-        gdf.to_file(Output_Feature_Class)
-        logger.info(f"Hot Spot Analysis complete. Saved to: {Output_Feature_Class}")
-        return Result(Output_Feature_Class)
+        # --- STATISTICAL ALGEBRA ENGINE (Hanni Equations) ---
+        # Overall Accuracy: Diagonal Sum / Total
+        diag_sum = np.trace(matrix)
+        overall_accuracy = diag_sum / total_pixels
 
-    except ImportError:
-        logger.error("Missing dependencies: 'libpysal' and 'esda'. Run: conda install -c conda-forge libpysal esda -y")
-        return Result(None, status=3)
+        # Row and Col sums
+        row_sums = np.sum(matrix, axis=1) # Reference/Ground Truth totals
+        col_sums = np.sum(matrix, axis=0) # Classified/Prediction totals
+
+        # Kappa Calculation Math
+        pe = np.sum((row_sums * col_sums) / total_pixels) / total_pixels
+        po = overall_accuracy
+        kappa = (po - pe) / (1 - pe) if pe < 1 else 1.0
+
+        # Build clean string report to match NexaVision standards
+        report = []
+        report.append("=====================================================================")
+        report.append(":::::: NEXAVISION SPATIAL ACCURACY VERIFICATION REPORT :::::::::::::")
+        report.append("=====================================================================")
+        report.append(f"Ground Truth: {os.path.basename(gt_path)}")
+        report.append(f"Classified Map: {os.path.basename(pred_path)}")
+        report.append(f"Total Evaluated Pixels: {total_pixels:,}")
+        report.append(f"Overall Accuracy: {overall_accuracy * 100:.2f}%")
+        report.append(f"Kappa Coefficient (\u03ba): {kappa:.4f}")
+        report.append("---------------------------------------------------------------------")
+        
+        header_row = f"{'Class':<12} | {'Reference':<10} | {'Classified':<10} | {'Producer Accuracy':<18} | {'User Accuracy':<15}"
+        report.append(header_row)
+        report.append("-" * len(header_row))
+
+        for idx, val in enumerate(classes):
+            gt_total = row_sums[idx]
+            pred_total = col_sums[idx]
+            correct = matrix[idx, idx]
+            
+            pa = (correct / gt_total * 100) if gt_total > 0 else 0.0
+            ua = (correct / pred_total * 100) if pred_total > 0 else 0.0
+            
+            report.append(f"{str(val):<12} | {gt_total:<10,} | {pred_total:<10,} | {pa:.2f}%{'':<11} | {ua:.2f}%")
+
+        report.append("=====================================================================")
+
+        # Log to daemon console
+        for line in report:
+            logger.info(line)
+
+        # Write clean CSV output
+        with open(out_table, 'w') as f:
+            f.write("Class,ReferenceTotal,ClassifiedTotal,ProducerAccuracy,UserAccuracy\n")
+            for idx, val in enumerate(classes):
+                gt_total = row_sums[idx]
+                pred_total = col_sums[idx]
+                correct = matrix[idx, idx]
+                pa = (correct / gt_total) if gt_total > 0 else 0.0
+                ua = (correct / pred_total) if pred_total > 0 else 0.0
+                f.write(f"{val},{gt_total},{pred_total},{pa:.6f},{ua:.6f}\n")
+            f.write(f"OVERALL_ACCURACY,,,{overall_accuracy:.6f},\n")
+            f.write(f"KAPPA,,,{kappa:.6f},\n")
+
+        logger.info(f"SUCCESS: Confusion spreadsheet saved to: {out_table}")
+        return Result(out_table)
+
     except Exception as e:
-        logger.error(f"Failed to calculate Hot Spots: {e}")
-        return Result(None, status=3)
-
-def SpatialAutocorrelation(Input_Feature_Class, Input_Field, Generate_Report="NO_REPORT", Conceptualization_of_Spatial_Relationships="INVERSE_DISTANCE", Distance_Band_or_Threshold_Distance=None):
-    """
-    MagPI Translation of arcpy.stats.SpatialAutocorrelation (Global Moran's I).
-    Measures spatial autocorrelation based on both feature locations and feature values simultaneously.
-    """
-    logger.info(f"Executing Open-Source SpatialAutocorrelation (Moran's I) on: {Input_Feature_Class}")
-    try:
-        import libpysal
-        from esda.moran import Moran
-
-        gdf = gpd.read_file(Input_Feature_Class)
-        y = gdf[Input_Field].astype(float).values
-        
-        if Conceptualization_of_Spatial_Relationships == "INVERSE_DISTANCE" and Distance_Band_or_Threshold_Distance:
-            w = libpysal.weights.DistanceBand.from_dataframe(gdf, float(Distance_Band_or_Threshold_Distance), binary=False)
-        else:
-            w = libpysal.weights.KNN.from_dataframe(gdf, k=8)
-            
-        w.transform = 'R'
-        
-        logger.info("Calculating Global Moran's I...")
-        moran = Moran(y, w)
-        
-        logger.info(f"Moran's Index: {moran.I:.4f}")
-        logger.info(f"Z-Score: {moran.z_sim:.4f}")
-        logger.info(f"P-Value: {moran.p_sim:.4f}")
-        
-        if moran.z_sim > 2.58:
-            logger.info("Result: Clustered (Significant at 99%)")
-        elif moran.z_sim < -2.58:
-            logger.info("Result: Dispersed (Significant at 99%)")
-        else:
-            logger.info("Result: Random (No significant spatial autocorrelation)")
-            
-        # In ArcPy, this tool doesn't output a new shapefile, it just returns the stats as a tuple/Result
-        return Result([moran.I, moran.z_sim, moran.p_sim])
-
-    except ImportError:
-        logger.error("Missing dependencies: 'libpysal' and 'esda'.")
-        return Result(None, status=3)
-    except Exception as e:
-        logger.error(f"Failed to calculate Spatial Autocorrelation: {e}")
+        logger.error(f"Failed to calculate Confusion Matrix: {e}")
         return Result(None, status=3)
