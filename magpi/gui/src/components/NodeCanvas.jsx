@@ -5,7 +5,9 @@ import ReactFlow, {
   MiniMap, 
   applyNodeChanges, 
   applyEdgeChanges, 
-  MarkerType
+  MarkerType,
+  Handle,      // <--- CRITICAL FIX: React Flow's magnetic connection ports
+  Position
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { 
@@ -36,10 +38,23 @@ const getIconElement = (icon) => {
   return <Settings size={14} className="text-slate-400" />;
 };
 
-// Custom Node Component to show Status Indicators
+// Custom Node Component (Now with Magnetic Ports!)
 const MagPINode = ({ data }) => {
+  // Determine if this node is an absolute root (no incoming wires needed)
+  const isInputNode = ['core_extent', 'load_raster', 'load_vector'].includes(data.toolId);
+
   return (
     <div className={`px-4 py-3 rounded-lg shadow-2xl border-2 flex items-center min-w-[220px] transition-all duration-300 ${data.color} ${data.border} ${data.selected ? 'ring-2 ring-white scale-105 shadow-[0_0_25px_rgba(16,185,129,0.4)]' : 'opacity-95'}`}>
+      
+      {/* LEFT PORT: Target Handle (Only show if it's NOT a raw input node) */}
+      {!isInputNode && (
+        <Handle 
+          type="target" 
+          position={Position.Left} 
+          className="w-3.5 h-3.5 bg-slate-300 border-2 border-slate-800 -ml-1 transition-transform hover:scale-150 z-50 cursor-crosshair" 
+        />
+      )}
+
       <div className="mr-3 bg-black/30 p-2 rounded flex items-center justify-center">
          {getIconElement(data.icon)}
       </div>
@@ -54,6 +69,13 @@ const MagPINode = ({ data }) => {
         {data.status === 'success' && <CheckCircle2 size={16} className="text-emerald-300 drop-shadow-[0_0_8px_rgba(52,211,153,0.8)] animate-pulse" />}
         {data.status === 'error' && <AlertCircle size={16} className="text-red-300 drop-shadow-[0_0_8px_rgba(248,113,113,0.8)]" />}
       </div>
+
+      {/* RIGHT PORT: Source Handle */}
+      <Handle 
+        type="source" 
+        position={Position.Right} 
+        className="w-3.5 h-3.5 bg-emerald-400 border-2 border-slate-800 -mr-1 transition-transform hover:scale-150 z-50 cursor-crosshair shadow-[0_0_8px_rgba(16,185,129,0.8)]" 
+      />
     </div>
   );
 };
@@ -79,9 +101,7 @@ export default function NodeCanvas({
       icon: n.icon,
       selected: n.id === selectedNodeId,
       status: nodeStatuses[n.id]
-    },
-    sourcePosition: 'right',
-    targetPosition: 'left',
+    }
   }));
 
   const rfEdges = connections.map((c, idx) => ({
@@ -155,11 +175,10 @@ export default function NodeCanvas({
   return (
     <div className="w-full h-full relative" ref={reactFlowWrapper}>
       
-      {/* Dynamic Styling Overrides for React Flow UI Panels */}
       <style>{`
         .react-flow__controls {
-          background-color: #0f172a !important; /* slate-900 */
-          border: 1px solid #334155 !important; /* slate-700 */
+          background-color: #0f172a !important; 
+          border: 1px solid #334155 !important; 
           border-radius: 8px !important;
           box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5) !important;
           overflow: hidden;
@@ -168,10 +187,10 @@ export default function NodeCanvas({
           gap: 1px;
         }
         .react-flow__controls-button {
-          background-color: #1e293b !important; /* slate-800 */
+          background-color: #1e293b !important; 
           border: none !important;
           border-bottom: 1px solid #334155 !important;
-          color: #94a3b8 !important; /* slate-400 */
+          color: #94a3b8 !important; 
           fill: #94a3b8 !important;
           transition: all 0.2s ease !important;
           width: 28px !important;
@@ -181,7 +200,7 @@ export default function NodeCanvas({
           justify-content: center;
         }
         .react-flow__controls-button:hover {
-          background-color: #10b981 !important; /* emerald-500 */
+          background-color: #10b981 !important; 
           color: #ffffff !important;
           fill: #ffffff !important;
         }
@@ -191,11 +210,11 @@ export default function NodeCanvas({
         }
         .react-flow__attribution {
           background-color: transparent !important;
-          color: #475569 !important; /* slate-600 */
+          color: #475569 !important; 
           font-size: 8px !important;
         }
         .react-flow__attribution a {
-          color: #64748b !important; /* slate-500 */
+          color: #64748b !important; 
           text-decoration: none;
         }
         .react-flow__attribution a:hover {
@@ -216,7 +235,6 @@ export default function NodeCanvas({
         nodeTypes={nodeTypes}
         fitView
         
-        /* Figma Figma Figma spacebar-pan control matrix */
         panOnScroll={true}
         panOnDrag={false}
         selectionOnDrag={true}
