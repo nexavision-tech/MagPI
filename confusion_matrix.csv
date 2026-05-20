@@ -1,5 +1,0 @@
-Class,ReferenceTotal,ClassifiedTotal,ProducerAccuracy,UserAccuracy
-0,127106,209606,0.653250,0.396134
-1,418939,336439,0.697870,0.868999
-OVERALL_ACCURACY,,,0.687484,
-KAPPA,,,0.286379,
