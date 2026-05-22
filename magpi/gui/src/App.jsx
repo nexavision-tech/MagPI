@@ -5,6 +5,7 @@ import Terminal from './components/Terminal';
 import Toolbox from './components/Toolbox';
 import NodeCanvas from './components/NodeCanvas';
 import MapViewport from './components/MapViewport';
+import TensorBrew from './components/TensorBrew';
 import ScriptModal from './components/ScriptModal';
 import FileBrowserModal from './components/FileBrowserModal';
 import EnvSettingsModal from './components/EnvSettingsModal';
@@ -200,6 +201,7 @@ export default function App() {
             <button onClick={() => setActiveWorkspace('builder')} className={`px-6 py-2 text-xs font-bold uppercase tracking-widest rounded-t-lg transition-colors flex items-center border border-b-0 ${activeWorkspace === 'builder' ? 'bg-slate-800 text-emerald-400 border-slate-600' : 'bg-transparent text-slate-500 border-transparent hover:bg-slate-800/50 hover:text-slate-300'}`}><Wrench size={14} className="mr-2" /> Model Builder</button>
             <button onClick={() => setActiveWorkspace('globe')} className={`px-6 py-2 text-xs font-bold uppercase tracking-widest rounded-t-lg transition-colors flex items-center border border-b-0 ml-1 ${activeWorkspace === 'globe' ? 'bg-slate-800 text-cyan-400 border-slate-600' : 'bg-transparent text-slate-500 border-transparent hover:bg-slate-800/50 hover:text-slate-300'}`}><MapIcon size={14} className="mr-2" /> Globe Nexus</button>
             <button onClick={() => setActiveWorkspace('planar')} className={`px-6 py-2 text-xs font-bold uppercase tracking-widest rounded-t-lg transition-colors flex items-center border border-b-0 ml-1 ${activeWorkspace === 'planar' ? 'bg-slate-800 text-purple-400 border-slate-600' : 'bg-transparent text-slate-500 border-transparent hover:bg-slate-800/50 hover:text-slate-300'}`}><Edit3 size={14} className="mr-2" /> Planar Train Env</button>
+            <button onClick={() => setActiveWorkspace('tensor_brew')} className={`px-6 py-2 text-xs font-bold uppercase tracking-widest rounded-t-lg transition-colors flex items-center border border-b-0 ml-1 ${activeWorkspace === 'tensor_brew' ? 'bg-slate-800 text-indigo-400 border-slate-600' : 'bg-transparent text-slate-500 border-transparent hover:bg-slate-800/50 hover:text-slate-300'}`}><Layers size={14} className="mr-2" /> Tensor Brew</button>
         </div>
       </div>
       
@@ -207,11 +209,16 @@ export default function App() {
         <div className={`flex-1 relative ${activeWorkspace === 'builder' ? 'flex' : 'hidden'}`}>
             <NodeCanvas nodes={nodes} setNodes={setNodes} connections={connections} setConnections={setConnections} selectedNodeId={selectedNodeId} setSelectedNodeId={setSelectedNodeId} setActiveRightTab={setActiveRightTab} nodeStatuses={nodeStatuses} removeConnection={removeConnection} addNode={addNode} />
         </div>
-        <div className={`relative ${activeWorkspace === 'builder' ? 'w-[320px] hidden lg:flex' : 'flex-1 w-full'} flex-col shadow-[-10px_0_20px_rgba(0,0,0,0.3)] z-10 border-l border-r border-slate-800`}>
+        <div className={`relative ${['builder', 'globe', 'planar'].includes(activeWorkspace) ? (activeWorkspace === 'builder' ? 'w-[320px] hidden lg:flex' : 'flex-1 w-full') : 'hidden'} flex-col shadow-[-10px_0_20px_rgba(0,0,0,0.3)] z-10 border-l border-r border-slate-800`}>
             <MapViewport onAoiDrawn={handleAoiDrawn} selectedNode={selectedNode} activeWorkspace={activeWorkspace} />
         </div>
         <div className={`w-[320px] relative ${activeWorkspace === 'builder' ? 'flex' : 'hidden'} flex-col z-20`}>
             <Toolbox activeRightTab={activeRightTab} setActiveRightTab={setActiveRightTab} selectedNode={selectedNode} updateNodeParam={updateNodeParam} updateNodeName={updateNodeName} deleteNode={deleteNode} addNode={addNode} duplicateNode={duplicateNode} openFileBrowser={openFileBrowser} />
+        </div>
+        
+        {/* Render Tensor Brew Fullscreen when Active */}
+        <div className={`absolute inset-0 z-50 ${activeWorkspace === 'tensor_brew' ? 'block' : 'hidden'}`}>
+            <TensorBrew activeWorkspace={activeWorkspace} />
         </div>
       </div>
 

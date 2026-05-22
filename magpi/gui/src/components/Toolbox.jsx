@@ -91,6 +91,14 @@ const TOOLBOX_CATEGORIES = [
         description: "Unleashes an autonomous Reinforcement Learning agent to iteratively optimize geoprocessing parameters.",
         params: { target_accuracy: 95.0, max_iterations: 100 } 
       },
+      { id: 'ai_ml_train', name: "Train Classical ML", type: 'process', icon: <Cpu size={14}/>, color: 'bg-rose-700', border: 'border-rose-500', 
+        description: "Trains a Classical Machine Learning algorithm using pixel spectral signatures and vector polygons.",
+        params: { algorithm: { value: "RANDOM_FOREST", type: "select", options: ["RANDOM_FOREST", "XGBOOST", "SVM", "MAX_LIKELIHOOD"] }, max_trees: 50, out_model: "ml.model" } 
+      },
+      { id: 'ai_ml_predict', name: "Predict Classical ML", type: 'process', icon: <ImageIcon size={14}/>, color: 'bg-rose-700', border: 'border-rose-500', 
+        description: "Executes a trained Classical ML model over a raster to produce a classified land cover map.",
+        params: { out_raster: "ml_classified.tif" } 
+      },
     ]
   },
   {

@@ -61,11 +61,36 @@ class AIGenerateNode(Node):
     def execute(self):
         in_raster = self.inputs.get("in")
         p = self.params
+        out_raster = p.get('out_raster', f"super_resolved_{p.get('scale_factor', 2)}x.tif")
         logger.info(f"GAN Super-Resolution requested for {in_raster} with scale factor {p.get('scale_factor', 2)}")
-        self.output = f"super_resolved_{p.get('scale_factor')}x.tif"
+        
+        from magpi.geoai import GenerateSyntheticData
+        self.output = GenerateSyntheticData(in_raster, out_raster, p.get('scale_factor', 2))
 
 @register_node('ai_rl')
 class AIRLNode(Node):
     def execute(self):
         logger.info("Reinforcement Learning Engine initialized for iterative pipeline optimization.")
         self.output = "rl_optimized_parameters.json"
+
+@register_node('ai_ml_train')
+class MLTrainNode(Node):
+    def execute(self):
+        in_raster = self.inputs.get("in_raster")
+        in_features = self.inputs.get("in_features")
+        p = self.params
+        out_model = p.get('out_model', 'classical_ml.model')
+        
+        from magpi.geoai import TrainMachineLearningModel
+        self.output = TrainMachineLearningModel(in_raster, in_features, out_model, p.get('algorithm', 'RANDOM_FOREST'), p.get('max_trees', 50))
+
+@register_node('ai_ml_predict')
+class MLPredictNode(Node):
+    def execute(self):
+        in_raster = self.inputs.get("in_raster")
+        in_model = self.inputs.get("in_model")
+        p = self.params
+        out_raster = p.get('out_raster', 'ml_classified.tif')
+        
+        from magpi.geoai import ClassifyPixelsUsingMachineLearning
+        self.output = ClassifyPixelsUsingMachineLearning(in_raster, out_raster, in_model)
