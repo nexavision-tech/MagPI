@@ -9,7 +9,10 @@ import {
   Handle,
   Position,
   ReactFlowProvider,
-  useReactFlow
+  useReactFlow,
+  useNodesState,
+  useEdgesState,
+  reconnectEdge
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { 
@@ -142,58 +145,49 @@ function CanvasInner({
   const reactFlowWrapper = useRef(null);
   const { screenToFlowPosition } = useReactFlow();
 
-  // 1. Map MagPI nodes to React Flow
-  const rfNodes = nodes.map(n => ({
-    id: n.id,
-    type: 'magpiNode',
-    position: { x: n.x, y: n.y },
-    data: { ...n, selected: n.id === selectedNodeId, status: nodeStatuses[n.id] }
-  }));
+  const [rfNodes, setRfNodes, onNodesChange] = useNodesState([]);
+  const [rfEdges, setRfEdges, onEdgesChange] = useEdgesState([]);
 
-  // 2. Map MagPI connections to React Flow (CRITICAL: Preserving sourceHandle/targetHandle IDs so wires don't stack!)
-  const rfEdges = connections.map((c) => ({
-    id: `e_${c.from}_${c.sourceHandle || 'out'}_to_${c.to}_${c.targetHandle || 'in'}`,
-    source: c.from,
-    target: c.to,
-    sourceHandle: c.sourceHandle || 'out',
-    targetHandle: c.targetHandle || 'in',
-    type: 'bezier',
-    interactionWidth: 20,
-    animated: nodeStatuses[c.from] === 'processing' || nodeStatuses[c.to] === 'processing',
-    style: { stroke: nodeStatuses[c.to] === 'success' ? '#32d74b' : '#64748b', strokeWidth: 3 }
-  }));
+  // Sync MagPI nodes -> rfNodes (preserves dragging state)
+  React.useEffect(() => {
+    setRfNodes((current) => nodes.map(n => {
+      const existing = current.find(crn => crn.id === n.id);
+      return {
+        ...existing, // keeps dragging, measured, selected
+        id: n.id,
+        type: 'magpiNode',
+        position: existing ? existing.position : { x: n.x, y: n.y },
+        data: { ...n, selected: n.id === selectedNodeId, status: nodeStatuses[n.id] }
+      };
+    }));
+  }, [nodes, selectedNodeId, nodeStatuses, setRfNodes]);
 
-  // 3. FLAWLESS NODE DRAGGING (Syncing positions back to App.jsx)
-  const onNodesChange = useCallback((changes) => {
-    setNodes((oldNodes) => {
-      const currentRfNodes = oldNodes.map(n => ({ id: n.id, position: { x: n.x, y: n.y }, type: 'magpiNode', data: {} }));
-      const updatedRfNodes = applyNodeChanges(changes, currentRfNodes);
-      return oldNodes.map(n => {
-        const updated = updatedRfNodes.find(urn => urn.id === n.id);
-        if (updated) return { ...n, x: updated.position.x, y: updated.position.y };
-        return n;
-      });
-    });
+  // Sync MagPI connections -> rfEdges
+  React.useEffect(() => {
+    setRfEdges(connections.map((c) => ({
+      id: `e_${c.from}_${c.sourceHandle || 'out'}_to_${c.to}_${c.targetHandle || 'in'}`,
+      source: c.from,
+      target: c.to,
+      sourceHandle: c.sourceHandle || 'out',
+      targetHandle: c.targetHandle || 'in',
+      type: 'bezier',
+      interactionWidth: 20,
+      animated: nodeStatuses[c.from] === 'processing' || nodeStatuses[c.to] === 'processing',
+      style: { stroke: nodeStatuses[c.to] === 'success' ? '#32d74b' : '#64748b', strokeWidth: 3 }
+    })));
+  }, [connections, nodeStatuses, setRfEdges]);
+
+  // Sync positions back to App.jsx ONLY on drag stop to prevent render loops
+  const onNodeDragStop = useCallback((event, node) => {
+    setNodes(nds => nds.map(n => n.id === node.id ? { ...n, x: node.position.x, y: node.position.y } : n));
   }, [setNodes]);
 
-  const onEdgesChange = useCallback((changes) => {
-    setConnections((eds) => {
-      const mappedEdges = eds.map((c) => ({ 
-          id: `e_${c.from}_${c.sourceHandle || 'out'}_to_${c.to}_${c.targetHandle || 'in'}`, 
-          source: c.from, target: c.to, sourceHandle: c.sourceHandle, targetHandle: c.targetHandle 
-      }));
-      const updatedEdges = applyEdgeChanges(changes, mappedEdges);
-      return updatedEdges.map(e => ({ from: e.source, to: e.target, sourceHandle: e.sourceHandle, targetHandle: e.targetHandle }));
-    });
-  }, [setConnections]);
-
-  // 4. FLAWLESS WIRE CONNECTION (Saving explicit port IDs)
   const onConnect = useCallback((params) => {
     setConnections((eds) => [...eds, { 
         from: params.source, 
         to: params.target,
-        sourceHandle: params.sourceHandle,
-        targetHandle: params.targetHandle 
+        sourceHandle: params.sourceHandle || 'out',
+        targetHandle: params.targetHandle || 'in'
     }]);
   }, [setConnections]);
 
@@ -209,11 +203,25 @@ function CanvasInner({
        return [...filtered, {
            from: newConnection.source,
            to: newConnection.target,
-           sourceHandle: newConnection.sourceHandle,
-           targetHandle: newConnection.targetHandle
+           sourceHandle: newConnection.sourceHandle || 'out',
+           targetHandle: newConnection.targetHandle || 'in'
        }];
     });
   }, [setConnections]);
+
+  const onReconnectEnd = useCallback((event, edge) => {
+    if (!event.target.classList.contains('react-flow__handle')) {
+      setConnections(eds => eds.filter(c => !(c.from === edge.source && c.to === edge.target)));
+    }
+  }, [setConnections]);
+
+  const onNodesDelete = useCallback((nodesToDelete) => {
+    const deletedIds = nodesToDelete.map(n => n.id);
+    setNodes(nds => nds.filter(n => !deletedIds.includes(n.id)));
+    setConnections(cx => cx.filter(c => !deletedIds.includes(c.from) && !deletedIds.includes(c.to)));
+    setSelectedNodeId(null);
+    setActiveRightTab('toolbox');
+  }, [setNodes, setConnections, setSelectedNodeId, setActiveRightTab]);
 
   // 6. Interaction Handlers
   const onNodeClick = (_, node) => { setSelectedNodeId(node.id); setActiveRightTab('inspector'); };
@@ -263,11 +271,14 @@ function CanvasInner({
         edges={rfEdges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
+        onNodeDragStop={onNodeDragStop}
+        onNodesDelete={onNodesDelete}
         onConnect={onConnect}
         onDrop={onDrop}
         onDragOver={onDragOver}
         onEdgesDelete={onEdgesDelete}
         onReconnect={onReconnect}
+        onReconnectEnd={onReconnectEnd}
         onNodeClick={onNodeClick}
         onPaneClick={onPaneClick}
         nodeTypes={nodeTypes}
