@@ -13,6 +13,29 @@ class PipelineRunner:
     def load_from_json(self, json_data):
         if isinstance(json_data, str):
             json_data = json.loads(json_data)
+            
+        # 1. Apply Global Environment Context
+        global_env = json_data.get('globalEnv', {})
+        if global_env:
+            import os
+            import magpi as arcpy
+            workspace = global_env.get('workspace_dir', './magpi_workspace')
+            scratch = global_env.get('scratch_dir', './magpi_scratch')
+            output = global_env.get('output_dir', './magpi_output')
+            
+            os.environ['MAGPI_WORKSPACE'] = workspace
+            os.environ['MAGPI_SCRATCH'] = scratch
+            os.environ['MAGPI_OUTPUT'] = output
+            
+            arcpy.env.workspace = workspace
+            arcpy.env.scratchWorkspace = scratch
+            arcpy.env.outputWorkspace = output
+            
+            # Ensure directories exist
+            os.makedirs(workspace, exist_ok=True)
+            os.makedirs(scratch, exist_ok=True)
+            os.makedirs(output, exist_ok=True)
+            logger.info(f"Global environments applied: {global_env}")
         
         # Instantiate nodes
         for n_data in json_data.get('nodes', []):
