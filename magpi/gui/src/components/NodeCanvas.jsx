@@ -155,8 +155,8 @@ function CanvasInner({
     id: `e_${c.from}_${c.sourceHandle || 'out'}_to_${c.to}_${c.targetHandle || 'in'}`,
     source: c.from,
     target: c.to,
-    sourceHandle: c.sourceHandle || null,
-    targetHandle: c.targetHandle || null,
+    sourceHandle: c.sourceHandle || undefined,
+    targetHandle: c.targetHandle || undefined,
     type: 'bezier',
     interactionWidth: 20,
     animated: nodeStatuses[c.from] === 'processing' || nodeStatuses[c.to] === 'processing',
@@ -203,7 +203,7 @@ function CanvasInner({
     }));
   }, [setConnections]);
 
-  const onEdgeUpdate = useCallback((oldEdge, newConnection) => {
+  const onReconnect = useCallback((oldEdge, newConnection) => {
     setConnections((eds) => {
        const filtered = eds.filter(c => !(c.from === oldEdge.source && c.to === oldEdge.target));
        return [...filtered, {
@@ -249,7 +249,7 @@ function CanvasInner({
   }, []);
 
   return (
-    <div className="w-full h-full bg-[#0b1120] relative" ref={reactFlowWrapper} onDrop={onDrop} onDragOver={onDragOver}>
+    <div className="w-full h-full bg-[#0b1120] relative" ref={reactFlowWrapper} onDropCapture={onDrop} onDragOverCapture={onDragOver}>
       
       <style>{`
         .react-flow__controls { background-color: #1e293b; border: 1px solid #334155; border-radius: 8px; overflow: hidden; }
@@ -265,15 +265,13 @@ function CanvasInner({
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         onEdgesDelete={onEdgesDelete}
-        onEdgeUpdate={onEdgeUpdate}
+        onReconnect={onReconnect}
         onNodeClick={onNodeClick}
         onPaneClick={onPaneClick}
         nodeTypes={nodeTypes}
         fitView
         snapToGrid={true}
         snapGrid={[10, 10]}
-        edgesUpdatable={true}
-        edgesFocusable={true}
         
         panOnDrag={[1, 2]}
         selectionOnDrag={true}

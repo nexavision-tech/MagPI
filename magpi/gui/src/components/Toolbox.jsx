@@ -202,7 +202,7 @@ export default function Toolbox({
 
   return (
     <div 
-      className="w-[320px] bg-slate-800 flex flex-col shadow-[-10px_0_20px_rgba(0,0,0,0.5)] z-20"
+      className="w-[320px] h-full bg-slate-800 flex flex-col shadow-[-10px_0_20px_rgba(0,0,0,0.5)] z-20"
       onMouseMove={(e) => setMouseY(e.clientY)} 
     >
       
