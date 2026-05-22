@@ -20,3 +20,18 @@ class PullSentinel2Node(Node):
         
         # Call the functional implementation from the legacy matrix
         self.output = PullSentinel2(extent, out_filename, max_cloud_cover=max_cc, date_range=date_range)
+
+@register_node('wfs_copernicus')
+class WFSCopernicusNode(Node):
+    def execute(self):
+        extent = self.inputs.get("in")
+        p = self.params
+        out_feature_class = p.get('out_feature_class', 'copernicus_metadata.json')
+        collection = p.get('collection', 'SENTINEL-1')
+        product_type = p.get('product_type', 'IW_SLC__1S')
+        start_date = p.get('start_date', '2024-01-01T00:00:00Z')
+        end_date = p.get('end_date', '2024-12-31T23:59:59Z')
+        cdse_token = p.get('cdse_token', 'DEMO_TOKEN_REQUIRED')
+        
+        from magpi.wfs import PullCopernicusData
+        self.output = PullCopernicusData(extent, out_feature_class, collection, product_type, start_date, end_date, cdse_token)

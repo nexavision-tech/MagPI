@@ -179,3 +179,63 @@ def PullScienceBase(item_id, out_folder):
     except Exception as e:
         logger.error(f"ScienceBase Pull failed: {e}")
         return Result(None, status=3)
+
+def PullCopernicusData(extent, out_feature_class, collection="SENTINEL-1", product_type="IW_SLC__1S", start_date=None, end_date=None, cdse_token=None):
+    """
+    Connects to the official Copernicus Data Space Ecosystem (CDSE) API.
+    Utilizes OData string filters to accurately query the satellite archive.
+    """
+    logger.info(f"Connecting to Copernicus Data Space Ecosystem (CDSE)...")
+    logger.info(f"Querying Collection: {collection} | Product: {product_type}")
+    
+    try:
+        import json
+        if hasattr(extent, 'XMin'): min_lon, min_lat, max_lon, max_lat = extent.XMin, extent.YMin, extent.XMax, extent.YMax
+        else: min_lon, min_lat, max_lon, max_lat = map(float, str(extent).split())
+
+        # Construct the OData query (compliant with the user's provided spec)
+        odata_filter = f"Collection/Name eq '{collection}' and Attributes/OData.CSC.StringAttribute/any(att:att/Name eq 'productType' and att/OData.CSC.StringAttribute/Value eq '{product_type}')"
+        
+        # Add Date constraints if provided
+        if start_date and end_date:
+            # Enforce DateTimeOffset formatting
+            if not start_date.endswith("Z"): start_date += "Z"
+            if not end_date.endswith("Z"): end_date += "Z"
+            odata_filter += f" and ContentDate/Start ge {start_date} and ContentDate/Start le {end_date}"
+            
+        # OData endpoint
+        cdse_url = f"https://catalogue.dataspace.copernicus.eu/odata/v1/Products?$filter={odata_filter}&$top=1"
+        
+        logger.info(f"Compiling OData Request: {cdse_url}")
+        
+        headers = {}
+        if cdse_token and cdse_token != "DEMO_TOKEN_REQUIRED":
+            headers["Authorization"] = f"Bearer {cdse_token}"
+            logger.info("CDSE Authentication Token detected.")
+        else:
+            logger.warning("No CDSE Authentication Token provided! Querying metadata only.")
+            
+        response = requests.get(cdse_url, headers=headers)
+        if not response.ok:
+            logger.error(f"CDSE API Error ({response.status_code}): {response.text}")
+            return Result(None, status=3)
+            
+        data = response.json()
+        items = data.get("value", [])
+        
+        if not items:
+            logger.warning("No Copernicus products found matching this OData query.")
+            return Result(None, status=3)
+            
+        best_item = items[0]
+        logger.info(f"Found Asset: {best_item.get('Name')} | Size: {best_item.get('ContentLength', 0) / (1024*1024):.2f} MB")
+        
+        # In Phase 7, without a robust CDSE download manager, we return a mock file representing the dataset
+        with open(out_feature_class, 'w') as f:
+            f.write(json.dumps(best_item, indent=4))
+            
+        logger.info(f"SUCCESS: Copernicus Metadata saved to: {out_feature_class}")
+        return Result(out_feature_class)
+    except Exception as e:
+        logger.error(f"Copernicus Pull failed: {e}")
+        return Result(None, status=3)

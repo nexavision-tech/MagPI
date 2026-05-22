@@ -13,9 +13,20 @@ const TOOLBOX_CATEGORIES = [
   {
     name: "API Connector Hub", icon: <Cloud size={18} className="text-cyan-400" />,
     tools: [
-      { id: 'wfs_sentinel2', name: "Pull Sentinel-2", type: 'input', icon: <Satellite size={14}/>, color: 'bg-cyan-700', border: 'border-cyan-500', 
+      { id: 'wfs_sentinel2', name: "Sentinel-2 (AWS 4B)", type: 'input', icon: <Cloud size={14}/>, color: 'bg-cyan-700', border: 'border-cyan-500', 
         description: "Streams Cloud Optimized GeoTIFFs (COGs) from AWS Earth Search based on an AOI. Includes temporal filtering.",
         params: { max_cloud_cover: 10, start_date: { value: "2023-01-01", type: "date" }, end_date: { value: "2023-12-31", type: "date" }, out_folder: "./sentinel_data" } },
+      { id: 'wfs_copernicus', name: "Copernicus Data Space", type: 'input', icon: <Satellite size={14}/>, color: 'bg-blue-600', border: 'border-blue-500', 
+        description: "Connects directly to the ESA Copernicus Data Space Ecosystem (CDSE) to query Sentinel-1, 2, 3, 5P, and Landsat data using OData.",
+        params: { 
+            collection: { value: "SENTINEL-1", type: "select", options: ["SENTINEL-1", "SENTINEL-2", "SENTINEL-3", "SENTINEL-5P", "LANDSAT-8", "LANDSAT-9"] }, 
+            product_type: { value: "IW_SLC__1S", type: "select", options: ["IW_SLC__1S", "IW_GRDH_1S", "S2MSI1C", "S2MSI2A", "SY_2_SYN___"] }, 
+            start_date: { value: "2024-01-01T00:00", type: "datetime-local" }, 
+            end_date: { value: "2024-12-31T23:59", type: "datetime-local" }, 
+            cdse_token: "DEMO_TOKEN_REQUIRED",
+            out_feature_class: "copernicus_metadata.json" 
+        } 
+      },
       { id: 'wfs_elevation', name: "Pull USGS DEM", type: 'input', icon: <Layers size={14}/>, color: 'bg-cyan-700', border: 'border-cyan-500', 
         description: "Extracts a 3D Digital Elevation Model (DEM) natively from the USGS 3DEP Web Coverage Service.",
         params: {} },
@@ -315,7 +326,8 @@ export default function Toolbox({
                   {Object.entries(selectedNode.params || {}).map(([key, val]) => {
                     const isComplexObj = val && typeof val === 'object' && val.type === 'select';
                     const isDateObj = val && typeof val === 'object' && val.type === 'date';
-                    const displayVal = (isComplexObj || isDateObj) ? val.value : val;
+                    const isDateTimeObj = val && typeof val === 'object' && val.type === 'datetime-local';
+                    const displayVal = (isComplexObj || isDateObj || isDateTimeObj) ? val.value : val;
                     return (
                     <div key={key} className="mb-4">
                       <label className="block text-[11px] font-bold text-slate-400 mb-1.5 uppercase tracking-wide">{key.replace(/_/g, ' ')}</label>
@@ -332,6 +344,8 @@ export default function Toolbox({
                         </div>
                       ) : isDateObj ? (
                         <input type="date" value={displayVal} onChange={(e) => updateNodeParam(selectedNode.id, key, { ...val, value: e.target.value })} className="w-full bg-slate-800 border border-slate-600 rounded-md px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all font-mono"/>
+                      ) : isDateTimeObj ? (
+                        <input type="datetime-local" value={displayVal} onChange={(e) => updateNodeParam(selectedNode.id, key, { ...val, value: e.target.value })} className="w-full bg-slate-800 border border-slate-600 rounded-md px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all font-mono"/>
                       ) : typeof displayVal === 'number' ? (
                         <input type="number" value={displayVal} onChange={(e) => updateNodeParam(selectedNode.id, key, Number(e.target.value))} className="w-full bg-slate-800 border border-slate-600 rounded-md px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all font-mono"/>
                       ) : key === 'file_path' || key === 'out_folder' || key === 'out_polygon_features' || key === 'out_table' ? (
