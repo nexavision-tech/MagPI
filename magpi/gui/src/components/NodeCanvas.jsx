@@ -16,7 +16,7 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { 
-  Loader2, CheckCircle2, AlertCircle, Hexagon, Satellite, 
+  Loader2, CheckCircle2, XCircle, Hexagon, Satellite, 
   Layers, Grid, DownloadCloud, Map as MapIcon, Globe, 
   ImageIcon, Box, Leaf, Cpu, Crosshair, Scissors, 
   CircleDashed, Settings, PaintBucket, FileOutput, LineChart,
@@ -83,7 +83,7 @@ const MagPINode = ({ data }) => {
         <div>
             {data.status === 'processing' && <Loader2 size={12} className="text-white animate-spin drop-shadow" />}
             {data.status === 'success' && <CheckCircle2 size={12} className="text-[#32d74b] drop-shadow" />}
-            {data.status === 'error' && <AlertCircle size={12} className="text-[#ff453a] drop-shadow" />}
+            {data.status === 'error' && <XCircle size={12} className="text-[#ff453a] drop-shadow" />}
         </div>
       </div>
 
@@ -94,7 +94,7 @@ const MagPINode = ({ data }) => {
         {!isPureSource && !isDualInput && (
             <>
             <Handle type="target" position={Position.Left} id="in" isConnectableStart={false} className="w-3.5 h-3.5 rounded-full bg-[#a3a3a3] border-[2.5px] border-[#1a1a1a] cursor-crosshair hover:bg-white transition-all z-50" />
-            <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-[9px] font-mono text-[#a3a3a3] font-bold pointer-events-none tracking-widest">{singleLbl}</span>
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[9px] font-mono text-[#a3a3a3] font-bold pointer-events-none tracking-widest">{singleLbl}</span>
             </>
         )}
 
@@ -102,17 +102,17 @@ const MagPINode = ({ data }) => {
         {isDualInput && (
             <>
             <Handle type="target" position={Position.Left} id="in1" style={{ top: '30%' }} isConnectableStart={false} className="w-3.5 h-3.5 rounded-full bg-[#5ac8fa] border-[2.5px] border-[#1a1a1a] cursor-crosshair hover:bg-white transition-all z-50" />
-            <span className="absolute left-1.5 top-[30%] -translate-y-1/2 text-[9px] font-mono text-[#5ac8fa] font-bold pointer-events-none tracking-widest">{topLbl}</span>
+            <span className="absolute left-3 top-[30%] -translate-y-1/2 text-[9px] font-mono text-[#5ac8fa] font-bold pointer-events-none tracking-widest">{topLbl}</span>
 
             <Handle type="target" position={Position.Left} id="in2" style={{ top: '70%' }} isConnectableStart={false} className="w-3.5 h-3.5 rounded-full bg-[#ffcc00] border-[2.5px] border-[#1a1a1a] cursor-crosshair hover:bg-white transition-all z-50" />
-            <span className="absolute left-1.5 top-[70%] -translate-y-1/2 text-[9px] font-mono text-[#ffcc00] font-bold pointer-events-none tracking-widest">{botLbl}</span>
+            <span className="absolute left-3 top-[70%] -translate-y-1/2 text-[9px] font-mono text-[#ffcc00] font-bold pointer-events-none tracking-widest">{botLbl}</span>
             </>
         )}
 
         {/* OUTPUT */}
         {!isEndpoint && (
             <>
-            <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[9px] font-mono text-[#ff3b30] font-bold pointer-events-none tracking-widest">OUT</span>
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[9px] font-mono text-[#ff3b30] font-bold pointer-events-none tracking-widest">OUT</span>
             <Handle type="source" position={Position.Right} id="out" className="w-3.5 h-3.5 rounded-full bg-[#ff3b30] border-[2.5px] border-[#1a1a1a] cursor-crosshair hover:bg-white transition-all z-50" />
             </>
         )}

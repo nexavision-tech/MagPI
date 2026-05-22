@@ -6,6 +6,12 @@ __pycache__/
 test_data/
 tmp_wksp/
 
+# Ignore Magpi Internal Outputs
+magpi_output/
+magpi_workspace/
+magpi_scratch/
+
+# Ignore Data Formats
 *.zip
 *.tif
 *.tfw
@@ -24,3 +30,6 @@ env/
 
 # Ignore massive modules
 node_modules/
+
+# Ref Docs
+ArcPy_Functions.pdf
