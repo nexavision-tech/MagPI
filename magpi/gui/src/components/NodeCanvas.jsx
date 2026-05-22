@@ -65,10 +65,10 @@ const MagPINode = ({ data }) => {
   else if (toolId.startsWith('wfs_')) singleLbl = "AOI";
 
   return (
-    <div className={`flex flex-col min-w-[170px] max-w-[250px] transition-all duration-200 bg-[#2b2b2b] rounded-lg shadow-[0_4px_15px_rgba(0,0,0,0.5)] border ${data.selected ? 'border-[#ff8c00] shadow-[0_0_15px_rgba(255,140,0,0.3)]' : 'border-[#1a1a1a]'} overflow-hidden`}>
+    <div className={`flex flex-col min-w-[170px] max-w-[250px] transition-all duration-200 bg-[#2b2b2b] rounded-lg shadow-[0_4px_15px_rgba(0,0,0,0.5)] border ${data.selected ? 'border-[#ff8c00] shadow-[0_0_15px_rgba(255,140,0,0.3)]' : 'border-[#1a1a1a]'}`}>
       
       {/* HEADER ROW */}
-      <div className={`px-3 py-1.5 flex items-center justify-between ${data.color || 'bg-slate-700'} border-b border-[#1a1a1a]`}>
+      <div className={`px-3 py-1.5 flex items-center justify-between ${data.color || 'bg-slate-700'} border-b border-[#1a1a1a] rounded-t-lg`}>
         <div className="flex items-center space-x-2">
             <div className="text-white drop-shadow-md">{getIconElement(data.toolId)}</div>
             <div>
@@ -83,7 +83,7 @@ const MagPINode = ({ data }) => {
       </div>
 
       {/* BODY ROW */}
-      <div className="p-3 relative bg-gradient-to-b from-[#3a3a3a] to-[#2b2b2b] min-h-[50px]">
+      <div className="p-3 relative bg-gradient-to-b from-[#3a3a3a] to-[#2b2b2b] min-h-[50px] rounded-b-lg">
         
         {/* SINGLE INPUT */}
         {!isPureSource && !isDualInput && (
@@ -107,7 +107,9 @@ const MagPINode = ({ data }) => {
         {/* INLINE PARAMETERS PREVIEW */}
         <div className="flex flex-col items-center justify-center space-y-1 mx-4 py-1">
             {Object.entries(data.params || {}).slice(0, 2).map(([key, val], idx) => {
-                const displayVal = (val && typeof val === 'object' && val.type === 'select') ? val.value : val;
+                const isComplexObj = val && typeof val === 'object' && val.type === 'select';
+                const isDateObj = val && typeof val === 'object' && val.type === 'date';
+                const displayVal = (isComplexObj || isDateObj) ? val.value : val;
                 return (
                     <div key={idx} className="w-full bg-[#1a1a1a] rounded px-1.5 py-0.5 truncate text-[8px] font-mono text-[#a3a3a3] border border-[#000000]">
                         <span className="text-[#6b6b6b] mr-1">{key.substring(0,6)}:</span>{typeof displayVal === 'boolean' ? (displayVal?'T':'F') : String(displayVal)}

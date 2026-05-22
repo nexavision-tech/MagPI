@@ -15,7 +15,7 @@ const TOOLBOX_CATEGORIES = [
     tools: [
       { id: 'wfs_sentinel2', name: "Pull Sentinel-2", type: 'input', icon: <Satellite size={14}/>, color: 'bg-cyan-700', border: 'border-cyan-500', 
         description: "Streams Cloud Optimized GeoTIFFs (COGs) from AWS Earth Search based on an AOI. Includes temporal filtering.",
-        params: { max_cloud_cover: 10, start_date: { value: "2023-01-01", type: "date" }, end_date: { value: "2023-12-31", type: "date" } } },
+        params: { max_cloud_cover: 10, start_date: { value: "2023-01-01", type: "date" }, end_date: { value: "2023-12-31", type: "date" }, out_folder: "./sentinel_data" } },
       { id: 'wfs_elevation', name: "Pull USGS DEM", type: 'input', icon: <Layers size={14}/>, color: 'bg-cyan-700', border: 'border-cyan-500', 
         description: "Extracts a 3D Digital Elevation Model (DEM) natively from the USGS 3DEP Web Coverage Service.",
         params: {} },
