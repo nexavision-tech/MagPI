@@ -115,7 +115,7 @@ const TOOLBOX_CATEGORIES = [
     ]
   },
   {
-    name: "Data ETL (FME)", icon: <Database size={18} className="text-indigo-400" />,
+    name: "Data ETL Pipelines", icon: <Database size={18} className="text-indigo-400" />,
     tools: [
       { id: 'etl_spatial_join', name: "Spatial Join", type: 'process', icon: <MapIcon size={14}/>, color: 'bg-indigo-600', border: 'border-indigo-500', 
         description: "Joins attributes from one feature to another based on spatial relationship.",
@@ -129,7 +129,7 @@ const TOOLBOX_CATEGORIES = [
     ]
   },
   {
-    name: "Spectral Analyst (ENVI)", icon: <Layers size={18} className="text-pink-400" />,
+    name: "Spectral Processing", icon: <Layers size={18} className="text-pink-400" />,
     tools: [
       { id: 'envi_band_math', name: "Band Math", type: 'process', icon: <SlidersHorizontal size={14}/>, color: 'bg-pink-600', border: 'border-pink-500', 
         description: "Performs mathematical operations on image bands.",
@@ -174,6 +174,7 @@ export default function Toolbox({
     const dragPayload = { ...tool, _icon_key: tool.icon.type.name || 'Settings' };
     e.dataTransfer.setData("application/json", JSON.stringify(dragPayload));
     e.dataTransfer.effectAllowed = 'copy';
+    window.__draggedMagPITool = dragPayload; // Robust fallback for ReactFlow drop
     setHoveredTool(null); 
   };
 
