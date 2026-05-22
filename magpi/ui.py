@@ -92,6 +92,30 @@ def LaunchCanvas(port=8080):
                     self.send_header('Content-type', 'application/json')
                     self.end_headers()
                     self.wfile.write(json.dumps({"error": str(e)}).encode('utf-8'))
+                    
+            elif parsed_path.path == '/api/run_pipeline':
+                content_length = int(self.headers['Content-Length'])
+                post_data = self.rfile.read(content_length)
+                try:
+                    payload = json.loads(post_data.decode('utf-8'))
+                    logger.info("Received OOP Pipeline Execution Request from Canvas.")
+                    
+                    from magpi.engine import PipelineRunner
+                    runner = PipelineRunner()
+                    runner.load_from_json(payload)
+                    success = runner.run()
+                    
+                    response = {"status": "success" if success else "error"}
+                    self.send_response(200)
+                    self.send_header('Content-type', 'application/json')
+                    self.end_headers()
+                    self.wfile.write(json.dumps(response).encode('utf-8'))
+                except Exception as e:
+                    logger.error(f"OOP Pipeline Execution API failed: {e}")
+                    self.send_response(500)
+                    self.send_header('Content-type', 'application/json')
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"error": str(e)}).encode('utf-8'))
 
         def handle_describe(self, query):
             qs = parse_qs(query)
