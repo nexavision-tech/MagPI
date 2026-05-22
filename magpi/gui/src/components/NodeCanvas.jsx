@@ -249,7 +249,7 @@ function CanvasInner({
   }, []);
 
   return (
-    <div className="w-full h-full bg-[#0b1120] relative" ref={reactFlowWrapper} onDropCapture={onDrop} onDragOverCapture={onDragOver}>
+    <div className="w-full h-full bg-[#0b1120] relative" ref={reactFlowWrapper}>
       
       <style>{`
         .react-flow__controls { background-color: #1e293b; border: 1px solid #334155; border-radius: 8px; overflow: hidden; }
