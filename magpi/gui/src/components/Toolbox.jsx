@@ -172,7 +172,7 @@ export default function Toolbox({
 
   const handleDragStart = (e, tool) => {
     const dragPayload = { ...tool, _icon_key: tool.icon.type.name || 'Settings' };
-    e.dataTransfer.setData("application/json", JSON.stringify(dragPayload));
+    e.dataTransfer.setData("application/reactflow", JSON.stringify(dragPayload));
     e.dataTransfer.effectAllowed = 'copy';
     window.__draggedMagPITool = dragPayload; // Robust fallback for ReactFlow drop
     setHoveredTool(null); 

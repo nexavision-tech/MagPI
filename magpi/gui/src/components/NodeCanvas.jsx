@@ -8,8 +8,8 @@ import ReactFlow, {
   Position,
   ReactFlowProvider,
   useReactFlow
-} from 'reactflow';
-import 'reactflow/dist/style.css';
+} from '@xyflow/react';
+import '@xyflow/react/dist/style.css';
 import { 
   Loader2, CheckCircle2, AlertCircle, Hexagon, Satellite, 
   Layers, Grid, DownloadCloud, Map as MapIcon, Globe, 
@@ -225,7 +225,7 @@ function CanvasInner({
             toolData = window.__draggedMagPITool;
             window.__draggedMagPITool = null;
         } else {
-            const rawData = event.dataTransfer.getData('application/json');
+            const rawData = event.dataTransfer.getData('application/reactflow');
             if (rawData) toolData = JSON.parse(rawData);
         }
         
@@ -273,14 +273,14 @@ function CanvasInner({
         snapToGrid={true}
         snapGrid={[10, 10]}
         edgesUpdatable={true}
+        edgesFocusable={true}
         
-        /* Quality of Life Interactions
         panOnScroll={true}
-        panOnDrag={[1, 2]} // Middle & Right Click pan
-        selectionOnDrag={true} // Left click multi-select box
+        panOnDrag={[1, 2]}
+        selectionOnDrag={true}
         panActivationKeyCode="Space" 
         selectionKeyCode="Shift"
-        deleteKeyCode={['Backspace', 'Delete']} */
+        deleteKeyCode={['Backspace', 'Delete']}
       >
         <Background color="#1e293b" gap={20} size={1.5} />
         <Controls showInteractive={false} className="react-flow__controls" />
