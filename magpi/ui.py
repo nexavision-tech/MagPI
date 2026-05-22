@@ -97,6 +97,14 @@ def LaunchCanvas(port=8080):
                 content_length = int(self.headers['Content-Length'])
                 post_data = self.rfile.read(content_length)
                 try:
+                    import io
+                    import logging
+                    log_stream = io.StringIO()
+                    log_handler = logging.StreamHandler(log_stream)
+                    log_handler.setFormatter(logging.Formatter('[%(levelname)s]: %(message)s'))
+                    root_logger = logging.getLogger()
+                    root_logger.addHandler(log_handler)
+                    
                     payload = json.loads(post_data.decode('utf-8'))
                     logger.info("Received OOP Pipeline Execution Request from Canvas.")
                     
@@ -105,7 +113,13 @@ def LaunchCanvas(port=8080):
                     runner.load_from_json(payload)
                     success = runner.run()
                     
-                    response = {"status": "success" if success else "error"}
+                    root_logger.removeHandler(log_handler)
+                    captured_logs = log_stream.getvalue()
+                    
+                    response = {
+                        "status": "success" if success else "error",
+                        "logs": captured_logs
+                    }
                     self.send_response(200)
                     self.send_header('Content-type', 'application/json')
                     self.end_headers()

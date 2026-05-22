@@ -167,7 +167,7 @@ export default function App() {
         const response = await fetch("http://localhost:8080/api/run_pipeline", { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
         const data = await response.json();
         if (response.ok) {
-            const rawLogs = data.logs.split('\n').filter(l => l.trim() !== '');
+            const rawLogs = (data.logs || "Execution finished. See Daemon logs.").split('\n').filter(l => l.trim() !== '');
             const parsedLogs = rawLogs.map(line => {
                 let logType = 'info';
                 if (line.toLowerCase().includes('error') || line.toLowerCase().includes('fail')) logType = 'error';
