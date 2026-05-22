@@ -29,6 +29,8 @@ const getIconElement = (iconName) => {
   if (key.includes('paint') || key.includes('reclassify')) return <PaintBucket size={14} className="text-emerald-400" />;
   if (key.includes('polygon') || key.includes('clip') || key.includes('buffer')) return <Scissors size={14} className="text-orange-400" />;
   if (key.includes('stats')) return <LineChart size={14} className="text-rose-400" />;
+  if (key.includes('etl') || key.includes('join') || key.includes('db')) return <Database size={14} className="text-indigo-400" />;
+  if (key.includes('envi') || key.includes('band') || key.includes('pca')) return <SlidersHorizontal size={14} className="text-pink-400" />;
   return <Settings size={14} className="text-slate-400" />;
 };
 
@@ -40,9 +42,9 @@ const MagPINode = ({ data }) => {
   // Pure sources (NO LEFT PORTS)
   const isPureSource = ['core_extent', 'load_raster', 'load_vector'].includes(toolId);
   // Pure endpoints (NO RIGHT PORTS)
-  const isEndpoint = ['conv_raster_to_polygon', 'stats_confusion_matrix'].includes(toolId);
+  const isEndpoint = ['conv_raster_to_polygon', 'stats_confusion_matrix', 'etl_db_writer'].includes(toolId);
   // Dual-input receivers
-  const isDualInput = ['ia_export_dl', 'stats_confusion_matrix', 'mgt_clip', 'ia_pansharpen'].includes(toolId);
+  const isDualInput = ['ia_export_dl', 'stats_confusion_matrix', 'mgt_clip', 'ia_pansharpen', 'etl_spatial_join'].includes(toolId);
 
   // 2. Visual Hierarchy (Shapes)
   let shapeClass = "rounded-lg"; 
@@ -55,6 +57,7 @@ const MagPINode = ({ data }) => {
   if (toolId === 'ia_export_dl') { topLbl = "IMG"; botLbl = "LBL"; }
   else if (toolId === 'stats_confusion_matrix') { topLbl = "PREDICT"; botLbl = "TRUTH"; }
   else if (toolId === 'mgt_clip') { topLbl = "TARGET"; botLbl = "EXTENT"; }
+  else if (toolId === 'etl_spatial_join') { topLbl = "TARGET"; botLbl = "JOIN"; }
   
   if (toolId === 'ai_train') singleLbl = "TENSORS";
   else if (toolId === 'conv_raster_to_polygon') singleLbl = "MASK";

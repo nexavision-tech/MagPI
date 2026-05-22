@@ -114,6 +114,34 @@ const TOOLBOX_CATEGORIES = [
       },
     ]
   },
+  {
+    name: "Data ETL (FME)", icon: <Database size={18} className="text-indigo-400" />,
+    tools: [
+      { id: 'etl_spatial_join', name: "Spatial Join", type: 'process', icon: <MapIcon size={14}/>, color: 'bg-indigo-600', border: 'border-indigo-500', 
+        description: "Joins attributes from one feature to another based on spatial relationship.",
+        params: { join_operation: { value: "JOIN_ONE_TO_ONE", type: "select", options: ["JOIN_ONE_TO_ONE", "JOIN_ONE_TO_MANY"] } } },
+      { id: 'etl_field_calc', name: "Field Calculator", type: 'process', icon: <Wrench size={14}/>, color: 'bg-indigo-600', border: 'border-indigo-500', 
+        description: "Calculates the values of a field for a feature class.",
+        params: { field_name: "NEW_AREA", expression: "!shape.area@squaremeters!" } },
+      { id: 'etl_db_writer', name: "PostGIS Writer", type: 'endpoint', icon: <Database size={14}/>, color: 'bg-indigo-600', border: 'border-indigo-500', 
+        description: "Writes the output vector directly into a PostGIS database.",
+        params: { connection_string: "postgresql://user:pass@localhost:5432/db", table_name: "output_table" } }
+    ]
+  },
+  {
+    name: "Spectral Analyst (ENVI)", icon: <Layers size={18} className="text-pink-400" />,
+    tools: [
+      { id: 'envi_band_math', name: "Band Math", type: 'process', icon: <SlidersHorizontal size={14}/>, color: 'bg-pink-600', border: 'border-pink-500', 
+        description: "Performs mathematical operations on image bands.",
+        params: { expression: "(b1 - b2) / (b1 + b2)" } },
+      { id: 'envi_pca', name: "Principal Components", type: 'process', icon: <LineChart size={14}/>, color: 'bg-pink-600', border: 'border-pink-500', 
+        description: "Performs Principal Component Analysis (PCA) to reduce spectral dimensionality.",
+        params: { components_to_retain: 3 } },
+      { id: 'envi_tasseled_cap', name: "Tasseled Cap", type: 'process', icon: <Leaf size={14}/>, color: 'bg-pink-600', border: 'border-pink-500', 
+        description: "Calculates Tasseled Cap transformation (Brightness, Greenness, Wetness).",
+        params: { sensor: { value: "Landsat_8", type: "select", options: ["Landsat_8", "Sentinel_2", "Landsat_5"] } } }
+    ]
+  },
   // NEW: Spatial Statistics Subsystem (Chris's Academic Verification Module)
   {
     name: "Spatial Statistics", icon: <LineChart size={18} className="text-rose-400" />,

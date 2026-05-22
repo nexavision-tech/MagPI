@@ -203,6 +203,36 @@ export const generatePythonScript = (nodes, connections, crs, processingScope) =
             
             funcCall = `${outVar} = arcpy.stats.ComputeConfusionMatrix(in_ground_truth=${refVar}, in_classified=${predVar}, out_table="${p.out_table}")`;
         }
+        else if (n.toolId === 'etl_spatial_join') {
+            let targetVar = 'None', joinVar = 'None';
+            incomingCxs.forEach(c => {
+                if (c.targetHandle === 'in1') targetVar = varMap[c.from];
+                else if (c.targetHandle === 'in2') joinVar = varMap[c.from];
+            });
+            if (targetVar === 'None' && inNodes.length > 0) targetVar = varMap[inNodes[0].id];
+            if (joinVar === 'None' && inNodes.length > 1) joinVar = varMap[inNodes[1].id];
+            
+            const outFileName = `spatial_join_${n.id.split('_')[1]}.shp`;
+            funcCall = `${outVar} = arcpy.analysis.SpatialJoin(target_features=${targetVar}, join_features=${joinVar}, out_feature_class="${outFileName}", join_operation="${p.join_operation}")`;
+        }
+        else if (n.toolId === 'etl_field_calc') {
+            funcCall = `${outVar} = arcpy.management.CalculateField(in_table=${primaryInVar}, field="${p.field_name}", expression="${p.expression}")`;
+        }
+        else if (n.toolId === 'etl_db_writer') {
+            funcCall = `arcpy.conversion.ExportToPostGIS(in_features=${primaryInVar}, connection_string="${p.connection_string}", table_name="${p.table_name}")`;
+        }
+        else if (n.toolId === 'envi_band_math') {
+            const outFileName = `band_math_${n.id.split('_')[1]}.tif`;
+            funcCall = `${outVar} = arcpy.sa.RasterCalculator(expression="${p.expression}", in_raster=${primaryInVar})\n${outVar}.save("${outFileName}")`;
+        }
+        else if (n.toolId === 'envi_pca') {
+            const outFileName = `pca_${n.id.split('_')[1]}.tif`;
+            funcCall = `${outVar} = arcpy.sa.PrincipalComponents(in_raster_bands=${primaryInVar})\n${outVar}.save("${outFileName}")`;
+        }
+        else if (n.toolId === 'envi_tasseled_cap') {
+            const outFileName = `tasseled_cap_${n.id.split('_')[1]}.tif`;
+            funcCall = `${outVar} = arcpy.sa.TasseledCap(in_raster=${primaryInVar}, sensor="${p.sensor}")\n${outVar}.save("${outFileName}")`;
+        }
         else {
             funcCall = `# Execute ${n.name}`;
         }

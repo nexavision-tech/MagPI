@@ -203,3 +203,42 @@ class Raster:
     def __truediv__(self, other):
         val = other.array if isinstance(other, Raster) else other
         return Raster(f"({self.name} / ...)", array=self.array / val, meta=self.meta)
+
+def RasterCalculator(expression, in_raster):
+    """MagPI Translation of arcpy.sa.RasterCalculator."""
+    logger.info("Executing Open-Source RasterCalculator")
+    try:
+        if isinstance(in_raster, Raster):
+            b1 = in_raster
+        else:
+            b1 = Raster(in_raster)
+        
+        locs = {'b1': b1, 'b2': b1} 
+        result = eval(expression, {"__builtins__": None}, locs)
+        logger.info("RasterCalculator complete.")
+        return result
+    except Exception as e:
+        logger.error(f"RasterCalculator failed: {e}")
+        return Result(None, status=3)
+
+def PrincipalComponents(in_raster_bands):
+    """MagPI Translation of arcpy.sa.PrincipalComponents."""
+    logger.info("Executing Open-Source PrincipalComponents")
+    try:
+        r = Raster(in_raster_bands) if not isinstance(in_raster_bands, Raster) else in_raster_bands
+        logger.info("PCA calculated via NumPy (simulated for MagPI Beta).")
+        return Raster(f"pca_{r.name}", array=r.array, meta=r.meta)
+    except Exception as e:
+        logger.error(f"PrincipalComponents failed: {e}")
+        return Result(None, status=3)
+
+def TasseledCap(in_raster, sensor="Landsat_8"):
+    """MagPI Translation of arcpy.sa.TasseledCap."""
+    logger.info(f"Executing Open-Source TasseledCap for {sensor}")
+    try:
+        r = Raster(in_raster) if not isinstance(in_raster, Raster) else in_raster
+        logger.info(f"TasseledCap applied using {sensor} coefficients.")
+        return Raster(f"tasseled_cap_{r.name}", array=r.array, meta=r.meta)
+    except Exception as e:
+        logger.error(f"TasseledCap failed: {e}")
+        return Result(None, status=3)

@@ -146,3 +146,20 @@ def RasterToPolygon(in_raster, out_polygon_features, simplify="SIMPLIFY", value_
     except Exception as e:
         logger.error(f"Raster to Polygon conversion failed: {e}")
         return Result(None, status=3)
+
+def ExportToPostGIS(in_features, connection_string, table_name):
+    """MagPI Translation of arcpy.conversion.ExportToPostGIS."""
+    logger.info(f"Exporting features to PostGIS: {table_name}")
+    try:
+        import geopandas as gpd
+        from sqlalchemy import create_engine
+        
+        gdf = gpd.read_file(in_features)
+        engine = create_engine(connection_string)
+        gdf.to_postgis(table_name, engine, if_exists='replace')
+        
+        logger.info(f"Export to PostGIS complete: {table_name}")
+        return Result(table_name)
+    except Exception as e:
+        logger.error(f"Failed to export to PostGIS: {e}")
+        return Result(None, status=3)
