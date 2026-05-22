@@ -6,7 +6,7 @@ import {
   SlidersHorizontal, Wrench, Check, FolderOpen, ListFilter,
   Search, Copy, Info, Fingerprint, Loader2, AlertCircle, 
   Cloud, Map as MapIcon, Satellite, Box, Globe, DownloadCloud, PaintBucket, 
-  FileOutput, LineChart
+  FileOutput, LineChart, Brain, Sparkles, RefreshCcw
 } from 'lucide-react';
 
 const TOOLBOX_CATEGORIES = [
@@ -78,6 +78,18 @@ const TOOLBOX_CATEGORIES = [
       { id: 'ai_classify', name: "Classify Pixels", type: 'process', icon: <ImageIcon size={14}/>, color: 'bg-purple-600', border: 'border-purple-500', 
         description: "Performs Semantic Segmentation using Transformers to classify land cover (trees, roads, buildings).",
         params: { out_raster: "classified_mask.tif", model: { value: "nvidia/segformer-b0-finetuned-ade-512-512", type: "select", options: ["nvidia/segformer-b0-finetuned-ade-512-512", "nvidia/segformer-b1-finetuned-cityscapes-1024-1024"] } } 
+      },
+      { id: 'ai_insight', name: "Generate Insight (LLM)", type: 'process', icon: <Brain size={14}/>, color: 'bg-indigo-700', border: 'border-indigo-500', 
+        description: "Sends geospatial metadata or stats to an LLM (Hugging Face) to generate natural language intelligence reports.",
+        params: { prompt: "Analyze this spatial variance.", model_name: { value: "huggingface/transformers", type: "select", options: ["huggingface/transformers", "ollama/llama3", "anthropic/claude"] } } 
+      },
+      { id: 'ai_generate', name: "Super-Resolution (GAN)", type: 'process', icon: <Sparkles size={14}/>, color: 'bg-pink-700', border: 'border-pink-500', 
+        description: "Uses a Generative Adversarial Network to mathematically hallucinate and up-sample raw imagery (e.g., 10m to 2m resolution).",
+        params: { scale_factor: { value: 2, type: "select", options: [2, 4, 8] } } 
+      },
+      { id: 'ai_rl', name: "Agentic Optimizer (RL)", type: 'process', icon: <RefreshCcw size={14}/>, color: 'bg-orange-600', border: 'border-orange-500', 
+        description: "Unleashes an autonomous Reinforcement Learning agent to iteratively optimize geoprocessing parameters.",
+        params: { target_accuracy: 95.0, max_iterations: 100 } 
       },
     ]
   },

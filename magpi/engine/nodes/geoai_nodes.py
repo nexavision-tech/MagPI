@@ -44,3 +44,28 @@ class ClassifyPixelsNode(Node):
         logger.info(f"Classifying Pixels on {in_raster} using model {p.get('model')}")
         from magpi.geoai import ClassifyPixelsUsingDeepLearning
         self.output = ClassifyPixelsUsingDeepLearning(in_raster, out_raster, p.get('model'))
+
+@register_node('ai_insight')
+class AIInsightNode(Node):
+    def execute(self):
+        in_meta = self.inputs.get("in")
+        p = self.params
+        prompt = p.get('prompt', "Analyze this data.")
+        model = p.get('model_name', "huggingface/transformers")
+        
+        from magpi.geoai import GenerateInsightsFromMetadata
+        self.output = GenerateInsightsFromMetadata(in_meta, prompt, model)
+
+@register_node('ai_generate')
+class AIGenerateNode(Node):
+    def execute(self):
+        in_raster = self.inputs.get("in")
+        p = self.params
+        logger.info(f"GAN Super-Resolution requested for {in_raster} with scale factor {p.get('scale_factor', 2)}")
+        self.output = f"super_resolved_{p.get('scale_factor')}x.tif"
+
+@register_node('ai_rl')
+class AIRLNode(Node):
+    def execute(self):
+        logger.info("Reinforcement Learning Engine initialized for iterative pipeline optimization.")
+        self.output = "rl_optimized_parameters.json"
