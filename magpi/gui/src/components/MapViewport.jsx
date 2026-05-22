@@ -194,43 +194,47 @@ const MapViewport = React.memo(({ onAoiDrawn, selectedNode, activeWorkspace }) =
                         ))}
                     </div>
                 )}
-                {activeWorkspace === 'globe' ? (
-                    <div className="w-full h-full bg-[#111827]">
-                        <Viewer 
-                            full 
-                            timeline={false} 
-                            animation={false} 
-                            baseLayerPicker={false}
-                            navigationHelpButton={false}
-                            geocoder={false}
-                            sceneModePicker={false}
-                            homeButton={false}
-                            fullscreenButton={false}
-                            infoBox={false}
-                            selectionIndicator={false}
-                        >
-                            <ImageryLayer imageryProvider={new OpenStreetMapImageryProvider({ url: 'https://a.tile.openstreetmap.org/' })} />
-                            {selectedNode && selectedNode.params && selectedNode.params.xmin && (
-                                <Entity
-                                    name="AOI"
-                                    polygon={{
-                                        hierarchy: Cartesian3.fromDegreesArray([
-                                            parseFloat(selectedNode.params.xmin), parseFloat(selectedNode.params.ymin),
-                                            parseFloat(selectedNode.params.xmax), parseFloat(selectedNode.params.ymin),
-                                            parseFloat(selectedNode.params.xmax), parseFloat(selectedNode.params.ymax),
-                                            parseFloat(selectedNode.params.xmin), parseFloat(selectedNode.params.ymax)
-                                        ]),
-                                        material: Color.CYAN.withAlpha(0.2),
-                                        outline: true,
-                                        outlineColor: Color.CYAN
-                                    }}
-                                />
-                            )}
-                        </Viewer>
-                    </div>
-                ) : (
-                    <div ref={mapRef} style={{ width: '100%', height: '100%', backgroundColor: '#1f2937', touchAction: 'none' }}></div>
-                )}
+                {/* Cesium Globe (Hidden when not in globe mode) */}
+                <div className={`w-full h-full bg-[#111827] ${activeWorkspace === 'globe' ? 'block' : 'hidden'}`}>
+                    <Viewer 
+                        full 
+                        timeline={false} 
+                        animation={false} 
+                        baseLayerPicker={false}
+                        navigationHelpButton={false}
+                        geocoder={false}
+                        sceneModePicker={false}
+                        homeButton={false}
+                        fullscreenButton={false}
+                        infoBox={false}
+                        selectionIndicator={false}
+                    >
+                        <ImageryLayer imageryProvider={new OpenStreetMapImageryProvider({ url: 'https://a.tile.openstreetmap.org/' })} />
+                        {selectedNode && selectedNode.params && selectedNode.params.xmin && (
+                            <Entity
+                                name="AOI"
+                                polygon={{
+                                    hierarchy: Cartesian3.fromDegreesArray([
+                                        parseFloat(selectedNode.params.xmin), parseFloat(selectedNode.params.ymin),
+                                        parseFloat(selectedNode.params.xmax), parseFloat(selectedNode.params.ymin),
+                                        parseFloat(selectedNode.params.xmax), parseFloat(selectedNode.params.ymax),
+                                        parseFloat(selectedNode.params.xmin), parseFloat(selectedNode.params.ymax)
+                                    ]),
+                                    material: Color.CYAN.withAlpha(0.2),
+                                    outline: true,
+                                    outlineColor: Color.CYAN
+                                }}
+                            />
+                        )}
+                    </Viewer>
+                </div>
+                
+                {/* Leaflet 2D Map (Hidden when in globe mode) */}
+                <div 
+                    ref={mapRef} 
+                    className={`${activeWorkspace !== 'globe' ? 'block' : 'hidden'}`}
+                    style={{ width: '100%', height: '100%', backgroundColor: '#1f2937', touchAction: 'none' }}
+                ></div>
             </div>
             
             {/* Footer Text (Only show if in compact Builder mode to save space in Globe mode) */}
