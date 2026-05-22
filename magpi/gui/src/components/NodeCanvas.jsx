@@ -155,8 +155,8 @@ function CanvasInner({
     id: `e_${c.from}_${c.sourceHandle || 'out'}_to_${c.to}_${c.targetHandle || 'in'}`,
     source: c.from,
     target: c.to,
-    sourceHandle: c.sourceHandle || undefined,
-    targetHandle: c.targetHandle || undefined,
+    sourceHandle: c.sourceHandle || 'out',
+    targetHandle: c.targetHandle || 'in',
     type: 'bezier',
     interactionWidth: 20,
     animated: nodeStatuses[c.from] === 'processing' || nodeStatuses[c.to] === 'processing',
@@ -264,6 +264,8 @@ function CanvasInner({
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
+        onDrop={onDrop}
+        onDragOver={onDragOver}
         onEdgesDelete={onEdgesDelete}
         onReconnect={onReconnect}
         onNodeClick={onNodeClick}
