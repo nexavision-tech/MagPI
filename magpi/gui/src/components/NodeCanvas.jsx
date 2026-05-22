@@ -14,7 +14,8 @@ import {
   Loader2, CheckCircle2, AlertCircle, Hexagon, Satellite, 
   Layers, Grid, DownloadCloud, Map as MapIcon, Globe, 
   ImageIcon, Box, Leaf, Cpu, Crosshair, Scissors, 
-  CircleDashed, Settings, PaintBucket, FileOutput, LineChart 
+  CircleDashed, Settings, PaintBucket, FileOutput, LineChart,
+  Database, SlidersHorizontal
 } from 'lucide-react';
 
 // --- INTELLIGENT ICON ROUTER ---
