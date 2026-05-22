@@ -87,6 +87,11 @@ class PipelineRunner:
                 
             try:
                 node.execute()
+                if hasattr(node.output, 'status') and node.output.status == 3:
+                    logger.error(f"Execution failed for {node.name}: Internal Tool Error")
+                    node.status = "error"
+                    return False
+                
                 node.status = "success"
                 logger.info(f"Node {node.name} completed successfully.")
                 

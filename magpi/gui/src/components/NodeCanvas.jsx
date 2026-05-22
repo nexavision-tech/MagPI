@@ -93,41 +93,27 @@ const MagPINode = ({ data }) => {
         {/* SINGLE INPUT */}
         {!isPureSource && !isDualInput && (
             <>
-            <Handle type="target" position={Position.Left} id="in" isConnectableStart={false} className="w-3.5 h-3.5 rounded-full bg-[#a3a3a3] border-[2.5px] border-[#1a1a1a] -ml-2 cursor-crosshair hover:bg-white transition-all z-50" />
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[9px] font-mono text-[#a3a3a3] font-bold pointer-events-none tracking-widest">{singleLbl}</span>
+            <Handle type="target" position={Position.Left} id="in" isConnectableStart={false} className="w-3.5 h-3.5 rounded-full bg-[#a3a3a3] border-[2.5px] border-[#1a1a1a] cursor-crosshair hover:bg-white transition-all z-50" />
+            <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-[9px] font-mono text-[#a3a3a3] font-bold pointer-events-none tracking-widest">{singleLbl}</span>
             </>
         )}
 
         {/* DUAL INPUTS */}
         {isDualInput && (
             <>
-            <Handle type="target" position={Position.Left} id="in1" style={{ top: '30%' }} isConnectableStart={false} className="w-3.5 h-3.5 rounded-full bg-[#5ac8fa] border-[2.5px] border-[#1a1a1a] -ml-2 cursor-crosshair hover:bg-white transition-all z-50" />
-            <span className="absolute left-3 top-[30%] -translate-y-1/2 text-[9px] font-mono text-[#5ac8fa] font-bold pointer-events-none tracking-widest">{topLbl}</span>
+            <Handle type="target" position={Position.Left} id="in1" style={{ top: '30%' }} isConnectableStart={false} className="w-3.5 h-3.5 rounded-full bg-[#5ac8fa] border-[2.5px] border-[#1a1a1a] cursor-crosshair hover:bg-white transition-all z-50" />
+            <span className="absolute left-1.5 top-[30%] -translate-y-1/2 text-[9px] font-mono text-[#5ac8fa] font-bold pointer-events-none tracking-widest">{topLbl}</span>
 
-            <Handle type="target" position={Position.Left} id="in2" style={{ top: '70%' }} isConnectableStart={false} className="w-3.5 h-3.5 rounded-full bg-[#ffcc00] border-[2.5px] border-[#1a1a1a] -ml-2 cursor-crosshair hover:bg-white transition-all z-50" />
-            <span className="absolute left-3 top-[70%] -translate-y-1/2 text-[9px] font-mono text-[#ffcc00] font-bold pointer-events-none tracking-widest">{botLbl}</span>
+            <Handle type="target" position={Position.Left} id="in2" style={{ top: '70%' }} isConnectableStart={false} className="w-3.5 h-3.5 rounded-full bg-[#ffcc00] border-[2.5px] border-[#1a1a1a] cursor-crosshair hover:bg-white transition-all z-50" />
+            <span className="absolute left-1.5 top-[70%] -translate-y-1/2 text-[9px] font-mono text-[#ffcc00] font-bold pointer-events-none tracking-widest">{botLbl}</span>
             </>
         )}
-
-        {/* INLINE PARAMETERS PREVIEW */}
-        <div className="flex flex-col items-center justify-center space-y-1 mx-4 py-1">
-            {Object.entries(data.params || {}).slice(0, 2).map(([key, val], idx) => {
-                const isComplexObj = val && typeof val === 'object' && val.type === 'select';
-                const isDateObj = val && typeof val === 'object' && val.type === 'date';
-                const displayVal = (isComplexObj || isDateObj) ? val.value : val;
-                return (
-                    <div key={idx} className="w-full bg-[#1a1a1a] rounded px-1.5 py-0.5 truncate text-[8px] font-mono text-[#a3a3a3] border border-[#000000]">
-                        <span className="text-[#6b6b6b] mr-1">{key.substring(0,6)}:</span>{typeof displayVal === 'boolean' ? (displayVal?'T':'F') : String(displayVal)}
-                    </div>
-                );
-            })}
-        </div>
 
         {/* OUTPUT */}
         {!isEndpoint && (
             <>
-            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[9px] font-mono text-[#ff3b30] font-bold pointer-events-none tracking-widest">OUT</span>
-            <Handle type="source" position={Position.Right} id="out" className="w-3.5 h-3.5 rounded-full bg-[#ff3b30] border-[2.5px] border-[#1a1a1a] -mr-2 cursor-crosshair hover:bg-white transition-all z-50" />
+            <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[9px] font-mono text-[#ff3b30] font-bold pointer-events-none tracking-widest">OUT</span>
+            <Handle type="source" position={Position.Right} id="out" className="w-3.5 h-3.5 rounded-full bg-[#ff3b30] border-[2.5px] border-[#1a1a1a] cursor-crosshair hover:bg-white transition-all z-50" />
             </>
         )}
       </div>
