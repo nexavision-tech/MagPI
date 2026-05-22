@@ -88,7 +88,7 @@ const MagPINode = ({ data }) => {
         {/* SINGLE INPUT */}
         {!isPureSource && !isDualInput && (
             <>
-            <Handle type="target" position={Position.Left} id="in" className="w-3.5 h-3.5 rounded-full bg-[#a3a3a3] border-[2.5px] border-[#1a1a1a] -ml-2 cursor-crosshair hover:bg-white hover:scale-125 transition-all z-50" />
+            <Handle type="target" position={Position.Left} id="in" isConnectableStart={false} className="w-3.5 h-3.5 rounded-full bg-[#a3a3a3] border-[2.5px] border-[#1a1a1a] -ml-2 cursor-crosshair hover:bg-white hover:scale-125 transition-all z-50" />
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[9px] font-mono text-[#a3a3a3] font-bold pointer-events-none tracking-widest">{singleLbl}</span>
             </>
         )}
@@ -96,10 +96,10 @@ const MagPINode = ({ data }) => {
         {/* DUAL INPUTS */}
         {isDualInput && (
             <>
-            <Handle type="target" position={Position.Left} id="in1" style={{ top: '30%' }} className="w-3.5 h-3.5 rounded-full bg-[#5ac8fa] border-[2.5px] border-[#1a1a1a] -ml-2 cursor-crosshair hover:bg-white hover:scale-125 transition-all z-50" />
+            <Handle type="target" position={Position.Left} id="in1" style={{ top: '30%' }} isConnectableStart={false} className="w-3.5 h-3.5 rounded-full bg-[#5ac8fa] border-[2.5px] border-[#1a1a1a] -ml-2 cursor-crosshair hover:bg-white hover:scale-125 transition-all z-50" />
             <span className="absolute left-3 top-[30%] -translate-y-1/2 text-[9px] font-mono text-[#5ac8fa] font-bold pointer-events-none tracking-widest">{topLbl}</span>
 
-            <Handle type="target" position={Position.Left} id="in2" style={{ top: '70%' }} className="w-3.5 h-3.5 rounded-full bg-[#ffcc00] border-[2.5px] border-[#1a1a1a] -ml-2 cursor-crosshair hover:bg-white hover:scale-125 transition-all z-50" />
+            <Handle type="target" position={Position.Left} id="in2" style={{ top: '70%' }} isConnectableStart={false} className="w-3.5 h-3.5 rounded-full bg-[#ffcc00] border-[2.5px] border-[#1a1a1a] -ml-2 cursor-crosshair hover:bg-white hover:scale-125 transition-all z-50" />
             <span className="absolute left-3 top-[70%] -translate-y-1/2 text-[9px] font-mono text-[#ffcc00] font-bold pointer-events-none tracking-widest">{botLbl}</span>
             </>
         )}
@@ -208,9 +208,16 @@ function CanvasInner({
   const onDrop = useCallback((event) => {
       event.preventDefault();
       try {
-        const rawData = event.dataTransfer.getData('application/json');
-        if (!rawData) return;
-        const toolData = JSON.parse(rawData);
+        let toolData = null;
+        if (window.__draggedMagPITool) {
+            toolData = window.__draggedMagPITool;
+            window.__draggedMagPITool = null;
+        } else {
+            const rawData = event.dataTransfer.getData('application/json');
+            if (rawData) toolData = JSON.parse(rawData);
+        }
+        
+        if (!toolData) return;
         
         const position = screenToFlowPosition({ x: event.clientX, y: event.clientY });
         addNode(toolData, position.x - 100, position.y - 25);
