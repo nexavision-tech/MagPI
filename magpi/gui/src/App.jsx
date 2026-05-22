@@ -19,7 +19,9 @@ export default function App() {
   const [globalEnv, setGlobalEnv] = useState({
     workspace_dir: "./magpi_workspace",
     scratch_dir: "./magpi_scratch",
-    output_dir: "./magpi_output"
+    output_dir: "./magpi_output",
+    horizontal_datum: "EPSG:4326",
+    vertical_datum: "EPSG:3855"
   });
   const [showEnvSettings, setShowEnvSettings] = useState(false);
 

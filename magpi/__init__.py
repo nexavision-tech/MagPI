@@ -14,7 +14,7 @@ from .sa import Raster
 from . import wfs
 from . import ia
 from . import geoai
-from . import mgt as management # Aliased to match arcpy.management
+from . import management
 from . import ddd
 from . import conversion
 from . import analysis

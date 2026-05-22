@@ -22,14 +22,20 @@ class PipelineRunner:
             workspace = global_env.get('workspace_dir', './magpi_workspace')
             scratch = global_env.get('scratch_dir', './magpi_scratch')
             output = global_env.get('output_dir', './magpi_output')
+            h_datum = global_env.get('horizontal_datum', 'EPSG:4326')
+            v_datum = global_env.get('vertical_datum', 'EPSG:3855')
             
             os.environ['MAGPI_WORKSPACE'] = workspace
             os.environ['MAGPI_SCRATCH'] = scratch
             os.environ['MAGPI_OUTPUT'] = output
+            os.environ['MAGPI_H_DATUM'] = h_datum
+            os.environ['MAGPI_V_DATUM'] = v_datum
             
             arcpy.env.workspace = workspace
             arcpy.env.scratchWorkspace = scratch
             arcpy.env.outputWorkspace = output
+            arcpy.env.horizontalDatum = h_datum
+            arcpy.env.verticalDatum = v_datum
             
             # Ensure directories exist
             os.makedirs(workspace, exist_ok=True)
@@ -42,7 +48,14 @@ class PipelineRunner:
             tool_id = n_data.get('toolId')
             node_class = NODE_REGISTRY.get(tool_id)
             if node_class:
-                self.nodes[n_data['id']] = node_class(id=n_data['id'], name=n_data.get('name'), params=n_data.get('params'))
+                # Parse complex params from GUI (e.g., {value: '...', type: 'date'})
+                parsed_params = {}
+                for k, v in n_data.get('params', {}).items():
+                    if isinstance(v, dict) and 'value' in v:
+                        parsed_params[k] = v['value']
+                    else:
+                        parsed_params[k] = v
+                self.nodes[n_data['id']] = node_class(id=n_data['id'], name=n_data.get('name'), params=parsed_params)
             else:
                 logger.warning(f"Unknown tool ID: {tool_id}. Cannot instantiate node.")
         

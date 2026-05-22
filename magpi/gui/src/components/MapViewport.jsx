@@ -3,7 +3,10 @@ import L from 'leaflet';
 import 'leaflet-draw';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet-draw/dist/leaflet.draw.css';
-import { Map as MapIcon, Satellite, Edit } from 'lucide-react';
+import 'cesium/Build/Cesium/Widgets/widgets.css';
+import { Map as MapIcon, Satellite, Edit, Globe, Layers, Eye, EyeOff } from 'lucide-react';
+import { Viewer, Entity, ImageryLayer } from 'resium';
+import { Cartesian3, Color, OpenStreetMapImageryProvider } from 'cesium';
 
 window.type = ''; 
 
@@ -11,6 +14,12 @@ const MapViewport = React.memo(({ onAoiDrawn, selectedNode, activeWorkspace }) =
     const mapRef = useRef(null);
     const mapInstance = useRef(null); 
     const highlightGroup = useRef(null);
+    const [showLayers, setShowLayers] = React.useState(false);
+    const [layers, setLayers] = React.useState([
+        { id: 'base', name: 'Base Map (OSM)', visible: true, opacity: 100 },
+        { id: 'aoi', name: 'Bounding Boxes (AOI)', visible: true, opacity: 100 },
+        { id: 'output', name: 'Generated Outputs', visible: true, opacity: 80 },
+    ]);
 
     useEffect(() => {
         if (!mapRef.current) return;
@@ -128,18 +137,100 @@ const MapViewport = React.memo(({ onAoiDrawn, selectedNode, activeWorkspace }) =
                     <MapIcon size={14} className={`mr-2 ${activeWorkspace === 'globe' ? 'text-cyan-400' : 'text-emerald-500'}`} /> 
                     {activeWorkspace === 'globe' ? 'GLOBE NEXUS' : 'LIVE VIEWPORT'}
                 </div>
-                <button 
-                    onClick={activateDrawTool}
-                    className="text-cyan-400 hover:text-cyan-200 bg-cyan-900/30 hover:bg-cyan-800/50 px-2 py-1 rounded transition-colors flex items-center border border-cyan-900/50"
-                    title="Draw AOI Rectangle"
-                >
-                    <Edit size={14} className="mr-1" /> DRAW AOI
-                </button>
+                <div className="flex items-center space-x-2">
+                    <button 
+                        onClick={() => setShowLayers(!showLayers)}
+                        className={`px-2 py-1 rounded transition-colors flex items-center border ${showLayers ? 'bg-indigo-900/50 border-indigo-500/50 text-indigo-300' : 'bg-slate-900/50 border-slate-700 text-slate-400 hover:text-slate-200'}`}
+                        title="Layer Management"
+                    >
+                        <Layers size={14} className="mr-1" /> LAYERS
+                    </button>
+                    <button 
+                        onClick={activateDrawTool}
+                        className="text-cyan-400 hover:text-cyan-200 bg-cyan-900/30 hover:bg-cyan-800/50 px-2 py-1 rounded transition-colors flex items-center border border-cyan-900/50"
+                        title="Draw AOI Rectangle"
+                    >
+                        <Edit size={14} className="mr-1" /> DRAW AOI
+                    </button>
+                </div>
             </div>
             
             {/* Map Container */}
-            <div className="flex-1 relative overflow-hidden z-0 leaflet-dark-mode-container">
-                <div ref={mapRef} style={{ width: '100%', height: '100%', backgroundColor: '#1f2937', touchAction: 'none' }}></div>
+            <div className="flex-1 relative overflow-hidden z-0 leaflet-dark-mode-container flex">
+                
+                {/* Floating Layer Manager */}
+                {showLayers && (
+                    <div className="absolute top-4 right-4 w-64 bg-slate-900/90 backdrop-blur-md border border-slate-700 rounded-lg shadow-2xl z-50 p-3 animate-fadeIn flex flex-col space-y-3">
+                        <div className="flex items-center text-xs font-bold text-slate-300 uppercase tracking-widest border-b border-slate-700 pb-2 mb-1">
+                            <Layers size={14} className="mr-2 text-indigo-400" /> Active Layers
+                        </div>
+                        {layers.map((l, i) => (
+                            <div key={l.id} className="flex flex-col space-y-1">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-xs text-slate-400 font-medium">{l.name}</span>
+                                    <button 
+                                        onClick={() => {
+                                            const newL = [...layers];
+                                            newL[i].visible = !newL[i].visible;
+                                            setLayers(newL);
+                                        }}
+                                        className="text-slate-500 hover:text-slate-300"
+                                    >
+                                        {l.visible ? <Eye size={14} /> : <EyeOff size={14} />}
+                                    </button>
+                                </div>
+                                <input 
+                                    type="range" 
+                                    min="0" max="100" 
+                                    value={l.opacity} 
+                                    onChange={(e) => {
+                                        const newL = [...layers];
+                                        newL[i].opacity = e.target.value;
+                                        setLayers(newL);
+                                    }}
+                                    className="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer"
+                                />
+                            </div>
+                        ))}
+                    </div>
+                )}
+                {activeWorkspace === 'globe' ? (
+                    <div className="w-full h-full bg-[#111827]">
+                        <Viewer 
+                            full 
+                            timeline={false} 
+                            animation={false} 
+                            baseLayerPicker={false}
+                            navigationHelpButton={false}
+                            geocoder={false}
+                            sceneModePicker={false}
+                            homeButton={false}
+                            fullscreenButton={false}
+                            infoBox={false}
+                            selectionIndicator={false}
+                        >
+                            <ImageryLayer imageryProvider={new OpenStreetMapImageryProvider({ url: 'https://a.tile.openstreetmap.org/' })} />
+                            {selectedNode && selectedNode.params && selectedNode.params.xmin && (
+                                <Entity
+                                    name="AOI"
+                                    polygon={{
+                                        hierarchy: Cartesian3.fromDegreesArray([
+                                            parseFloat(selectedNode.params.xmin), parseFloat(selectedNode.params.ymin),
+                                            parseFloat(selectedNode.params.xmax), parseFloat(selectedNode.params.ymin),
+                                            parseFloat(selectedNode.params.xmax), parseFloat(selectedNode.params.ymax),
+                                            parseFloat(selectedNode.params.xmin), parseFloat(selectedNode.params.ymax)
+                                        ]),
+                                        material: Color.CYAN.withAlpha(0.2),
+                                        outline: true,
+                                        outlineColor: Color.CYAN
+                                    }}
+                                />
+                            )}
+                        </Viewer>
+                    </div>
+                ) : (
+                    <div ref={mapRef} style={{ width: '100%', height: '100%', backgroundColor: '#1f2937', touchAction: 'none' }}></div>
+                )}
             </div>
             
             {/* Footer Text (Only show if in compact Builder mode to save space in Globe mode) */}

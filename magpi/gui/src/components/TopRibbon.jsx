@@ -22,9 +22,15 @@ export default function TopRibbon({
           <a href="https://nexavision.tech/feed.xml" target="_blank" rel="noreferrer" className="flex items-center text-orange-400 hover:text-orange-300 transition-colors mr-3 font-bold">
             <Rss size={12} className="mr-1" /> SIGNAL LOGS
           </a>
-          <span className="flex items-center text-emerald-500 font-bold">
-            <Server size={14} className="mr-2 animate-pulse" /> Matrix Connected
-          </span>
+          {processingScope === "Apache Airflow" ? (
+            <span className="flex items-center text-sky-400 font-bold bg-sky-900/30 px-2 py-0.5 rounded border border-sky-800">
+              <Server size={14} className="mr-2 animate-pulse" /> AIRFLOW MONITORING ACTIVE
+            </span>
+          ) : (
+            <span className="flex items-center text-emerald-500 font-bold">
+              <Server size={14} className="mr-2 animate-pulse" /> Local Daemon Connected
+            </span>
+          )}
         </div>
       </div>
 

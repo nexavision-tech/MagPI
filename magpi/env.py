@@ -18,6 +18,8 @@ class _Environment:
         
         # Coordinates & Geometry
         self._outputCoordinateSystem = None
+        self._horizontalDatum = None
+        self._verticalDatum = None
         self._geographicTransformations = None
         self._outputZFlag = "Same As Input"
         self._outputMFlag = "Same As Input"
@@ -73,9 +75,26 @@ class _Environment:
 
     @outputCoordinateSystem.setter
     def outputCoordinateSystem(self, value):
-        # Value can be an integer (EPSG), string, or SpatialReference object
         logger.info(f"Global Output Coordinate System set to: {value}")
         self._outputCoordinateSystem = value
+        
+    @property
+    def horizontalDatum(self):
+        return self._horizontalDatum
+
+    @horizontalDatum.setter
+    def horizontalDatum(self, value):
+        logger.info(f"Global Horizontal Datum set to: {value}")
+        self._horizontalDatum = value
+        
+    @property
+    def verticalDatum(self):
+        return self._verticalDatum
+
+    @verticalDatum.setter
+    def verticalDatum(self, value):
+        logger.info(f"Global Vertical Datum set to: {value}")
+        self._verticalDatum = value
         
     @property
     def cellSize(self):
