@@ -229,7 +229,7 @@ export default function Toolbox({
         <button onClick={() => setActiveRightTab('inspector')} className={`flex-1 py-4 text-xs font-bold uppercase tracking-widest transition-all flex items-center justify-center ${activeRightTab === 'inspector' ? 'text-emerald-400 border-b-2 border-emerald-400 bg-slate-800' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/50'}`}><SlidersHorizontal size={14} className="mr-2" /> Params</button>
       </div>
       
-      <div className="flex-1 overflow-y-auto bg-slate-800 flex flex-col custom-scrollbar">
+      <div className="flex-1 overflow-y-auto bg-slate-800 flex flex-col">
         {activeRightTab === 'toolbox' && (
           <>
             <div className="p-3 pb-1 shrink-0">
@@ -238,7 +238,7 @@ export default function Toolbox({
                 <input type="text" placeholder="Search tools..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-md pl-9 pr-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-500 transition-colors placeholder:text-slate-600" />
               </div>
             </div>
-            <div className="p-3 space-y-3 flex-1 overflow-y-auto custom-scrollbar">
+            <div className="p-3 space-y-3 flex-1 overflow-y-auto">
               {filteredCategories.length === 0 ? ( <div className="text-center text-slate-500 text-xs mt-4">No tools found for "{searchQuery}"</div> ) : (
                 filteredCategories.map((cat, idx) => (
                   <div key={idx} className="bg-slate-900/80 rounded-lg border border-slate-700/80 overflow-hidden shadow-sm">

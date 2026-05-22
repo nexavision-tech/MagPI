@@ -197,8 +197,20 @@ function CanvasInner({
 
   const onEdgesDelete = useCallback((edgesToDelete) => {
     setConnections((eds) => eds.filter(c => {
-        return !edgesToDelete.find(e => e.source === c.from && e.target === c.to && e.sourceHandle === c.sourceHandle && e.targetHandle === c.targetHandle);
+        return !edgesToDelete.find(e => e.source === c.from && e.target === c.to);
     }));
+  }, [setConnections]);
+
+  const onEdgeUpdate = useCallback((oldEdge, newConnection) => {
+    setConnections((eds) => {
+       const filtered = eds.filter(c => !(c.from === oldEdge.source && c.to === oldEdge.target));
+       return [...filtered, {
+           from: newConnection.source,
+           to: newConnection.target,
+           sourceHandle: newConnection.sourceHandle,
+           targetHandle: newConnection.targetHandle
+       }];
+    });
   }, [setConnections]);
 
   // 6. Interaction Handlers
@@ -220,9 +232,19 @@ function CanvasInner({
         if (!toolData) return;
         
         const position = screenToFlowPosition({ x: event.clientX, y: event.clientY });
-        addNode(toolData, position.x - 100, position.y - 25);
+        if (position) {
+            addNode(toolData, position.x - 100, position.y - 25);
+        } else if (reactFlowWrapper.current) {
+            const bounds = reactFlowWrapper.current.getBoundingClientRect();
+            addNode(toolData, event.clientX - bounds.left - 100, event.clientY - bounds.top - 25);
+        }
       } catch (err) { console.error("Drop failed:", err); }
   }, [screenToFlowPosition, addNode]);
+
+  const onDragOver = useCallback((event) => {
+      event.preventDefault();
+      event.dataTransfer.dropEffect = 'move';
+  }, []);
 
   return (
     <div className="w-full h-full bg-[#0b1120] relative" ref={reactFlowWrapper}>
@@ -241,10 +263,11 @@ function CanvasInner({
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         onEdgesDelete={onEdgesDelete}
+        onEdgeUpdate={onEdgeUpdate}
         onNodeClick={onNodeClick}
         onPaneClick={onPaneClick}
         onDrop={onDrop}
-        onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }}
+        onDragOver={onDragOver}
         nodeTypes={nodeTypes}
         fitView
         snapToGrid={true}
