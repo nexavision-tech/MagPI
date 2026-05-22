@@ -64,7 +64,7 @@ const MagPINode = ({ data }) => {
   else if (toolId.startsWith('wfs_')) singleLbl = "AOI";
 
   return (
-    <div className={`flex flex-col min-w-[200px] transition-all duration-200 bg-[#2b2b2b] rounded-lg shadow-[0_4px_15px_rgba(0,0,0,0.5)] border ${data.selected ? 'border-[#ff8c00] shadow-[0_0_15px_rgba(255,140,0,0.3)]' : 'border-[#1a1a1a]'} overflow-hidden`}>
+    <div className={`flex flex-col min-w-[170px] max-w-[250px] transition-all duration-200 bg-[#2b2b2b] rounded-lg shadow-[0_4px_15px_rgba(0,0,0,0.5)] border ${data.selected ? 'border-[#ff8c00] shadow-[0_0_15px_rgba(255,140,0,0.3)]' : 'border-[#1a1a1a]'} overflow-hidden`}>
       
       {/* HEADER ROW */}
       <div className={`px-3 py-1.5 flex items-center justify-between ${data.color || 'bg-slate-700'} border-b border-[#1a1a1a]`}>
@@ -87,7 +87,7 @@ const MagPINode = ({ data }) => {
         {/* SINGLE INPUT */}
         {!isPureSource && !isDualInput && (
             <>
-            <Handle type="target" position={Position.Left} id="in" className="w-3.5 h-3.5 rounded-full bg-[#a3a3a3] border-[2.5px] border-[#1a1a1a] -ml-[7.5px] cursor-crosshair hover:bg-white hover:scale-125 transition-all" />
+            <Handle type="target" position={Position.Left} id="in" className="w-3.5 h-3.5 rounded-full bg-[#a3a3a3] border-[2.5px] border-[#1a1a1a] -ml-2 cursor-crosshair hover:bg-white hover:scale-125 transition-all z-50" />
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[9px] font-mono text-[#a3a3a3] font-bold pointer-events-none tracking-widest">{singleLbl}</span>
             </>
         )}
@@ -95,16 +95,16 @@ const MagPINode = ({ data }) => {
         {/* DUAL INPUTS */}
         {isDualInput && (
             <>
-            <Handle type="target" position={Position.Left} id="in1" style={{ top: '30%' }} className="w-3.5 h-3.5 rounded-full bg-[#5ac8fa] border-[2.5px] border-[#1a1a1a] -ml-[7.5px] cursor-crosshair hover:bg-white hover:scale-125 transition-all" />
+            <Handle type="target" position={Position.Left} id="in1" style={{ top: '30%' }} className="w-3.5 h-3.5 rounded-full bg-[#5ac8fa] border-[2.5px] border-[#1a1a1a] -ml-2 cursor-crosshair hover:bg-white hover:scale-125 transition-all z-50" />
             <span className="absolute left-3 top-[30%] -translate-y-1/2 text-[9px] font-mono text-[#5ac8fa] font-bold pointer-events-none tracking-widest">{topLbl}</span>
 
-            <Handle type="target" position={Position.Left} id="in2" style={{ top: '70%' }} className="w-3.5 h-3.5 rounded-full bg-[#ffcc00] border-[2.5px] border-[#1a1a1a] -ml-[7.5px] cursor-crosshair hover:bg-white hover:scale-125 transition-all" />
+            <Handle type="target" position={Position.Left} id="in2" style={{ top: '70%' }} className="w-3.5 h-3.5 rounded-full bg-[#ffcc00] border-[2.5px] border-[#1a1a1a] -ml-2 cursor-crosshair hover:bg-white hover:scale-125 transition-all z-50" />
             <span className="absolute left-3 top-[70%] -translate-y-1/2 text-[9px] font-mono text-[#ffcc00] font-bold pointer-events-none tracking-widest">{botLbl}</span>
             </>
         )}
 
         {/* INLINE PARAMETERS PREVIEW */}
-        <div className="flex flex-col items-center justify-center space-y-1 mx-8 py-1">
+        <div className="flex flex-col items-center justify-center space-y-1 mx-4 py-1">
             {Object.entries(data.params || {}).slice(0, 2).map(([key, val], idx) => {
                 const displayVal = (val && typeof val === 'object' && val.type === 'select') ? val.value : val;
                 return (
@@ -119,7 +119,7 @@ const MagPINode = ({ data }) => {
         {!isEndpoint && (
             <>
             <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[9px] font-mono text-[#ff3b30] font-bold pointer-events-none tracking-widest">OUT</span>
-            <Handle type="source" position={Position.Right} id="out" className="w-3.5 h-3.5 rounded-full bg-[#ff3b30] border-[2.5px] border-[#1a1a1a] -mr-[7.5px] cursor-crosshair hover:bg-white hover:scale-125 transition-all" />
+            <Handle type="source" position={Position.Right} id="out" className="w-3.5 h-3.5 rounded-full bg-[#ff3b30] border-[2.5px] border-[#1a1a1a] -mr-2 cursor-crosshair hover:bg-white hover:scale-125 transition-all z-50" />
             </>
         )}
       </div>
@@ -171,6 +171,17 @@ function CanvasInner({
     });
   }, [setNodes]);
 
+  const onEdgesChange = useCallback((changes) => {
+    setConnections((eds) => {
+      const mappedEdges = eds.map((c, idx) => ({ 
+          id: `e_${c.from}-${c.to}-${c.sourceHandle || 'out'}-${c.targetHandle || 'in'}-${idx}`, 
+          source: c.from, target: c.to, sourceHandle: c.sourceHandle, targetHandle: c.targetHandle 
+      }));
+      const updatedEdges = applyEdgeChanges(changes, mappedEdges);
+      return updatedEdges.map(e => ({ from: e.source, to: e.target, sourceHandle: e.sourceHandle, targetHandle: e.targetHandle }));
+    });
+  }, [setConnections]);
+
   // 4. FLAWLESS WIRE CONNECTION (Saving explicit port IDs)
   const onConnect = useCallback((params) => {
     setConnections((eds) => [...eds, { 
@@ -181,44 +192,22 @@ function CanvasInner({
     }]);
   }, [setConnections]);
 
-  // 5. FLAWLESS WIRE DELETION (Backspace/Delete triggers this)
   const onEdgesDelete = useCallback((edgesToDelete) => {
     setConnections((eds) => eds.filter(c => {
-        // Keep the connection if it is NOT in the edgesToDelete array
-        return !edgesToDelete.find(e => e.source === c.from && e.target === c.to);
+        return !edgesToDelete.find(e => e.source === c.from && e.target === c.to && e.sourceHandle === c.sourceHandle && e.targetHandle === c.targetHandle);
     }));
-  }, [setConnections]);
-
-  const onEdgeUpdate = useCallback((oldEdge, newConnection) => {
-    setConnections((eds) => {
-       const filtered = eds.filter(e => !(e.from === oldEdge.source && e.to === oldEdge.target && e.sourceHandle === oldEdge.sourceHandle && e.targetHandle === oldEdge.targetHandle));
-       return [...filtered, {
-           from: newConnection.source,
-           to: newConnection.target,
-           sourceHandle: newConnection.sourceHandle,
-           targetHandle: newConnection.targetHandle
-       }];
-    });
   }, [setConnections]);
 
   // 6. Interaction Handlers
   const onNodeClick = (_, node) => { setSelectedNodeId(node.id); setActiveRightTab('inspector'); };
   const onPaneClick = () => { setSelectedNodeId(null); setActiveRightTab('toolbox'); };
 
-  // 7. DRAG AND DROP RESOLUTION
   const onDrop = useCallback((event) => {
       event.preventDefault();
       try {
-        let toolData = null;
-        if (window.__draggedMagPITool) {
-            toolData = window.__draggedMagPITool;
-            window.__draggedMagPITool = null; 
-        } else {
-            const rawData = event.dataTransfer.getData('application/json');
-            if (rawData) toolData = JSON.parse(rawData);
-        }
-        
-        if (!toolData) return;
+        const rawData = event.dataTransfer.getData('application/json');
+        if (!rawData) return;
+        const toolData = JSON.parse(rawData);
         
         const position = screenToFlowPosition({ x: event.clientX, y: event.clientY });
         addNode(toolData, position.x - 100, position.y - 25);
@@ -239,9 +228,9 @@ function CanvasInner({
         nodes={rfNodes}
         edges={rfEdges}
         onNodesChange={onNodesChange}
+        onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         onEdgesDelete={onEdgesDelete}
-        onEdgeUpdate={onEdgeUpdate}
         onNodeClick={onNodeClick}
         onPaneClick={onPaneClick}
         onDrop={onDrop}

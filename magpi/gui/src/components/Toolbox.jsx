@@ -15,7 +15,7 @@ const TOOLBOX_CATEGORIES = [
     tools: [
       { id: 'wfs_sentinel2', name: "Pull Sentinel-2", type: 'input', icon: <Satellite size={14}/>, color: 'bg-cyan-700', border: 'border-cyan-500', 
         description: "Streams Cloud Optimized GeoTIFFs (COGs) from AWS Earth Search based on an AOI. Includes temporal filtering.",
-        params: { max_cloud_cover: 10, start_date: "2023-01-01", end_date: "2023-12-31" } },
+        params: { max_cloud_cover: 10, start_date: { value: "2023-01-01", type: "date" }, end_date: { value: "2023-12-31", type: "date" } } },
       { id: 'wfs_elevation', name: "Pull USGS DEM", type: 'input', icon: <Layers size={14}/>, color: 'bg-cyan-700', border: 'border-cyan-500', 
         description: "Extracts a 3D Digital Elevation Model (DEM) natively from the USGS 3DEP Web Coverage Service.",
         params: {} },
@@ -294,7 +294,8 @@ export default function Toolbox({
                   <h4 className="text-[10px] uppercase tracking-widest text-emerald-500 font-bold mb-4 flex items-center"><SlidersHorizontal size={12} className="mr-2" /> Parameters</h4>
                   {Object.entries(selectedNode.params || {}).map(([key, val]) => {
                     const isComplexObj = val && typeof val === 'object' && val.type === 'select';
-                    const displayVal = isComplexObj ? val.value : val;
+                    const isDateObj = val && typeof val === 'object' && val.type === 'date';
+                    const displayVal = (isComplexObj || isDateObj) ? val.value : val;
                     return (
                     <div key={key} className="mb-4">
                       <label className="block text-[11px] font-bold text-slate-400 mb-1.5 uppercase tracking-wide">{key.replace(/_/g, ' ')}</label>
@@ -309,6 +310,8 @@ export default function Toolbox({
                             <select value={displayVal} onChange={(e) => updateNodeParam(selectedNode.id, key, { ...val, value: e.target.value })} className="w-full bg-slate-800 border border-slate-600 rounded-md pl-9 pr-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all font-mono appearance-none cursor-pointer">{val.options.map(opt => <option key={opt} value={opt}>{opt}</option>)}</select>
                             <ChevronDown size={14} className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-500 pointer-events-none" />
                         </div>
+                      ) : isDateObj ? (
+                        <input type="date" value={displayVal} onChange={(e) => updateNodeParam(selectedNode.id, key, { ...val, value: e.target.value })} className="w-full bg-slate-800 border border-slate-600 rounded-md px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all font-mono"/>
                       ) : typeof displayVal === 'number' ? (
                         <input type="number" value={displayVal} onChange={(e) => updateNodeParam(selectedNode.id, key, Number(e.target.value))} className="w-full bg-slate-800 border border-slate-600 rounded-md px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all font-mono"/>
                       ) : key === 'file_path' || key === 'out_folder' || key === 'out_polygon_features' || key === 'out_table' ? (
