@@ -7,6 +7,7 @@ import NodeCanvas from './components/NodeCanvas';
 import MapViewport from './components/MapViewport';
 import ScriptModal from './components/ScriptModal';
 import FileBrowserModal from './components/FileBrowserModal';
+import EnvSettingsModal from './components/EnvSettingsModal';
 import { generatePythonScript } from './utils/scriptGen';
 import { saveProject, loadProject } from './utils/fileOps';
 
@@ -15,6 +16,13 @@ export default function App() {
   const [crs, setCrs] = useState("EPSG:6438");
   const [processingScope, setProcessingScope] = useState("Local Python");
   
+  const [globalEnv, setGlobalEnv] = useState({
+    workspace_dir: "./magpi_workspace",
+    scratch_dir: "./magpi_scratch",
+    output_dir: "./magpi_output"
+  });
+  const [showEnvSettings, setShowEnvSettings] = useState(false);
+
   const [nodes, setNodes] = useState([]);
   const [connections, setConnections] = useState([]);
   
@@ -35,6 +43,10 @@ export default function App() {
     // Load from LocalStorage on initial boot
     const savedNodes = localStorage.getItem('magpi_autosave_nodes');
     const savedCxs = localStorage.getItem('magpi_autosave_cxs');
+    const savedEnv = localStorage.getItem('magpi_global_env');
+    if (savedEnv) {
+        try { setGlobalEnv(JSON.parse(savedEnv)); } catch (e) {}
+    }
     if (savedNodes && savedCxs) {
         try {
             setNodes(JSON.parse(savedNodes));
@@ -51,7 +63,8 @@ export default function App() {
         localStorage.setItem('magpi_autosave_nodes', JSON.stringify(nodes));
         localStorage.setItem('magpi_autosave_cxs', JSON.stringify(connections));
     }
-  }, [nodes, connections]);
+    localStorage.setItem('magpi_global_env', JSON.stringify(globalEnv));
+  }, [nodes, connections, globalEnv]);
 
   const handleAoiDrawn = useCallback((aoiData) => {
     const newNode = { 
@@ -133,7 +146,7 @@ export default function App() {
   };
 
   const handleGenerate = () => {
-    const code = generatePythonScript(nodes, connections, crs, processingScope);
+    const code = generatePythonScript(nodes, connections, crs, processingScope, globalEnv);
     setGeneratedCode(code);
     setShowScript(true);
   };
@@ -145,7 +158,13 @@ export default function App() {
     setNodeStatuses(processingStates);
     setLogs([{ type: 'info', msg: 'Initiating Daemon Link on port 8080...' }, { type: 'info', msg: 'Transmitting payload to OS kernel...' }]);
     try {
-        const response = await fetch("http://localhost:8080/api/run", { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: generatedCode }) });
+        const payload = {
+            nodes,
+            connections,
+            crs,
+            globalEnv
+        };
+        const response = await fetch("http://localhost:8080/api/run_pipeline", { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
         const data = await response.json();
         if (response.ok) {
             const rawLogs = data.logs.split('\n').filter(l => l.trim() !== '');
@@ -174,7 +193,7 @@ export default function App() {
   return (
     <div className="absolute inset-0 w-full h-full flex flex-col bg-slate-900 text-slate-200 font-sans overflow-hidden select-none">
       <div className="flex-none z-40 shadow-md">
-        <TopRibbon crs={crs} setCrs={setCrs} processingScope={processingScope} setProcessingScope={setProcessingScope} onGenerate={handleGenerate} onSave={handleSave} onLoad={handleLoad} onClear={handleClear} />
+        <TopRibbon crs={crs} setCrs={setCrs} processingScope={processingScope} setProcessingScope={setProcessingScope} onGenerate={handleGenerate} onSave={handleSave} onLoad={handleLoad} onClear={handleClear} onOpenEnvSettings={() => setShowEnvSettings(true)} />
         <div className="flex bg-slate-900 border-b border-slate-700 px-4 pt-2">
             <button onClick={() => setActiveWorkspace('builder')} className={`px-6 py-2 text-xs font-bold uppercase tracking-widest rounded-t-lg transition-colors flex items-center border border-b-0 ${activeWorkspace === 'builder' ? 'bg-slate-800 text-emerald-400 border-slate-600' : 'bg-transparent text-slate-500 border-transparent hover:bg-slate-800/50 hover:text-slate-300'}`}><Wrench size={14} className="mr-2" /> Model Builder</button>
             <button onClick={() => setActiveWorkspace('globe')} className={`px-6 py-2 text-xs font-bold uppercase tracking-widest rounded-t-lg transition-colors flex items-center border border-b-0 ml-1 ${activeWorkspace === 'globe' ? 'bg-slate-800 text-cyan-400 border-slate-600' : 'bg-transparent text-slate-500 border-transparent hover:bg-slate-800/50 hover:text-slate-300'}`}><MapIcon size={14} className="mr-2" /> Globe Nexus</button>

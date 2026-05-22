@@ -4,7 +4,7 @@ import { Compass, Server, Code, Save, Globe, Cpu, FolderUp, Trash2, Rss } from '
 export default function TopRibbon({ 
   crs, setCrs, 
   processingScope, setProcessingScope, 
-  onGenerate, onSave, onLoad, onClear 
+  onGenerate, onSave, onLoad, onClear, onOpenEnvSettings 
 }) {
   return (
     <div className="flex flex-col bg-slate-800 border-b border-slate-700 shadow-md z-20 shrink-0">
@@ -62,7 +62,12 @@ export default function TopRibbon({
 
         {/* Environment Variables Group */}
         <div className="flex flex-col space-y-1.5">
-          <span className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Global Environment</span>
+          <div className="flex items-center justify-between">
+             <span className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Global Environment</span>
+             <button onClick={onOpenEnvSettings} className="text-[10px] text-emerald-500 hover:text-emerald-400 font-bold uppercase tracking-widest flex items-center bg-slate-900 px-2 py-0.5 rounded border border-emerald-900/50 hover:border-emerald-500 transition-colors">
+                <Globe size={10} className="mr-1" /> Paths
+             </button>
+          </div>
           <div className="flex space-x-4">
             
             <div className="flex items-center space-x-2 bg-slate-900 px-3 py-1.5 rounded text-sm border border-slate-700 shadow-inner hover:border-slate-500 transition-colors">
