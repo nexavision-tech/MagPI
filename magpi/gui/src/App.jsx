@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { GitBranch, XCircle, AlertTriangle, Bell, TerminalSquare, Save, Map as MapIcon, Edit3, Wrench } from 'lucide-react';
+import { GitBranch, XCircle, AlertTriangle, Bell, TerminalSquare, Save, Map as MapIcon, Edit3, Wrench, Layers } from 'lucide-react';
 import TopRibbon from './components/TopRibbon';
 import Terminal from './components/Terminal';
 import Toolbox from './components/Toolbox';
