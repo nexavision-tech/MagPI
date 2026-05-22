@@ -90,7 +90,7 @@ const MagPINode = ({ data }) => {
         {/* SINGLE INPUT */}
         {!isPureSource && !isDualInput && (
             <>
-            <Handle type="target" position={Position.Left} id="in" isConnectableStart={false} className="w-3.5 h-3.5 rounded-full bg-[#a3a3a3] border-[2.5px] border-[#1a1a1a] -ml-2 cursor-crosshair hover:bg-white hover:scale-125 transition-all z-50" />
+            <Handle type="target" position={Position.Left} id="in" isConnectableStart={false} className="w-3.5 h-3.5 rounded-full bg-[#a3a3a3] border-[2.5px] border-[#1a1a1a] -ml-2 cursor-crosshair hover:bg-white transition-all z-50" />
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[9px] font-mono text-[#a3a3a3] font-bold pointer-events-none tracking-widest">{singleLbl}</span>
             </>
         )}
@@ -98,10 +98,10 @@ const MagPINode = ({ data }) => {
         {/* DUAL INPUTS */}
         {isDualInput && (
             <>
-            <Handle type="target" position={Position.Left} id="in1" style={{ top: '30%' }} isConnectableStart={false} className="w-3.5 h-3.5 rounded-full bg-[#5ac8fa] border-[2.5px] border-[#1a1a1a] -ml-2 cursor-crosshair hover:bg-white hover:scale-125 transition-all z-50" />
+            <Handle type="target" position={Position.Left} id="in1" style={{ top: '30%' }} isConnectableStart={false} className="w-3.5 h-3.5 rounded-full bg-[#5ac8fa] border-[2.5px] border-[#1a1a1a] -ml-2 cursor-crosshair hover:bg-white transition-all z-50" />
             <span className="absolute left-3 top-[30%] -translate-y-1/2 text-[9px] font-mono text-[#5ac8fa] font-bold pointer-events-none tracking-widest">{topLbl}</span>
 
-            <Handle type="target" position={Position.Left} id="in2" style={{ top: '70%' }} isConnectableStart={false} className="w-3.5 h-3.5 rounded-full bg-[#ffcc00] border-[2.5px] border-[#1a1a1a] -ml-2 cursor-crosshair hover:bg-white hover:scale-125 transition-all z-50" />
+            <Handle type="target" position={Position.Left} id="in2" style={{ top: '70%' }} isConnectableStart={false} className="w-3.5 h-3.5 rounded-full bg-[#ffcc00] border-[2.5px] border-[#1a1a1a] -ml-2 cursor-crosshair hover:bg-white transition-all z-50" />
             <span className="absolute left-3 top-[70%] -translate-y-1/2 text-[9px] font-mono text-[#ffcc00] font-bold pointer-events-none tracking-widest">{botLbl}</span>
             </>
         )}
@@ -124,7 +124,7 @@ const MagPINode = ({ data }) => {
         {!isEndpoint && (
             <>
             <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[9px] font-mono text-[#ff3b30] font-bold pointer-events-none tracking-widest">OUT</span>
-            <Handle type="source" position={Position.Right} id="out" className="w-3.5 h-3.5 rounded-full bg-[#ff3b30] border-[2.5px] border-[#1a1a1a] -mr-2 cursor-crosshair hover:bg-white hover:scale-125 transition-all z-50" />
+            <Handle type="source" position={Position.Right} id="out" className="w-3.5 h-3.5 rounded-full bg-[#ff3b30] border-[2.5px] border-[#1a1a1a] -mr-2 cursor-crosshair hover:bg-white transition-all z-50" />
             </>
         )}
       </div>
@@ -151,8 +151,8 @@ function CanvasInner({
   }));
 
   // 2. Map MagPI connections to React Flow (CRITICAL: Preserving sourceHandle/targetHandle IDs so wires don't stack!)
-  const rfEdges = connections.map((c, idx) => ({
-    id: `e_${c.from}-${c.to}-${c.sourceHandle || 'out'}-${c.targetHandle || 'in'}-${idx}`,
+  const rfEdges = connections.map((c) => ({
+    id: `e_${c.from}_${c.sourceHandle || 'out'}_to_${c.to}_${c.targetHandle || 'in'}`,
     source: c.from,
     target: c.to,
     sourceHandle: c.sourceHandle || null,
@@ -178,8 +178,8 @@ function CanvasInner({
 
   const onEdgesChange = useCallback((changes) => {
     setConnections((eds) => {
-      const mappedEdges = eds.map((c, idx) => ({ 
-          id: `e_${c.from}-${c.to}-${c.sourceHandle || 'out'}-${c.targetHandle || 'in'}-${idx}`, 
+      const mappedEdges = eds.map((c) => ({ 
+          id: `e_${c.from}_${c.sourceHandle || 'out'}_to_${c.to}_${c.targetHandle || 'in'}`, 
           source: c.from, target: c.to, sourceHandle: c.sourceHandle, targetHandle: c.targetHandle 
       }));
       const updatedEdges = applyEdgeChanges(changes, mappedEdges);
@@ -249,7 +249,7 @@ function CanvasInner({
   }, []);
 
   return (
-    <div className="w-full h-full bg-[#0b1120] relative" ref={reactFlowWrapper}>
+    <div className="w-full h-full bg-[#0b1120] relative" ref={reactFlowWrapper} onDrop={onDrop} onDragOver={onDragOver}>
       
       <style>{`
         .react-flow__controls { background-color: #1e293b; border: 1px solid #334155; border-radius: 8px; overflow: hidden; }
@@ -268,8 +268,6 @@ function CanvasInner({
         onEdgeUpdate={onEdgeUpdate}
         onNodeClick={onNodeClick}
         onPaneClick={onPaneClick}
-        onDrop={onDrop}
-        onDragOver={onDragOver}
         nodeTypes={nodeTypes}
         fitView
         snapToGrid={true}
@@ -277,7 +275,6 @@ function CanvasInner({
         edgesUpdatable={true}
         edgesFocusable={true}
         
-        panOnScroll={true}
         panOnDrag={[1, 2]}
         selectionOnDrag={true}
         panActivationKeyCode="Space" 
