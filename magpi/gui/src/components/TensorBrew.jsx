@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Layers, Plus, Trash2, Cpu, Eye, Activity, Sliders, Hexagon, Maximize, GitBranch, Settings } from 'lucide-react';
+import { Layers, Plus, Trash2, Cpu, Eye, Activity, Sliders, Hexagon, Maximize, GitBranch, Settings, Grid } from 'lucide-react';
 
 export default function TensorBrew({ activeWorkspace }) {
   // State for Left Panel: Data Cubes and RGB Gun Mixers
