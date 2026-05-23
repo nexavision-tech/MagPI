@@ -60,6 +60,17 @@ export default function App() {
                     }
                 });
                 setNodeStatuses(adjustedStatuses);
+
+                if (job.logs && job.logs.length > 0) {
+                    const parsedLogs = job.logs.filter(l => l.trim().length > 0).map(l => {
+                        let type = 'info';
+                        if (l.includes('[ERROR]') || l.includes('Error:')) type = 'error';
+                        else if (l.includes('[SUCCESS]')) type = 'success';
+                        else if (l.includes('[WARNING]')) type = 'warn';
+                        return { type, msg: l.replace(/\[.*?\]:\s?/, '') };
+                    });
+                    setLogs([{ type: 'info', msg: 'Initiating Daemon Link on port 8080...' }, { type: 'info', msg: `Pipeline Dispatched to Daemon. Job ID: ${job.id}` }, ...parsedLogs]);
+                }
                 
                 if (job.status === 'Finished' || job.status === 'Failed') {
                     setActiveJobId(null);

@@ -169,15 +169,18 @@ export const generatePythonScript = (nodes, connections, crs, processingScope, g
             funcCall = `${outVar} = arcpy.ddd.LasDatasetToRaster(${primaryInVar}, "${outFileName}", value_field="${p.value_field}", sampling_value=${p.sampling_value})`;
         }
         else if (n.toolId === 'ia_ndvi') {
-            funcCall = `${outVar} = arcpy.ia.NDVI(${inRasterVar !== 'None' ? inRasterVar : primaryInVar}, nir_band_id=${p.nir_band}, red_band_id=${p.red_band})`;
+            const inVar = inRasterVar !== 'None' ? inRasterVar : primaryInVar;
+            funcCall = `${outVar} = [arcpy.ia.NDVI(r, nir_band_id=${p.nir_band}, red_band_id=${p.red_band}) for r in ${inVar}] if isinstance(${inVar}, list) else arcpy.ia.NDVI(${inVar}, nir_band_id=${p.nir_band}, red_band_id=${p.red_band})`;
         }
         else if (n.toolId === 'ia_pansharpen') {
-            const outFileName = `pansharpened_${n.id.split('_')[1]}.tif`;
-            funcCall = `${outVar} = arcpy.ia.Pansharpen(in_raster=${primaryInVar}, panchromatic_image=${primaryInVar}, out_raster="${outFileName}", method="${p.method}")`;
+            const inVar = primaryInVar;
+            const baseOutName = `pansharpened_${n.id.split('_')[1]}`;
+            funcCall = `${outVar} = [arcpy.ia.Pansharpen(in_raster=r, panchromatic_image=r, out_raster=f"${baseOutName}_{i}.tif", method="${p.method}") for i, r in enumerate(${inVar})] if isinstance(${inVar}, list) else arcpy.ia.Pansharpen(in_raster=${inVar}, panchromatic_image=${inVar}, out_raster="${baseOutName}.tif", method="${p.method}")`;
         }
         else if (n.toolId === 'ia_reclassify') {
-            const outFileName = `reclassified_${n.id.split('_')[1]}.tif`;
-            funcCall = `${outVar} = arcpy.ia.Reclassify(in_raster=${primaryInVar}, out_raster="${outFileName}", remap_string="${p.remap_string}")`;
+            const inVar = primaryInVar;
+            const baseOutName = `reclassified_${n.id.split('_')[1]}`;
+            funcCall = `${outVar} = [arcpy.ia.Reclassify(in_raster=r, out_raster=f"${baseOutName}_{i}.tif", remap_string="${p.remap_string}") for i, r in enumerate(${inVar})] if isinstance(${inVar}, list) else arcpy.ia.Reclassify(in_raster=${inVar}, out_raster="${baseOutName}.tif", remap_string="${p.remap_string}")`;
         }
         else if (n.toolId === 'ia_export_dl') {
             funcCall = `${outVar} = arcpy.ia.ExportTrainingDataForDeepLearning(in_raster=getattr(${inRasterVar}, 'name', ${inRasterVar}), out_folder="${p.out_folder}", in_class_data=getattr(${inLabelVar}, 'name', ${inLabelVar}), tile_size_x=${p.tile_size}, tile_size_y=${p.tile_size}, stride_x=${p.stride}, stride_y=${p.stride}, shuffle_chips=${p.shuffle ? 'True' : 'False'})`;
