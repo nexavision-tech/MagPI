@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Globe, Folder, Database, HardDrive, CheckCircle2 } from 'lucide-react';
+import { X, Globe, Folder, Database, HardDrive, CheckCircle2, Settings } from 'lucide-react';
 
 export default function EnvSettingsModal({ isOpen, onClose, globalEnv, setGlobalEnv }) {
   if (!isOpen) return null;
