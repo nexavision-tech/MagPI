@@ -113,7 +113,14 @@ class PipelineRunner:
                     neighbor = self.nodes[neighbor_id]
                     # Map handle to input key. Default to 'in' if no explicit port.
                     input_key = handle or "in"
-                    neighbor.inputs[input_key] = node.output
+                    
+                    if input_key in neighbor.inputs:
+                        if isinstance(neighbor.inputs[input_key], list):
+                            neighbor.inputs[input_key].append(node.output)
+                        else:
+                            neighbor.inputs[input_key] = [neighbor.inputs[input_key], node.output]
+                    else:
+                        neighbor.inputs[input_key] = node.output
                     
             except Exception as e:
                 logger.error(f"Execution failed for {node.name}: {e}")

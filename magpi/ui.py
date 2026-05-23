@@ -241,7 +241,9 @@ def LaunchCanvas(port=8080):
         def log_message(self, format, *args): pass 
 
     try:
-        httpd = socketserver.TCPServer(("", port), MagPIAPIHandler)
+        class ReusableTCPServer(socketserver.TCPServer):
+            allow_reuse_address = True
+        httpd = ReusableTCPServer(("", port), MagPIAPIHandler)
         thread = threading.Thread(target=httpd.serve_forever)
         thread.daemon = True
         thread.start()
