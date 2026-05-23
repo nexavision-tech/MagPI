@@ -122,3 +122,29 @@ class ArrayIndexerNode(Node):
             if idx != 0:
                 logger.warning(f"Array Index {idx} requested, but payload is not a list. Returning item as index 0.")
             self.output = in_payload
+
+@register_node('mgt_pyramids')
+class BuildPyramidsNode(Node):
+    def execute(self):
+        in_rasters = self.inputs.get("in")
+        if not isinstance(in_rasters, list):
+            in_rasters = [in_rasters]
+            
+        p = self.params
+        build_p = p.get('build_pyramids', True)
+        calc_s = p.get('calculate_stats', True)
+        
+        logger.info(f"Executing BuildPyramidsAndStats")
+        from magpi.management import BuildPyramidsAndStats
+        
+        self.output = []
+        for r in in_rasters:
+            try:
+                res = BuildPyramidsAndStats(r, build_pyramids=build_p, calculate_stats=calc_s)
+                self.output.append(res)
+            except Exception as e:
+                logger.error(f"Failed to execute BuildPyramidsAndStats on {r}: {e}")
+                raise
+                
+        if len(self.output) == 1:
+            self.output = self.output[0]
