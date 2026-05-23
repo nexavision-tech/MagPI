@@ -16,12 +16,22 @@ export default function TensorBrew({ activeWorkspace }) {
   });
 
   // State for Right Panel: Tabs and Kernel Brewer
-  const [rightTab, setRightTab] = useState('kernel'); // 'kernel', 'spectral', 'ml'
+  const [rightTab, setRightTab] = useState('kernel'); // 'kernel', 'spectral', 'rf', 'ml'
+  const [kernelSize, setKernelSize] = useState(3);
   const [kernelMatrix, setKernelMatrix] = useState([
     [0, -1, 0],
     [-1, 5, -1],
     [0, -1, 0]
   ]);
+
+  const updateKernelSize = (size) => {
+    setKernelSize(size);
+    const newKernel = Array(size).fill(0).map(() => Array(size).fill(0));
+    // Try to center a basic identity if going to larger size
+    const center = Math.floor(size / 2);
+    newKernel[center][center] = 1;
+    setKernelMatrix(newKernel);
+  };
 
   // State for ML Config
   const [mlConfig, setMlConfig] = useState({
@@ -162,10 +172,11 @@ export default function TensorBrew({ activeWorkspace }) {
         <div className="w-[320px] shrink-0 border-l border-slate-800 bg-slate-900 flex flex-col z-10 shadow-xl">
            
            {/* Right Tabs */}
-           <div className="flex border-b border-slate-800 bg-slate-950">
-             <button onClick={()=>setRightTab('kernel')} className={`flex-1 py-3 text-[10px] font-bold uppercase tracking-widest ${rightTab === 'kernel' ? 'text-indigo-400 border-b-2 border-indigo-500 bg-slate-900' : 'text-slate-500 hover:text-slate-300'}`}>Kernel</button>
-             <button onClick={()=>setRightTab('spectral')} className={`flex-1 py-3 text-[10px] font-bold uppercase tracking-widest ${rightTab === 'spectral' ? 'text-pink-400 border-b-2 border-pink-500 bg-slate-900' : 'text-slate-500 hover:text-slate-300'}`}>Spectral</button>
-             <button onClick={()=>setRightTab('ml')} className={`flex-1 py-3 text-[10px] font-bold uppercase tracking-widest ${rightTab === 'ml' ? 'text-emerald-400 border-b-2 border-emerald-500 bg-slate-900' : 'text-slate-500 hover:text-slate-300'}`}>ML Model</button>
+           <div className="flex border-b border-slate-800 bg-slate-950 overflow-x-auto custom-scrollbar">
+             <button onClick={()=>setRightTab('kernel')} className={`shrink-0 px-3 py-3 text-[10px] font-bold uppercase tracking-widest ${rightTab === 'kernel' ? 'text-indigo-400 border-b-2 border-indigo-500 bg-slate-900' : 'text-slate-500 hover:text-slate-300'}`}>Kernel</button>
+             <button onClick={()=>setRightTab('spectral')} className={`shrink-0 px-3 py-3 text-[10px] font-bold uppercase tracking-widest ${rightTab === 'spectral' ? 'text-pink-400 border-b-2 border-pink-500 bg-slate-900' : 'text-slate-500 hover:text-slate-300'}`}>Spectral</button>
+             <button onClick={()=>setRightTab('rf')} className={`shrink-0 px-3 py-3 text-[10px] font-bold uppercase tracking-widest ${rightTab === 'rf' ? 'text-amber-400 border-b-2 border-amber-500 bg-slate-900' : 'text-slate-500 hover:text-slate-300'}`}>RF/Gini</button>
+             <button onClick={()=>setRightTab('ml')} className={`shrink-0 px-3 py-3 text-[10px] font-bold uppercase tracking-widest ${rightTab === 'ml' ? 'text-emerald-400 border-b-2 border-emerald-500 bg-slate-900' : 'text-slate-500 hover:text-slate-300'}`}>Deep ML</button>
            </div>
 
            <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
@@ -176,12 +187,25 @@ export default function TensorBrew({ activeWorkspace }) {
                   <h3 className="text-xs font-bold text-slate-300 mb-4 uppercase tracking-widest flex items-center">
                     <Grid size={14} className="mr-2 text-indigo-400" /> Convolution Matrix
                   </h3>
-                  <p className="text-[10px] text-slate-500 mb-4 leading-relaxed">
-                    Design custom 3x3 spatial filters (GLCM, Edge Detection, Sharpening) to apply to your tensor cubes before ML ingestion.
-                  </p>
+                  <div className="flex justify-between items-center mb-4">
+                    <p className="text-[10px] text-slate-500 leading-relaxed max-w-[200px]">
+                      Design custom spatial filters (GLCM, Edge Detection, Sharpening).
+                    </p>
+                    <select 
+                      value={kernelSize} 
+                      onChange={(e) => updateKernelSize(parseInt(e.target.value))}
+                      className="bg-slate-950 border border-slate-700 text-xs text-indigo-300 rounded px-2 py-1 outline-none focus:border-indigo-500"
+                    >
+                      <option value={3}>3x3</option>
+                      <option value={5}>5x5</option>
+                      <option value={7}>7x7</option>
+                      <option value={9}>9x9</option>
+                      <option value={15}>15x15</option>
+                    </select>
+                  </div>
 
-                  <div className="bg-slate-950 p-4 rounded-lg border border-slate-800 flex justify-center mb-4">
-                    <div className="grid grid-cols-3 gap-2">
+                  <div className="bg-slate-950 p-4 rounded-lg border border-slate-800 flex justify-center mb-4 overflow-x-auto custom-scrollbar">
+                    <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${kernelSize}, minmax(0, 1fr))` }}>
                       {kernelMatrix.map((row, rIdx) => (
                         row.map((val, cIdx) => (
                           <input 
@@ -189,18 +213,20 @@ export default function TensorBrew({ activeWorkspace }) {
                             type="number"
                             value={val}
                             onChange={(e) => handleKernelChange(rIdx, cIdx, e.target.value)}
-                            className="w-12 h-12 bg-slate-900 border border-slate-700 text-center text-sm font-mono text-indigo-300 rounded focus:border-indigo-500 outline-none"
+                            className={`bg-slate-900 border border-slate-700 text-center text-xs font-mono text-indigo-300 rounded focus:border-indigo-500 outline-none ${kernelSize >= 9 ? 'w-8 h-8' : 'w-12 h-12'}`}
                           />
                         ))
                       ))}
                     </div>
                   </div>
                   
-                  <div className="space-y-2">
-                    <button onClick={() => setKernelMatrix([[0,0,0],[0,1,0],[0,0,0]])} className="w-full py-2 bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 rounded border border-slate-700 transition-colors">Identity Kernel</button>
-                    <button onClick={() => setKernelMatrix([[-1,-1,-1],[-1,8,-1],[-1,-1,-1]])} className="w-full py-2 bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 rounded border border-slate-700 transition-colors">Edge Detection</button>
-                    <button onClick={() => setKernelMatrix([[0,-1,0],[-1,5,-1],[0,-1,0]])} className="w-full py-2 bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 rounded border border-slate-700 transition-colors">Sharpen</button>
-                  </div>
+                  {kernelSize === 3 && (
+                    <div className="space-y-2">
+                      <button onClick={() => setKernelMatrix([[0,0,0],[0,1,0],[0,0,0]])} className="w-full py-2 bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 rounded border border-slate-700 transition-colors">Identity Kernel</button>
+                      <button onClick={() => setKernelMatrix([[-1,-1,-1],[-1,8,-1],[-1,-1,-1]])} className="w-full py-2 bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 rounded border border-slate-700 transition-colors">Edge Detection</button>
+                      <button onClick={() => setKernelMatrix([[0,-1,0],[-1,5,-1],[0,-1,0]])} className="w-full py-2 bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 rounded border border-slate-700 transition-colors">Sharpen</button>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -234,6 +260,49 @@ export default function TensorBrew({ activeWorkspace }) {
                       Process Spectral Signatures
                     </button>
                   </div>
+                </div>
+              )}
+
+              {/* RANDOM FOREST / GINI TAB */}
+              {rightTab === 'rf' && (
+                <div className="animate-fadeIn">
+                  <h3 className="text-xs font-bold text-slate-300 mb-4 uppercase tracking-widest flex items-center">
+                    <Activity size={14} className="mr-2 text-amber-400" /> Random Forest
+                  </h3>
+                  <p className="text-[10px] text-slate-500 mb-4 leading-relaxed">
+                    Evaluate GLCM textural features and spectral bands using Gini Impurity to select the optimal predictors for Palm Detection.
+                  </p>
+
+                  <div className="bg-slate-950 p-4 rounded-lg border border-slate-800 mb-4">
+                    <h4 className="text-[10px] font-bold text-amber-300 uppercase mb-3">Feature Importance (Gini)</h4>
+                    <div className="space-y-3">
+                      {/* Mock Chart Data */}
+                      {[
+                        { name: "GLCM_Contrast_9x9", val: 85, color: "bg-amber-500" },
+                        { name: "GLCM_Entropy_15x15", val: 72, color: "bg-amber-600" },
+                        { name: "Sentinel2_B8_NIR", val: 54, color: "bg-amber-700" },
+                        { name: "GLCM_Variance_5x5", val: 32, color: "bg-amber-800" },
+                        { name: "Sentinel2_B4_Red", val: 18, color: "bg-amber-900" }
+                      ].map(f => (
+                        <div key={f.name}>
+                          <div className="flex justify-between text-[9px] mb-1">
+                            <span className="text-slate-300 font-mono">{f.name}</span>
+                            <span className="text-slate-500">{f.val}%</span>
+                          </div>
+                          <div className="w-full bg-slate-900 h-2 rounded-full overflow-hidden">
+                            <div className={`h-full ${f.color}`} style={{ width: `${f.val}%` }}></div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <button className="w-full py-2 bg-amber-600/20 text-amber-400 border border-amber-500/50 hover:bg-amber-600/40 rounded text-xs font-bold transition-colors">
+                    Train RF & Calculate Gini
+                  </button>
+                  <button className="w-full mt-2 py-2 bg-slate-800 text-slate-300 hover:bg-slate-700 rounded text-xs transition-colors border border-slate-700">
+                    Auto-Route Top 3 Features to RGB
+                  </button>
                 </div>
               )}
 

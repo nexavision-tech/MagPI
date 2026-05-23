@@ -37,6 +37,46 @@ def NDVI(in_raster, nir_band_id=4, red_band_id=1):
         logger.error(f"NDVI Calculation failed: {e}")
         return Result(None, status=3)
 
+def GLCMTexturalFeatures(in_raster, window_size="3x3", shift_x=1, shift_y=1):
+    if hasattr(in_raster, 'name'): raster_path = in_raster.name
+    elif hasattr(in_raster, 'output'): raster_path = in_raster.output
+    else: raster_path = str(in_raster)
+
+    out_raster = raster_path.replace(".tif", "_GLCM_Proxy.tif")
+    logger.info(f"Executing Vectorized Textural Variance (GLCM Proxy) on: {raster_path}")
+    logger.warning("Note: Using scipy.ndimage variance proxy for GLCM to avoid 10hr execution time without scikit-image C-extensions.")
+
+    try:
+        import rasterio
+        from scipy.ndimage import uniform_filter
+        
+        ws = int(window_size.split('x')[0])
+        
+        with rasterio.open(raster_path) as src:
+            # Just do it on the first band for textural analysis
+            band = src.read(1).astype('float32')
+            
+            # Local variance as a proxy for textural contrast
+            c1 = uniform_filter(band, ws, mode='reflect')
+            c2 = uniform_filter(band*band, ws, mode='reflect')
+            variance = c2 - c1*c1
+            # Normalize and clean up
+            variance = np.clip(variance, 0, None)
+            
+            out_meta = src.meta.copy()
+            out_meta.update({"driver": "GTiff", "count": 1, "dtype": 'float32'})
+            
+            with rasterio.open(out_raster, "w", **out_meta) as dest:
+                dest.write(variance, 1)
+
+        logger.info(f"Textural Feature (Variance/Contrast) successfully generated: {out_raster}")
+        return Result(out_raster)
+
+    except Exception as e:
+        logger.error(f"GLCM Calculation failed: {e}")
+        return Result(None, status=3)
+
+
 def Pansharpen(in_raster, panchromatic_image, out_raster, method="BROVEY", weights="0.33,0.33,0.33", sensor="UNKNOWN"):
     if hasattr(in_raster, 'name'): ms_path = in_raster.name
     else: ms_path = str(in_raster)

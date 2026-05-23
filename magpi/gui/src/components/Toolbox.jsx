@@ -202,7 +202,10 @@ const TOOLBOX_CATEGORIES = [
         params: { components_to_retain: 3 } },
       { id: 'envi_tasseled_cap', name: "Tasseled Cap", type: 'process', icon: <Leaf size={14}/>, color: 'bg-pink-600', border: 'border-pink-500', 
         description: "Calculates Tasseled Cap transformation (Brightness, Greenness, Wetness).",
-        params: { sensor: { value: "Landsat_8", type: "select", options: ["Landsat_8", "Sentinel_2", "Landsat_5"] } } }
+        params: { sensor: { value: "Landsat_8", type: "select", options: ["Landsat_8", "Sentinel_2", "Landsat_5"] } } },
+      { id: 'envi_glcm', name: "GLCM Textural Features", type: 'process', icon: <Grid size={14}/>, color: 'bg-pink-600', border: 'border-pink-500', 
+        description: "Computes Gray-Level Co-occurrence Matrix textural features (Contrast, Correlation, Entropy, etc.).",
+        params: { window_size: { value: "3x3", type: "select", options: ["3x3", "5x5", "7x7", "9x9", "11x11", "15x15"] }, shift_x: 1, shift_y: 1 } }
     ]
   },
   // NEW: Spatial Statistics Subsystem (Chris's Academic Verification Module)

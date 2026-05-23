@@ -33,6 +33,35 @@ class NDVINode(Node):
         if len(self.output) == 1:
             self.output = self.output[0]
 
+@register_node('envi_glcm')
+class GLCMNode(Node):
+    def execute(self):
+        in_rasters = self.inputs.get("in")
+        if not isinstance(in_rasters, list):
+            in_rasters = [in_rasters]
+            
+        p = self.params
+        ws = p.get('window_size', '3x3')
+        sx = p.get('shift_x', 1)
+        sy = p.get('shift_y', 1)
+        
+        logger.info(f"Executing GLCM Textural Features (Window: {ws})")
+        from magpi.ia import GLCMTexturalFeatures
+        
+        self.output = []
+        for r in in_rasters:
+            try:
+                res = GLCMTexturalFeatures(r, window_size=ws, shift_x=sx, shift_y=sy)
+                if hasattr(res, 'status') and res.status == 3:
+                    raise Exception(f"GLCM failed on raster {r}")
+                self.output.append(res)
+            except Exception as e:
+                logger.error(f"Failed to execute GLCM on {r}: {e}")
+                raise
+                
+        if len(self.output) == 1:
+            self.output = self.output[0]
+
 @register_node('ia_pansharpen')
 class PansharpenNode(Node):
     def execute(self):
