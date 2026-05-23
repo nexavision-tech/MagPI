@@ -172,6 +172,7 @@ export default function App() {
         const data = await response.json();
         if (response.ok) {
             setLogs(prev => [...prev, { type: 'success', msg: `Pipeline Dispatched to Daemon. Job ID: ${data.job_id}` }]);
+            setIsProcessing(false);
             // We just set to processing, JobManager handles the real status tracking
         } else {
             setLogs(prev => [...prev, { type: 'error', msg: `Daemon execution failed: ${data.error}` }]);

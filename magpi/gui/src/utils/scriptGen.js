@@ -94,15 +94,17 @@ export const generatePythonScript = (nodes, connections, crs, processingScope, g
         
         let inRasterVar = 'None';
         let inLabelVar = 'None';
-        let inExtentVar = 'None';
+        let inExtentVars = [];
 
         incomingCxs.forEach(c => {
             const { from } = c;
             const prov = getProvenance(from);
             if (prov === 'raster') inRasterVar = varMap[from];
             else if (prov === 'label') inLabelVar = varMap[from];
-            else if (prov === 'extent') inExtentVar = varMap[from];
+            else if (prov === 'extent') inExtentVars.push(varMap[from]);
         });
+
+        const inExtentVar = inExtentVars.length > 0 ? inExtentVars[0] : 'None';
 
         const primaryInVar = inNodes.length > 0 ? varMap[inNodes[0].id] : 'None';
 
@@ -116,20 +118,40 @@ export const generatePythonScript = (nodes, connections, crs, processingScope, g
             funcCall = `${outVar} = "${p.file_path}"`;
         }
         else if (n.toolId === 'wfs_sentinel2') {
-            const outFileName = `s2_cloud_extract_${n.id.split('_')[1]}.tif`;
-            funcCall = `${outVar} = arcpy.wfs.PullSentinel2(${inExtentVar}, "${outFileName}", max_cloud_cover=${p.max_cloud_cover}, date_range="${p.start_date}/${p.end_date}")`;
+            if (inExtentVars.length > 1) {
+                const outFileNameBase = `s2_cloud_extract_${n.id.split('_')[1]}`;
+                funcCall = `${outVar} = []\nfor i, ext in enumerate([${inExtentVars.join(', ')}]):\n    ${outVar}.append(arcpy.wfs.PullSentinel2(ext, f"${outFileNameBase}_{i}.tif", max_cloud_cover=${p.max_cloud_cover}, date_range="${p.start_date}/${p.end_date}"))`;
+            } else {
+                const outFileName = `s2_cloud_extract_${n.id.split('_')[1]}.tif`;
+                funcCall = `${outVar} = arcpy.wfs.PullSentinel2(${inExtentVar}, "${outFileName}", max_cloud_cover=${p.max_cloud_cover}, date_range="${p.start_date}/${p.end_date}")`;
+            }
         }
         else if (n.toolId === 'wfs_copernicus') {
-            const outFileName = `copernicus_extract_${n.id.split('_')[1]}.json`;
-            funcCall = `${outVar} = arcpy.wfs.PullCopernicusData(${inExtentVar}, "${outFileName}", collection="${p.collection}", product_type="${p.product_type}", start_date="${p.start_date}", end_date="${p.end_date}", cdse_token="${p.cdse_token}")`;
+            if (inExtentVars.length > 1) {
+                const outFileNameBase = `copernicus_extract_${n.id.split('_')[1]}`;
+                funcCall = `${outVar} = []\nfor i, ext in enumerate([${inExtentVars.join(', ')}]):\n    ${outVar}.append(arcpy.wfs.PullCopernicusData(ext, f"${outFileNameBase}_{i}.json", collection="${p.collection}", product_type="${p.product_type}", start_date="${p.start_date}", end_date="${p.end_date}", cdse_token="${p.cdse_token}"))`;
+            } else {
+                const outFileName = `copernicus_extract_${n.id.split('_')[1]}.json`;
+                funcCall = `${outVar} = arcpy.wfs.PullCopernicusData(${inExtentVar}, "${outFileName}", collection="${p.collection}", product_type="${p.product_type}", start_date="${p.start_date}", end_date="${p.end_date}", cdse_token="${p.cdse_token}")`;
+            }
         }
         else if (n.toolId === 'wfs_elevation') {
-            const outFileName = `usgs_dem_extract_${n.id.split('_')[1]}.tif`;
-            funcCall = `${outVar} = arcpy.wfs.PullUSGSElevation(${inExtentVar}, "${outFileName}")`;
+            if (inExtentVars.length > 1) {
+                const outFileNameBase = `usgs_dem_extract_${n.id.split('_')[1]}`;
+                funcCall = `${outVar} = []\nfor i, ext in enumerate([${inExtentVars.join(', ')}]):\n    ${outVar}.append(arcpy.wfs.PullUSGSElevation(ext, f"${outFileNameBase}_{i}.tif"))`;
+            } else {
+                const outFileName = `usgs_dem_extract_${n.id.split('_')[1]}.tif`;
+                funcCall = `${outVar} = arcpy.wfs.PullUSGSElevation(${inExtentVar}, "${outFileName}")`;
+            }
         }
         else if (n.toolId === 'wfs_nlcd') {
-            const outFileName = `nlcd_labels_${n.id.split('_')[1]}.tif`;
-            funcCall = `${outVar} = arcpy.wfs.PullNLCD(${inExtentVar}, "${outFileName}", year=${p.year}, product="${p.product}")`;
+            if (inExtentVars.length > 1) {
+                const outFileNameBase = `nlcd_labels_${n.id.split('_')[1]}`;
+                funcCall = `${outVar} = []\nfor i, ext in enumerate([${inExtentVars.join(', ')}]):\n    ${outVar}.append(arcpy.wfs.PullNLCD(ext, f"${outFileNameBase}_{i}.tif", year=${p.year}, product="${p.product}"))`;
+            } else {
+                const outFileName = `nlcd_labels_${n.id.split('_')[1]}.tif`;
+                funcCall = `${outVar} = arcpy.wfs.PullNLCD(${inExtentVar}, "${outFileName}", year=${p.year}, product="${p.product}")`;
+            }
         }
         else if (n.toolId === 'wfs_sciencebase') {
             funcCall = `${outVar} = arcpy.wfs.PullScienceBase("${p.item_id}", "${p.out_folder}")`;
