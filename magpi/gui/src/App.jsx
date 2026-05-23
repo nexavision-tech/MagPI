@@ -126,6 +126,48 @@ export default function App() {
     setActiveWorkspace('builder');
   }, []);
 
+  const handleImportENVI = (file) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const parser = new DOMParser();
+        const xmlDoc = parser.parseFromString(e.target.result, "text/xml");
+        const points = Array.from(xmlDoc.getElementsByTagName('POINT')).map(node => {
+            const [x, y] = node.textContent.split(',').map(Number);
+            return { x, y };
+        });
+        
+        if (points.length === 0) throw new Error("No points found in ROI XML.");
+        
+        const xmin = Math.min(...points.map(p => p.x));
+        const xmax = Math.max(...points.map(p => p.x));
+        const ymin = Math.min(...points.map(p => p.y));
+        const ymax = Math.max(...points.map(p => p.y));
+        
+        const roiNameNode = xmlDoc.getElementsByTagName('NAME')[0];
+        const roiName = roiNameNode ? roiNameNode.textContent : "ENVI ROI";
+        
+        const newNode = { 
+          id: `node_${Date.now()}`, toolId: 'core_extent', name: `ENVI ROI: ${roiName}`, icon: 'core_extent', 
+          x: 400 + Math.random() * 50, y: 200 + Math.random() * 50, color: 'bg-yellow-600', border: 'border-yellow-500', 
+          params: { xmin, ymin, xmax, ymax } 
+        };
+        
+        setNodes(prev => [...prev, newNode]);
+        setSelectedNodeId(newNode.id);
+        setActiveRightTab('inspector');
+        setActiveWorkspace('builder');
+        
+        setLogs([{ type: 'success', msg: `Successfully imported ENVI ROI '${roiName}' as an AOI Extent.` }]);
+        setShowTerminal(true);
+      } catch (err) {
+        setLogs([{ type: 'error', msg: `Failed to parse ENVI ROI: ${err.message}` }]);
+        setShowTerminal(true);
+      }
+    };
+    reader.readAsText(file);
+  };
+
   const addNode = useCallback((tool, dropX = null, dropY = null) => {
     const newNode = { 
       id: `node_${Date.now()}`, toolId: tool.id, name: tool.name, icon: tool.id, 
@@ -233,7 +275,7 @@ export default function App() {
   return (
     <div className="absolute inset-0 w-full h-full flex flex-col bg-slate-900 text-slate-200 font-sans overflow-hidden select-none">
       <div className="flex-none z-40 shadow-md">
-        <TopRibbon crs={crs} setCrs={setCrs} processingScope={processingScope} setProcessingScope={setProcessingScope} onGenerate={handleGenerate} onSave={handleSave} onLoad={handleLoad} onClear={handleClear} onOpenEnvSettings={() => setShowEnvSettings(true)} />
+        <TopRibbon crs={crs} setCrs={setCrs} processingScope={processingScope} setProcessingScope={setProcessingScope} onGenerate={handleGenerate} onSave={handleSave} onLoad={handleLoad} onClear={handleClear} onOpenEnvSettings={() => setShowEnvSettings(true)} onImportENVI={handleImportENVI} />
         <div className="flex bg-slate-900 border-b border-slate-700 px-4 pt-2">
             <button onClick={() => setActiveWorkspace('builder')} className={`px-6 py-2 text-xs font-bold uppercase tracking-widest rounded-t-lg transition-colors flex items-center border border-b-0 ${activeWorkspace === 'builder' ? 'bg-slate-800 text-emerald-400 border-slate-600' : 'bg-transparent text-slate-500 border-transparent hover:bg-slate-800/50 hover:text-slate-300'}`}><Wrench size={14} className="mr-2" /> Model Builder</button>
             <button onClick={() => setActiveWorkspace('globe')} className={`px-6 py-2 text-xs font-bold uppercase tracking-widest rounded-t-lg transition-colors flex items-center border border-b-0 ml-1 ${activeWorkspace === 'globe' ? 'bg-slate-800 text-cyan-400 border-slate-600' : 'bg-transparent text-slate-500 border-transparent hover:bg-slate-800/50 hover:text-slate-300'}`}><MapIcon size={14} className="mr-2" /> Globe Nexus</button>

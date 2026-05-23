@@ -21,7 +21,8 @@ export const generatePythonScript = (nodes, connections, crs, processingScope, g
     
     const crsValue = crs.includes(':') ? crs.split(':')[1] : `"${crs}"`;
     script += `arcpy.env.outputCoordinateSystem = ${crsValue}\n`;
-    script += `arcpy.env.overwriteOutput = True\n\n`;
+    const overwriteStr = globalEnv && globalEnv.overwrite_output === false ? "False" : "True";
+    script += `arcpy.env.overwriteOutput = ${overwriteStr}\n\n`;
     
     script += `arcpy.AddMessage("Initiating MagPI Visual Model execution...")\n\n`;
     
@@ -209,6 +210,10 @@ export const generatePythonScript = (nodes, connections, crs, processingScope, g
         else if (n.toolId === 'mgt_project_raster') {
             const outFileName = `proj_raster_${n.id.split('_')[1]}.tif`;
             funcCall = `${outVar} = arcpy.management.ProjectRaster(${inRasterVar}, "${outFileName}", "${p.out_crs}", resampling_type="${p.resampling}")`;
+        }
+        else if (n.toolId === 'mgt_project_vector') {
+            const outFileName = p.out_feature_class || `proj_vector_${n.id.split('_')[1]}.shp`;
+            funcCall = `${outVar} = arcpy.management.Project(${primaryInVar}, "${outFileName}", out_coor_system="${p.out_crs}")`;
         }
         else if (n.toolId === 'mgt_pyramids') {
             funcCall = `${outVar} = ${primaryInVar}\narcpy.management.BuildPyramidsAndStats(${primaryInVar}, build_pyramids=${p.build_pyramids ? 'True' : 'False'}, calculate_stats=${p.calculate_stats ? 'True' : 'False'})`;

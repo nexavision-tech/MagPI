@@ -91,6 +91,24 @@ export default function EnvSettingsModal({ isOpen, onClose, globalEnv, setGlobal
               <span className="text-[10px] text-slate-500 italic">The final destination for processed pipelines, AI inference masks, and exported metrics.</span>
             </div>
             
+            <div className="flex items-center justify-between bg-slate-900/50 border border-slate-700/50 rounded-lg p-4">
+              <div>
+                <label className="text-xs font-bold text-slate-300 uppercase tracking-widest flex items-center">
+                  <Settings size={14} className="mr-2 text-indigo-400" /> Overwrite Output Files
+                </label>
+                <span className="text-[10px] text-slate-500 italic block mt-1">If enabled, existing files will be overwritten without throwing an error.</span>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input 
+                  type="checkbox" 
+                  className="sr-only peer" 
+                  checked={globalEnv.overwrite_output !== false} // Default true
+                  onChange={(e) => setGlobalEnv(prev => ({ ...prev, overwrite_output: e.target.checked }))}
+                />
+                <div className="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
+              </label>
+            </div>
+            
             <div className="grid grid-cols-2 gap-4">
               <div className="flex flex-col space-y-2 relative group">
                 <label className="text-xs font-bold text-slate-300 uppercase tracking-widest flex items-center">
@@ -128,7 +146,7 @@ export default function EnvSettingsModal({ isOpen, onClose, globalEnv, setGlobal
         {/* Footer */}
         <div className="flex items-center justify-between px-6 py-4 bg-slate-800 border-t border-slate-700">
           <button 
-            onClick={() => setGlobalEnv({ workspace_dir: "./magpi_workspace", scratch_dir: "./magpi_scratch", output_dir: "./magpi_output", horizontal_datum: "EPSG:4326", vertical_datum: "EPSG:3855" })} 
+            onClick={() => setGlobalEnv({ workspace_dir: "./magpi_workspace", scratch_dir: "./magpi_scratch", output_dir: "./magpi_output", horizontal_datum: "EPSG:4326", vertical_datum: "EPSG:3855", overwrite_output: true })} 
             className="px-4 py-2 text-xs font-bold text-slate-400 hover:text-white transition-colors"
           >
             Reset to Defaults

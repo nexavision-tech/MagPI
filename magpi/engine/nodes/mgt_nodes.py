@@ -50,3 +50,16 @@ class ProjectRasterNode(Node):
         logger.info(f"Executing ProjectRaster on {in_raster} to {out_crs}")
         from magpi.management import ProjectRaster
         self.output = ProjectRaster(in_raster, out_path, out_crs, resampling_type=p.get('resampling', 'NEAREST'))
+
+@register_node('mgt_project_vector')
+class ProjectVectorNode(Node):
+    def execute(self):
+        in_features = self.inputs.get("in")
+        p = self.params
+        out_crs = p.get('out_crs', 'EPSG:4326')
+        out_filename = p.get('out_feature_class', f"proj_vector_{self.id.split('_')[1] if '_' in self.id else '1'}.shp")
+        out_path = os.path.join(os.environ.get('MAGPI_OUTPUT', '.'), out_filename)
+        
+        logger.info(f"Executing Project Vector on {in_features} to {out_crs}")
+        from magpi.management import Project
+        self.output = Project(in_features, out_path, out_crs)

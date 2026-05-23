@@ -11,22 +11,11 @@ import {
 
 const TOOLBOX_CATEGORIES = [
   {
-    name: "API Connector Hub", icon: <Cloud size={18} className="text-cyan-400" />,
+    name: "Open Data WFS (Free)", icon: <Cloud size={18} className="text-cyan-400" />,
     tools: [
       { id: 'wfs_sentinel2', name: "Sentinel-2 (AWS 4B)", type: 'input', icon: <Cloud size={14}/>, color: 'bg-cyan-700', border: 'border-cyan-500', 
         description: "Streams Cloud Optimized GeoTIFFs (COGs) from AWS Earth Search based on an AOI. Includes temporal filtering.",
         params: { max_cloud_cover: 10, start_date: { value: "2023-01-01", type: "date" }, end_date: { value: "2023-12-31", type: "date" }, out_folder: "./sentinel_data" } },
-      { id: 'wfs_copernicus', name: "Copernicus Data Space", type: 'input', icon: <Satellite size={14}/>, color: 'bg-blue-600', border: 'border-blue-500', 
-        description: "Connects directly to the ESA Copernicus Data Space Ecosystem (CDSE) to query Sentinel-1, 2, 3, 5P, and Landsat data using OData.",
-        params: { 
-            collection: { value: "SENTINEL-1", type: "select", options: ["SENTINEL-1", "SENTINEL-2", "SENTINEL-3", "SENTINEL-5P", "LANDSAT-8", "LANDSAT-9"] }, 
-            product_type: { value: "IW_SLC__1S", type: "select", options: ["IW_SLC__1S", "IW_GRDH_1S", "S2MSI1C", "S2MSI2A", "SY_2_SYN___"] }, 
-            start_date: { value: "2024-01-01T00:00", type: "datetime-local" }, 
-            end_date: { value: "2024-12-31T23:59", type: "datetime-local" }, 
-            cdse_token: "DEMO_TOKEN_REQUIRED",
-            out_feature_class: "copernicus_metadata.json" 
-        } 
-      },
       { id: 'wfs_elevation', name: "Pull USGS DEM", type: 'input', icon: <Layers size={14}/>, color: 'bg-cyan-700', border: 'border-cyan-500', 
         description: "Extracts a 3D Digital Elevation Model (DEM) natively from the USGS 3DEP Web Coverage Service.",
         params: {} },
@@ -42,6 +31,22 @@ const TOOLBOX_CATEGORIES = [
       { id: 'wfs_universal', name: "Universal REST/WFS", type: 'input', icon: <Globe size={14}/>, color: 'bg-cyan-700', border: 'border-cyan-500', 
         description: "Connects to ANY global Open Data portal (e.g., Thai MOT, EU Inspire) via GeoJSON or REST API endpoints.",
         params: { url: "https://datagov.mot.go.th/dataset/...", format: { value: "GeoJSON", type: "select", options: ["GeoJSON", "ESRI REST", "WFS"] } } }
+    ]
+  },
+  {
+    name: "Sovereign/Premium WFS (Auth Required)", icon: <Satellite size={18} className="text-blue-400" />,
+    tools: [
+      { id: 'wfs_copernicus', name: "Copernicus Data Space", type: 'input', icon: <Satellite size={14}/>, color: 'bg-blue-600', border: 'border-blue-500', 
+        description: "Connects directly to the ESA Copernicus Data Space Ecosystem (CDSE) to query Sentinel-1, 2, 3, 5P, and Landsat data using OData.",
+        params: { 
+            collection: { value: "SENTINEL-1", type: "select", options: ["SENTINEL-1", "SENTINEL-2", "SENTINEL-3", "SENTINEL-5P", "LANDSAT-8", "LANDSAT-9"] }, 
+            product_type: { value: "IW_SLC__1S", type: "select", options: ["IW_SLC__1S", "IW_GRDH_1S", "S2MSI1C", "S2MSI2A", "SY_2_SYN___"] }, 
+            start_date: { value: "2024-01-01T00:00", type: "datetime-local" }, 
+            end_date: { value: "2024-12-31T23:59", type: "datetime-local" }, 
+            cdse_token: "DEMO_TOKEN_REQUIRED",
+            out_feature_class: "copernicus_metadata.json" 
+        } 
+      }
     ]
   },
   {
@@ -142,6 +147,10 @@ const TOOLBOX_CATEGORIES = [
       { id: 'mgt_project_raster', name: "Project Raster", type: 'process', icon: <MapIcon size={14}/>, color: 'bg-slate-600', border: 'border-slate-500', 
         description: "Warps a raster image from one coordinate system to another.",
         params: { out_crs: "EPSG:6438", resampling: { value: "NEAREST", type: "select", options: ["NEAREST", "BILINEAR", "CUBIC", "MAJORITY"] } } 
+      },
+      { id: 'mgt_project_vector', name: "Project Vector", type: 'process', icon: <MapIcon size={14}/>, color: 'bg-slate-600', border: 'border-slate-500', 
+        description: "Projects spatial data from one coordinate system to another.",
+        params: { out_crs: "EPSG:6438", out_feature_class: "projected_vector.shp" } 
       },
       { id: 'mgt_create_fishnet', name: "Create Fishnet (Tiling)", type: 'process', icon: <Grid size={14}/>, color: 'bg-slate-600', border: 'border-slate-500', 
         description: "Creates a grid of rectangular cells (tessellation) over an extent. Essential for batch-processing massive areas.",

@@ -4,8 +4,9 @@ import { Compass, Server, Code, Save, Globe, Cpu, FolderUp, Trash2, Rss } from '
 export default function TopRibbon({ 
   crs, setCrs, 
   processingScope, setProcessingScope, 
-  onGenerate, onSave, onLoad, onClear, onOpenEnvSettings 
+  onGenerate, onSave, onLoad, onClear, onOpenEnvSettings, onImportENVI
 }) {
+  const hiddenFileInput = React.useRef(null);
   return (
     <div className="flex flex-col bg-slate-800 border-b border-slate-700 shadow-md z-20 shrink-0">
       
@@ -59,8 +60,24 @@ export default function TopRibbon({
               e.target.value = null; 
             }} />
           </label>
+          
+          {/* ENVI Import */}
+          <input 
+            type="file" 
+            ref={hiddenFileInput} 
+            onChange={(e) => {
+              if (e.target.files.length > 0) onImportENVI(e.target.files[0]);
+              e.target.value = null;
+            }} 
+            accept=".xml,.roi" 
+            style={{ display: 'none' }} 
+          />
+          <button onClick={() => hiddenFileInput.current.click()} className="flex flex-col items-center justify-center p-2 hover:bg-slate-700 rounded text-slate-400 transition-colors ml-1" title="Import ENVI ROI XML">
+            <MapIcon size={18} className="text-orange-400" />
+            <span className="text-[10px] mt-1 font-medium text-orange-400">ENVI ROI</span>
+          </button>
 
-          <button onClick={onClear} className="flex flex-col items-center justify-center p-2 hover:bg-red-900/50 hover:text-red-400 rounded text-slate-400 transition-colors ml-1" title="Clear Canvas">
+          <button onClick={onClear} className="flex flex-col items-center justify-center p-2 hover:bg-red-900/50 hover:text-red-400 rounded text-slate-400 transition-colors ml-4 border-l border-slate-700 pl-4" title="Clear Canvas">
             <Trash2 size={18} />
             <span className="text-[10px] mt-1 font-medium">Clear</span>
           </button>
