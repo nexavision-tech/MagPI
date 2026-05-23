@@ -94,23 +94,41 @@ def Reclassify(in_raster, out_raster, remap_string):
         import rasterio
         
         rules = {}
+        range_rules = []
         fallback = None
         for pair in remap_string.split(','):
             if ':' not in pair: continue
-            k, v = pair.split(':')
-            if k.strip() == '*': fallback = int(v.strip())
-            else: rules[int(k.strip())] = int(v.strip())
+            
+            # Handle ranges like [-1.0|0.0]:1 or [-1.0,0.0]:1 
+            # (Users might use a pipe or comma inside brackets. If we split by comma above, 
+            # it might break [-1.0, 0.0]. So let's encourage [min;max]:val or min~max:val. 
+            # Wait, if we use a semicolon or tilde, it's safer for splitting by comma)
+            pass
 
+        # Better parsing: Use regex to find all rules
+        import re
+        
         with rasterio.open(raster_path) as src:
             data = src.read(1)
             out_data = np.copy(data)
             
-            # FIXED: Python '!=' instead of Javascript '!=='
-            if fallback != None:
-                out_data[:] = fallback
+            # Extract fallback
+            fallback_match = re.search(r'\*:\s*([\d\.\-]+)', remap_string)
+            if fallback_match:
+                out_data[:] = float(fallback_match.group(1))
+            
+            # Extract range rules e.g. [-1.0;0.0]:1 or [-1.0~0.0]:1
+            # We'll support the syntax: min~max:val
+            range_matches = re.finditer(r'([\d\.\-]+)\s*~\s*([\d\.\-]+)\s*:\s*([\d\.\-]+)', remap_string)
+            for rm in range_matches:
+                min_v, max_v, new_v = float(rm.group(1)), float(rm.group(2)), float(rm.group(3))
+                out_data[(data >= min_v) & (data <= max_v)] = new_v
                 
-            for old_val, new_val in rules.items():
-                out_data[data == old_val] = new_val
+            # Extract discrete rules e.g. 21:1 (ignore if it matched ranges or fallback)
+            discrete_matches = re.finditer(r'(?<![~\.])\b([\d\.\-]+)\s*:\s*([\d\.\-]+)', remap_string)
+            for dm in discrete_matches:
+                old_v, new_v = float(dm.group(1)), float(dm.group(2))
+                out_data[data == old_v] = new_v
                 
             out_meta = src.meta.copy()
             out_meta.update({"driver": "GTiff", "dtype": 'uint8'})
