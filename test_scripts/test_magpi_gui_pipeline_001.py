@@ -12,25 +12,24 @@ arcpy.env.overwriteOutput = True
 
 arcpy.AddMessage("Initiating MagPI Visual Model execution...")
 
-extent_1 = arcpy.Extent(-81.56415, 28.56250, -81.54906, 28.57336)
-extent_2 = arcpy.Extent(-81.56822, 28.55082, -81.54414, 28.56778)
-extent_3 = arcpy.Extent(-81.57533, 28.53882, -81.53006, 28.55693)
+extent_1 = arcpy.Extent(-81.55384, 27.75887, -81.41668, 27.85850)
+extent_2 = arcpy.Extent(-81.46558, 27.68089, -81.32908, 27.77892)
+extent_3 = arcpy.Extent(-81.40267, 27.77089, -81.28471, 27.88022)
 sentinel2_4 = []
 for i, ext in enumerate([extent_2, extent_1, extent_3]):
-    sentinel2_4.append(arcpy.wfs.PullSentinel2(ext, f"s2_cloud_extract_1779536341550_{i}.tif", max_cloud_cover=10, date_range="2023-01-01/2023-12-31"))
+    sentinel2_4.append(arcpy.wfs.PullSentinel2(ext, f"s2_cloud_extract_1779539443595_{i}.tif", max_cloud_cover=10, date_range="2023-01-01/2023-12-31"))
 sentinel2_5 = []
-for i, ext in enumerate([extent_2, extent_1, extent_3]):
-    sentinel2_5.append(arcpy.wfs.PullSentinel2(ext, f"s2_cloud_extract_1779538166439_{i}.tif", max_cloud_cover=10, date_range="2023-01-01/2023-12-31"))
+for i, ext in enumerate([extent_3, extent_1, extent_2]):
+    sentinel2_5.append(arcpy.wfs.PullSentinel2(ext, f"s2_cloud_extract_1779539452156_{i}.tif", max_cloud_cover=10, date_range="2024-01-01/2024-12-31"))
 pyramids_6 = sentinel2_4
 arcpy.management.BuildPyramidsAndStats(sentinel2_4, build_pyramids=False, calculate_stats=True)
-index_7 = sentinel2_4[3] if isinstance(sentinel2_4, list) and len(sentinel2_4) > 3 else sentinel2_4
-pyramids_8 = sentinel2_5
+pyramids_7 = sentinel2_5
 arcpy.management.BuildPyramidsAndStats(sentinel2_5, build_pyramids=False, calculate_stats=True)
-ndvi_9 = [arcpy.ia.NDVI(r, nir_band_id=4, red_band_id=3) for r in pyramids_6] if isinstance(pyramids_6, list) else arcpy.ia.NDVI(pyramids_6, nir_band_id=4, red_band_id=3)
-pyramids_10 = index_7
-arcpy.management.BuildPyramidsAndStats(index_7, build_pyramids=False, calculate_stats=True)
-ndvi_11 = [arcpy.ia.NDVI(r, nir_band_id=4, red_band_id=3) for r in pyramids_8] if isinstance(pyramids_8, list) else arcpy.ia.NDVI(pyramids_8, nir_band_id=4, red_band_id=3)
+ndvi_8 = [arcpy.ia.NDVI(r, nir_band_id=4, red_band_id=3) for r in pyramids_6] if isinstance(pyramids_6, list) else arcpy.ia.NDVI(pyramids_6, nir_band_id=4, red_band_id=3)
+ndvi_9 = [arcpy.ia.NDVI(r, nir_band_id=4, red_band_id=3) for r in pyramids_7] if isinstance(pyramids_7, list) else arcpy.ia.NDVI(pyramids_7, nir_band_id=4, red_band_id=3)
+pyramids_10 = ndvi_8
+arcpy.management.BuildPyramidsAndStats(ndvi_8, build_pyramids=False, calculate_stats=True)
+pyramids_11 = ndvi_9
+arcpy.management.BuildPyramidsAndStats(ndvi_9, build_pyramids=False, calculate_stats=True)
 _expr = "A - B"
-math_12 = [arcpy.ia.RasterMath(a, b, _expr, f"raster_math_{i}.tif") for i, (a, b) in enumerate(zip(ndvi_9 if isinstance(ndvi_9, list) else [ndvi_9], ndvi_11 if isinstance(ndvi_11, list) else [ndvi_11]))]
-pyramids_13 = math_12
-arcpy.management.BuildPyramidsAndStats(math_12, build_pyramids=False, calculate_stats=True)
+math_12 = [arcpy.ia.RasterMath(a, b, _expr, f"raster_math_{i}.tif") for i, (a, b) in enumerate(zip(pyramids_11 if isinstance(pyramids_11, list) else [pyramids_11], pyramids_10 if isinstance(pyramids_10, list) else [pyramids_10]))]

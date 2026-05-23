@@ -270,8 +270,13 @@ def RasterMath(raster_a, raster_b, expression, out_raster):
     """
     logger.info(f"Initiating Raster Math: {expression}")
     
-    path_a = raster_a.name if hasattr(raster_a, 'name') else str(raster_a)
-    path_b = raster_b.name if hasattr(raster_b, 'name') else str(raster_b)
+    if hasattr(raster_a, 'name'): path_a = raster_a.name
+    elif hasattr(raster_a, 'output'): path_a = raster_a.output
+    else: path_a = str(raster_a)
+    
+    if hasattr(raster_b, 'name'): path_b = raster_b.name
+    elif hasattr(raster_b, 'output'): path_b = raster_b.output
+    else: path_b = str(raster_b)
     
     try:
         import rasterio
