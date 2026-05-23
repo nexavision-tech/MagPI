@@ -1,11 +1,12 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { GitBranch, XCircle, AlertTriangle, Bell, TerminalSquare, Save, Map as MapIcon, Edit3, Wrench, Layers } from 'lucide-react';
+import { GitBranch, XCircle, AlertTriangle, Bell, TerminalSquare, Save, Map as MapIcon, Edit3, Wrench, Layers, Activity } from 'lucide-react';
 import TopRibbon from './components/TopRibbon';
 import Terminal from './components/Terminal';
 import Toolbox from './components/Toolbox';
 import NodeCanvas from './components/NodeCanvas';
 import MapViewport from './components/MapViewport';
 import TensorBrew from './components/TensorBrew';
+import JobManager from './components/JobManager';
 import ScriptModal from './components/ScriptModal';
 import FileBrowserModal from './components/FileBrowserModal';
 import EnvSettingsModal from './components/EnvSettingsModal';
@@ -202,6 +203,7 @@ export default function App() {
             <button onClick={() => setActiveWorkspace('globe')} className={`px-6 py-2 text-xs font-bold uppercase tracking-widest rounded-t-lg transition-colors flex items-center border border-b-0 ml-1 ${activeWorkspace === 'globe' ? 'bg-slate-800 text-cyan-400 border-slate-600' : 'bg-transparent text-slate-500 border-transparent hover:bg-slate-800/50 hover:text-slate-300'}`}><MapIcon size={14} className="mr-2" /> Globe Nexus</button>
             <button onClick={() => setActiveWorkspace('planar')} className={`px-6 py-2 text-xs font-bold uppercase tracking-widest rounded-t-lg transition-colors flex items-center border border-b-0 ml-1 ${activeWorkspace === 'planar' ? 'bg-slate-800 text-purple-400 border-slate-600' : 'bg-transparent text-slate-500 border-transparent hover:bg-slate-800/50 hover:text-slate-300'}`}><Edit3 size={14} className="mr-2" /> Planar Train Env</button>
             <button onClick={() => setActiveWorkspace('tensor_brew')} className={`px-6 py-2 text-xs font-bold uppercase tracking-widest rounded-t-lg transition-colors flex items-center border border-b-0 ml-1 ${activeWorkspace === 'tensor_brew' ? 'bg-slate-800 text-indigo-400 border-slate-600' : 'bg-transparent text-slate-500 border-transparent hover:bg-slate-800/50 hover:text-slate-300'}`}><Layers size={14} className="mr-2" /> Tensor Brew</button>
+            <button onClick={() => setActiveWorkspace('jobs')} className={`px-6 py-2 text-xs font-bold uppercase tracking-widest rounded-t-lg transition-colors flex items-center border border-b-0 ml-1 ${activeWorkspace === 'jobs' ? 'bg-slate-800 text-rose-400 border-slate-600' : 'bg-transparent text-slate-500 border-transparent hover:bg-slate-800/50 hover:text-slate-300'}`}><Activity size={14} className="mr-2" /> Job Manager</button>
         </div>
       </div>
       
@@ -219,6 +221,11 @@ export default function App() {
         {/* Render Tensor Brew Fullscreen when Active */}
         <div className={`absolute inset-0 z-50 ${activeWorkspace === 'tensor_brew' ? 'block' : 'hidden'}`}>
             <TensorBrew activeWorkspace={activeWorkspace} />
+        </div>
+        
+        {/* Render Job Manager Fullscreen when Active */}
+        <div className={`absolute inset-0 z-50 ${activeWorkspace === 'jobs' ? 'block' : 'hidden'}`}>
+            <JobManager activeWorkspace={activeWorkspace} />
         </div>
       </div>
 

@@ -26,15 +26,27 @@ export default function EnvSettingsModal({ isOpen, onClose, globalEnv, setGlobal
 
         {/* Content */}
         <div className="p-6 space-y-6">
-          <p className="text-sm text-slate-400 leading-relaxed">
-            These global variables will be injected into the Pipeline Runner at runtime. 
-            Nodes that require a scratch directory or output directory will automatically fallback to these if no explicit path is provided in their parameters.
-          </p>
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-slate-400 leading-relaxed max-w-lg">
+              These global variables will be injected into the Pipeline Runner at runtime. 
+              Nodes that require a scratch directory or output directory will automatically fallback to these if no explicit path is provided in their parameters.
+            </p>
+            <div className="bg-slate-950 border border-slate-700 rounded-lg p-3 flex flex-col min-w-[200px]">
+              <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-1.5">Active Profile</span>
+              <div className="relative">
+                <select className="w-full bg-slate-800 border border-slate-600 rounded px-3 py-1.5 text-sm text-emerald-400 font-bold appearance-none cursor-pointer focus:outline-none">
+                  <option>MagPI Default</option>
+                  <option>Custom Profile</option>
+                </select>
+              </div>
+            </div>
+          </div>
 
           <div className="space-y-4">
-            <div className="flex flex-col space-y-2">
+            <div className="flex flex-col space-y-2 relative group">
               <label className="text-xs font-bold text-slate-300 uppercase tracking-widest flex items-center">
                 <Folder size={14} className="mr-2 text-blue-400" /> Workspace Directory
+                {globalEnv.workspace_dir !== './magpi_workspace' && <span className="ml-3 text-[9px] bg-amber-500/20 text-amber-500 px-1.5 py-0.5 rounded border border-amber-500/30">CUSTOM</span>}
               </label>
               <input 
                 type="text" 
@@ -47,9 +59,10 @@ export default function EnvSettingsModal({ isOpen, onClose, globalEnv, setGlobal
               <span className="text-[10px] text-slate-500 italic">The root directory for all MagPI project files and relative path resolutions.</span>
             </div>
 
-            <div className="flex flex-col space-y-2">
+            <div className="flex flex-col space-y-2 relative group">
               <label className="text-xs font-bold text-slate-300 uppercase tracking-widest flex items-center">
                 <HardDrive size={14} className="mr-2 text-yellow-400" /> Scratch Directory
+                {globalEnv.scratch_dir !== './magpi_scratch' && <span className="ml-3 text-[9px] bg-amber-500/20 text-amber-500 px-1.5 py-0.5 rounded border border-amber-500/30">CUSTOM</span>}
               </label>
               <input 
                 type="text" 
@@ -62,9 +75,10 @@ export default function EnvSettingsModal({ isOpen, onClose, globalEnv, setGlobal
               <span className="text-[10px] text-slate-500 italic">Temporary storage for intermediate raster chips, unzipped shapes, and cached WFS streams. Safe to delete between runs.</span>
             </div>
 
-            <div className="flex flex-col space-y-2">
+            <div className="flex flex-col space-y-2 relative group">
               <label className="text-xs font-bold text-slate-300 uppercase tracking-widest flex items-center">
                 <Database size={14} className="mr-2 text-purple-400" /> Output Directory
+                {globalEnv.output_dir !== './magpi_output' && <span className="ml-3 text-[9px] bg-amber-500/20 text-amber-500 px-1.5 py-0.5 rounded border border-amber-500/30">CUSTOM</span>}
               </label>
               <input 
                 type="text" 
@@ -76,41 +90,50 @@ export default function EnvSettingsModal({ isOpen, onClose, globalEnv, setGlobal
               />
               <span className="text-[10px] text-slate-500 italic">The final destination for processed pipelines, AI inference masks, and exported metrics.</span>
             </div>
-            <div className="flex flex-col space-y-2">
-              <label className="text-xs font-bold text-slate-300 uppercase tracking-widest flex items-center">
-                <Globe size={14} className="mr-2 text-rose-400" /> Horizontal Datum (EPSG)
-              </label>
-              <input 
-                type="text" 
-                name="horizontal_datum"
-                value={globalEnv.horizontal_datum || "EPSG:4326"} 
-                onChange={handleChange}
-                className="bg-slate-950 border border-slate-700 rounded-lg px-4 py-2.5 text-sm font-mono text-emerald-400 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500/50 transition-all" 
-                placeholder="EPSG:4326"
-              />
-              <span className="text-[10px] text-slate-500 italic">Global horizontal coordinate reference system.</span>
-            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div className="flex flex-col space-y-2 relative group">
+                <label className="text-xs font-bold text-slate-300 uppercase tracking-widest flex items-center">
+                  <Globe size={14} className="mr-2 text-rose-400" /> Horizontal Datum
+                  {globalEnv.horizontal_datum !== 'EPSG:4326' && <span className="ml-3 text-[9px] bg-amber-500/20 text-amber-500 px-1.5 py-0.5 rounded border border-amber-500/30">CUSTOM</span>}
+                </label>
+                <input 
+                  type="text" 
+                  name="horizontal_datum"
+                  value={globalEnv.horizontal_datum || "EPSG:4326"} 
+                  onChange={handleChange}
+                  className="bg-slate-950 border border-slate-700 rounded-lg px-4 py-2.5 text-sm font-mono text-emerald-400 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500/50 transition-all" 
+                  placeholder="EPSG:4326"
+                />
+              </div>
 
-            <div className="flex flex-col space-y-2">
-              <label className="text-xs font-bold text-slate-300 uppercase tracking-widest flex items-center">
-                <Globe size={14} className="mr-2 text-rose-400" /> Vertical Datum (EPSG)
-              </label>
-              <input 
-                type="text" 
-                name="vertical_datum"
-                value={globalEnv.vertical_datum || "EPSG:3855"} 
-                onChange={handleChange}
-                className="bg-slate-950 border border-slate-700 rounded-lg px-4 py-2.5 text-sm font-mono text-emerald-400 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500/50 transition-all" 
-                placeholder="EPSG:3855"
-              />
-              <span className="text-[10px] text-slate-500 italic">Global vertical geoid reference for 3D processing (e.g. LiDAR, Terrain).</span>
+              <div className="flex flex-col space-y-2 relative group">
+                <label className="text-xs font-bold text-slate-300 uppercase tracking-widest flex items-center">
+                  <Globe size={14} className="mr-2 text-rose-400" /> Vertical Datum
+                  {globalEnv.vertical_datum !== 'EPSG:3855' && <span className="ml-3 text-[9px] bg-amber-500/20 text-amber-500 px-1.5 py-0.5 rounded border border-amber-500/30">CUSTOM</span>}
+                </label>
+                <input 
+                  type="text" 
+                  name="vertical_datum"
+                  value={globalEnv.vertical_datum || "EPSG:3855"} 
+                  onChange={handleChange}
+                  className="bg-slate-950 border border-slate-700 rounded-lg px-4 py-2.5 text-sm font-mono text-emerald-400 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500/50 transition-all" 
+                  placeholder="EPSG:3855"
+                />
+              </div>
             </div>
           </div>
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end px-6 py-4 bg-slate-800 border-t border-slate-700">
-          <button onClick={onClose} className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg shadow-lg flex items-center transition-colors">
+        <div className="flex items-center justify-between px-6 py-4 bg-slate-800 border-t border-slate-700">
+          <button 
+            onClick={() => setGlobalEnv({ workspace_dir: "./magpi_workspace", scratch_dir: "./magpi_scratch", output_dir: "./magpi_output", horizontal_datum: "EPSG:4326", vertical_datum: "EPSG:3855" })} 
+            className="px-4 py-2 text-xs font-bold text-slate-400 hover:text-white transition-colors"
+          >
+            Reset to Defaults
+          </button>
+          <button onClick={() => { localStorage.setItem('magpi_global_env', JSON.stringify(globalEnv)); onClose(); }} className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg shadow-lg flex items-center transition-colors">
             <CheckCircle2 size={18} className="mr-2" /> Save & Apply Globally
           </button>
         </div>

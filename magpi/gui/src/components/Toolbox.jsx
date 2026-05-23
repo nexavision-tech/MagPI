@@ -45,6 +45,23 @@ const TOOLBOX_CATEGORIES = [
     ]
   },
   {
+    name: "OpenEO Cloud Dispatch", icon: <Cloud size={18} className="text-blue-400" />,
+    tools: [
+      { id: 'openeo_authenticate', name: "CDSE Authenticate", type: 'input', icon: <Activity size={14}/>, color: 'bg-blue-700', border: 'border-blue-500', 
+        description: "Authenticates with Copernicus Data Space Ecosystem via OIDC.",
+        params: { method: { value: "OIDC", type: "select", options: ["OIDC", "Basic", "Refresh Token"] }, token: "" } },
+      { id: 'openeo_load_collection', name: "Cloud Data Cube", type: 'transform', icon: <Grid size={14}/>, color: 'bg-blue-600', border: 'border-blue-400', 
+        description: "Loads a massive Earth Observation data cube on the remote OpenEO cluster.",
+        params: { collection: { value: "SENTINEL2_L2A", type: "select", options: ["SENTINEL1_GRD", "SENTINEL2_L2A", "SENTINEL3_OLCI"] }, start_date: { value: "2023-01-01", type: "date" }, end_date: { value: "2023-12-31", type: "date" }, bands: "B04,B08,B11" } },
+      { id: 'openeo_train_rf', name: "Cloud Train Random Forest", type: 'transform', icon: <Activity size={14}/>, color: 'bg-fuchsia-700', border: 'border-fuchsia-500', 
+        description: "Dispatches a Random Forest training job directly onto the ESA cloud supercomputers.",
+        params: { num_trees: 200, max_depth: 20 } },
+      { id: 'openeo_predict', name: "Cloud Batch Prediction", type: 'endpoint', icon: <DownloadCloud size={14}/>, color: 'bg-indigo-600', border: 'border-indigo-400', 
+        description: "Executes a cloud batch job for inference and downloads the resulting GeoTIFF.",
+        params: { out_format: { value: "GTiff", type: "select", options: ["GTiff", "NetCDF"] }, prefix: "dynamic_landcover", max_credits: 100 } }
+    ]
+  },
+  {
     name: "Core Inputs", icon: <Database size={18} className="text-yellow-500/70" />,
     tools: [
       { id: 'core_extent', name: "Spatial Extent (AOI)", type: 'input', icon: <Hexagon size={14}/>, color: 'bg-yellow-600', border: 'border-yellow-500', 
