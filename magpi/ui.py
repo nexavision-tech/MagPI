@@ -13,7 +13,28 @@ from urllib.parse import urlparse, parse_qs
 
 logger = logging.getLogger("MagPI_UI")
 
+JOB_FILE = os.path.join(os.getcwd(), 'magpi_workspace', '.magpi_jobs.json')
 JOB_REGISTRY = {}
+
+def load_jobs():
+    global JOB_REGISTRY
+    if os.path.exists(JOB_FILE):
+        try:
+            with open(JOB_FILE, 'r') as f:
+                JOB_REGISTRY = json.load(f)
+        except Exception as e:
+            logger.error(f"Failed to load jobs: {e}")
+            JOB_REGISTRY = {}
+
+def save_jobs():
+    try:
+        os.makedirs(os.path.dirname(JOB_FILE), exist_ok=True)
+        with open(JOB_FILE, 'w') as f:
+            sorted_jobs = sorted(JOB_REGISTRY.values(), key=lambda x: x.get('started', ''), reverse=True)
+            limited_jobs = {job['id']: job for job in sorted_jobs[:50]}
+            json.dump(limited_jobs, f)
+    except Exception as e:
+        logger.error(f"Failed to save jobs: {e}")
 
 def execute_pipeline_background(job_id, payload):
     try:
@@ -27,24 +48,35 @@ def execute_pipeline_background(job_id, payload):
         root_logger.addHandler(log_handler)
         
         JOB_REGISTRY[job_id]['status'] = 'Running'
-        JOB_REGISTRY[job_id]['progress'] = 30
+        JOB_REGISTRY[job_id]['progress'] = 0
+        JOB_REGISTRY[job_id]['node_status'] = {}
+        save_jobs()
         
         from magpi.engine import PipelineRunner
         runner = PipelineRunner()
         runner.load_from_json(payload)
-        success = runner.run()
+        
+        def progress_callback(node_id, status, current_idx, total_nodes):
+            JOB_REGISTRY[job_id]['progress'] = int((current_idx / max(1, total_nodes)) * 100)
+            JOB_REGISTRY[job_id]['node_status'][node_id] = status
+            JOB_REGISTRY[job_id]['logs'] = log_stream.getvalue().split('\n')
+            save_jobs()
+            
+        success = runner.run(progress_callback=progress_callback)
         
         root_logger.removeHandler(log_handler)
         
         JOB_REGISTRY[job_id]['status'] = 'Finished' if success else 'Failed'
         JOB_REGISTRY[job_id]['progress'] = 100
         JOB_REGISTRY[job_id]['logs'] = log_stream.getvalue().split('\n')
+        save_jobs()
         
     except Exception as e:
         JOB_REGISTRY[job_id]['status'] = 'Failed'
         if 'logs' not in JOB_REGISTRY[job_id]:
             JOB_REGISTRY[job_id]['logs'] = []
         JOB_REGISTRY[job_id]['logs'].append(f"Error: {str(e)}")
+        save_jobs()
 
 def LaunchCanvas(port=8080):
     module_dir = os.path.dirname(os.path.abspath(__file__))
@@ -239,6 +271,8 @@ def LaunchCanvas(port=8080):
                 self.wfile.write(json.dumps({"error": str(e)}).encode('utf-8'))
 
         def log_message(self, format, *args): pass 
+
+    load_jobs()
 
     try:
         class ReusableTCPServer(socketserver.TCPServer):

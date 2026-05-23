@@ -84,18 +84,22 @@ class PipelineRunner:
                     
         return sorted_nodes, adj_list
 
-    def run(self):
+    def run(self, progress_callback=None):
         """Executes the pipeline."""
         sorted_nodes, adj_list = self.resolve_dependencies()
         logger.info(f"Executing pipeline with {len(sorted_nodes)} nodes...")
         
-        for nid in sorted_nodes:
+        for idx, nid in enumerate(sorted_nodes):
             node = self.nodes[nid]
             logger.info(f"Executing {node.name}...")
+            
+            if progress_callback:
+                progress_callback(nid, 'processing', idx, len(sorted_nodes))
             
             if not node.validate():
                 logger.error(f"Validation failed for {node.name}")
                 node.status = "error"
+                if progress_callback: progress_callback(nid, 'error', idx + 1, len(sorted_nodes))
                 return False
                 
             try:
@@ -103,9 +107,11 @@ class PipelineRunner:
                 if hasattr(node.output, 'status') and node.output.status == 3:
                     logger.error(f"Execution failed for {node.name}: Internal Tool Error")
                     node.status = "error"
+                    if progress_callback: progress_callback(nid, 'error', idx + 1, len(sorted_nodes))
                     return False
                 
                 node.status = "success"
+                if progress_callback: progress_callback(nid, 'success', idx + 1, len(sorted_nodes))
                 logger.info(f"Node {node.name} completed successfully.")
                 
                 # Pass output forward to dependent nodes
@@ -125,6 +131,7 @@ class PipelineRunner:
             except Exception as e:
                 logger.error(f"Execution failed for {node.name}: {e}")
                 node.status = "error"
+                if progress_callback: progress_callback(nid, 'error', idx + 1, len(sorted_nodes))
                 return False
                 
         return True

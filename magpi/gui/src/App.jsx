@@ -39,6 +39,39 @@ export default function App() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [logs, setLogs] = useState([]);
   const [nodeStatuses, setNodeStatuses] = useState({});
+  const [activeJobId, setActiveJobId] = useState(null);
+
+  // --- JOB POLLING ENGINE ---
+  useEffect(() => {
+    let interval;
+    if (activeJobId) {
+      interval = setInterval(async () => {
+        try {
+          const res = await fetch('http://localhost:8080/api/jobs');
+          if (res.ok) {
+            const jobs = await res.json();
+            const job = jobs.find(j => j.id === activeJobId);
+            if (job && job.node_status) {
+                // Instantly mark input nodes as success so they don't spin
+                const adjustedStatuses = { ...job.node_status };
+                nodes.forEach(n => {
+                    if (n.toolId.startsWith('core_') || n.toolId.startsWith('load_')) {
+                        adjustedStatuses[n.id] = 'success';
+                    }
+                });
+                setNodeStatuses(adjustedStatuses);
+                
+                if (job.status === 'Finished' || job.status === 'Failed') {
+                    setActiveJobId(null);
+                    setIsProcessing(false);
+                }
+            }
+          }
+        } catch (e) {}
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [activeJobId, nodes]);
 
   const [browserConfig, setBrowserConfig] = useState({ isOpen: false, nodeId: null, paramKey: null, initialPath: "." });
 
@@ -172,8 +205,8 @@ export default function App() {
         const data = await response.json();
         if (response.ok) {
             setLogs(prev => [...prev, { type: 'success', msg: `Pipeline Dispatched to Daemon. Job ID: ${data.job_id}` }]);
-            setIsProcessing(false);
-            // We just set to processing, JobManager handles the real status tracking
+            setActiveJobId(data.job_id);
+            // We keep isProcessing true so the UI indicates active work
         } else {
             setLogs(prev => [...prev, { type: 'error', msg: `Daemon execution failed: ${data.error}` }]);
             setNodeStatuses({});
