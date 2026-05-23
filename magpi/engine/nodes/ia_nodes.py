@@ -23,7 +23,7 @@ class NDVINode(Node):
         for r in in_rasters:
             try:
                 res = NDVI(r, nir_band_id=nir, red_band_id=red)
-                if hasattr(res, 'status') and res.status == 4:
+                if hasattr(res, 'status') and res.status == 3:
                     raise Exception(f"NDVI failed on raster {r}")
                 self.output.append(res)
             except Exception as e:
@@ -52,7 +52,7 @@ class PansharpenNode(Node):
             out_filename = f"pansharpened_{self.id.split('_')[1] if '_' in self.id else '1'}{suffix}.tif"
             try:
                 res = Pansharpen(r, r, out_filename, method=method) # Using same raster as pan_raster for mock
-                if hasattr(res, 'status') and res.status == 4:
+                if hasattr(res, 'status') and res.status == 3:
                     raise Exception(f"Pansharpen failed on raster {r}")
                 self.output.append(res)
             except Exception as e:
@@ -81,7 +81,7 @@ class ReclassifyNode(Node):
             out_filename = f"reclassified_{self.id.split('_')[1] if '_' in self.id else '1'}{suffix}.tif"
             try:
                 res = Reclassify(r, out_filename, remap_string=remap)
-                if hasattr(res, 'status') and res.status == 4:
+                if hasattr(res, 'status') and res.status == 3:
                     raise Exception(f"Reclassify failed on raster {r}")
                 self.output.append(res)
             except Exception as e:
@@ -120,7 +120,7 @@ class RasterMathNode(Node):
             out_filename = f"raster_math_{self.id.split('_')[1] if '_' in self.id else '1'}{suffix}.tif"
             try:
                 res = RasterMath(ra, rb, expression=expr, out_raster=out_filename)
-                if hasattr(res, 'status') and res.status == 4:
+                if hasattr(res, 'status') and res.status == 3:
                     raise Exception(f"Raster Math failed on {ra} and {rb}")
                 self.output.append(res)
             except Exception as e:

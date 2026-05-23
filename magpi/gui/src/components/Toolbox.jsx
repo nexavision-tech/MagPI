@@ -220,7 +220,7 @@ const TOOLBOX_CATEGORIES = [
 export default function Toolbox({ 
   activeRightTab, setActiveRightTab, 
   selectedNode, updateNodeParam, updateNodeName, deleteNode, addNode, duplicateNode,
-  openFileBrowser 
+  openFileBrowser, nodes, connections
 }) {
   const [expandedCategories, setExpandedCategories] = useState({});
   const [searchQuery, setSearchQuery] = useState('');
@@ -271,10 +271,23 @@ export default function Toolbox({
     setStacLoading(true);
     setStacError(null);
     try {
-      // Find connected spatial extent nodes to get bbox
-      // If we don't have bbox, we'll just pass a global one or let backend use default
       let parsedBbox = [-180, -90, 180, 90];
-      if (bbox && bbox.length === 4) {
+      
+      // Look for a connected Spatial Extent node if none provided
+      if (!bbox || bbox.length !== 4) {
+          const incomingEdge = connections.find(c => c.target === nodeId);
+          if (incomingEdge) {
+              const extentNode = nodes.find(n => n.id === incomingEdge.source);
+              if (extentNode && extentNode.toolId === 'core_extent' && extentNode.params) {
+                  parsedBbox = [
+                      parseFloat(extentNode.params.xmin),
+                      parseFloat(extentNode.params.ymin),
+                      parseFloat(extentNode.params.xmax),
+                      parseFloat(extentNode.params.ymax)
+                  ];
+              }
+          }
+      } else {
           parsedBbox = bbox;
       }
       

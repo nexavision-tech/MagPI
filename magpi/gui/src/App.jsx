@@ -293,7 +293,7 @@ export default function App() {
             <MapViewport onAoiDrawn={handleAoiDrawn} selectedNode={selectedNode} activeWorkspace={activeWorkspace} nodes={nodes} nodeStatuses={nodeStatuses} connections={connections} />
         </div>
         <div className={`w-[320px] relative ${activeWorkspace === 'builder' ? 'flex' : 'hidden'} flex-col z-20`}>
-            <Toolbox activeRightTab={activeRightTab} setActiveRightTab={setActiveRightTab} selectedNode={selectedNode} updateNodeParam={updateNodeParam} updateNodeName={updateNodeName} deleteNode={deleteNode} addNode={addNode} duplicateNode={duplicateNode} openFileBrowser={openFileBrowser} />
+            <Toolbox activeRightTab={activeRightTab} setActiveRightTab={setActiveRightTab} selectedNode={selectedNode} updateNodeParam={updateNodeParam} updateNodeName={updateNodeName} deleteNode={deleteNode} addNode={addNode} duplicateNode={duplicateNode} openFileBrowser={openFileBrowser} nodes={nodes} connections={connections} />
         </div>
         
         {/* Render Tensor Brew Fullscreen when Active */}

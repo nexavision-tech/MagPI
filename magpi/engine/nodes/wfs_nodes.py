@@ -29,7 +29,7 @@ class PullSentinel2Node(Node):
             suffix = f"_{i}" if len(extents) > 1 else ""
             out_filename = f"s2_cloud_extract_{self.id.split('_')[1] if '_' in self.id else '1'}{suffix}.tif"
             res = PullSentinel2(extent, out_filename, max_cloud_cover=max_cc, date_range=date_range, item_ids=item_ids, bands=bands)
-            if hasattr(res, 'status') and res.status == 4:
+            if hasattr(res, 'status') and res.status == 3:
                 raise Exception(f"PullSentinel2 failed for extent {i}")
             self.output.append(res)
         
@@ -57,7 +57,7 @@ class WFSCopernicusNode(Node):
             suffix = f"_{i}" if len(extents) > 1 else ""
             out_feature_class = f"copernicus_metadata{suffix}.json"
             res = PullCopernicusData(extent, out_feature_class, collection, product_type, start_date, end_date, cdse_token)
-            if hasattr(res, 'status') and res.status == 4:
+            if hasattr(res, 'status') and res.status == 3:
                 raise Exception(f"PullCopernicusData failed for extent {i}")
             self.output.append(res)
             
