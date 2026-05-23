@@ -510,6 +510,13 @@ export default function Toolbox({
                       <Search size={12} className="mr-2" /> STAC Catalog Query
                     </h4>
                     
+                    {connections.filter(c => c.to === selectedNode.id).length > 1 && (
+                      <div className="bg-orange-900/20 p-2 rounded border border-orange-800/50 flex items-start text-[10px] text-orange-400 mb-3">
+                        <AlertTriangle size={12} className="mr-2 mt-0.5 shrink-0" />
+                        <span className="leading-tight">Warning: 1-to-1 relationship enforced for accurate STAC querying. Ensure only one Spatial Extent is connected when using explicit scene selection.</span>
+                      </div>
+                    )}
+                    
                     <button 
                       onClick={() => fetchStacCatalog(
                         selectedNode.id, 
