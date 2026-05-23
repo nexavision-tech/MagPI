@@ -10,15 +10,29 @@ import { Cartesian3, Color, OpenStreetMapImageryProvider } from 'cesium';
 
 window.type = ''; 
 
-const MapViewport = React.memo(({ onAoiDrawn, selectedNode, activeWorkspace }) => {
+const getAncestralExtent = (nodeId, nodes, connections) => {
+    const node = nodes.find(n => n.id === nodeId);
+    if (!node) return null;
+    if (node.toolId === 'core_extent' || node.toolId === 'mgt_clip') {
+        if (node.params && node.params.xmin && node.params.ymin && node.params.xmax && node.params.ymax) {
+            return node.params;
+        }
+    }
+    const incomingCxs = connections ? connections.filter(c => c.to === nodeId) : [];
+    for (const cx of incomingCxs) {
+        const extent = getAncestralExtent(cx.from, nodes, connections);
+        if (extent) return extent;
+    }
+    return null;
+};
+
+const MapViewport = React.memo(({ onAoiDrawn, selectedNode, activeWorkspace, nodes = [], nodeStatuses = {}, connections = [] }) => {
     const mapRef = useRef(null);
     const mapInstance = useRef(null); 
     const highlightGroup = useRef(null);
     const [showLayers, setShowLayers] = React.useState(false);
     const [layers, setLayers] = React.useState([
-        { id: 'base', name: 'Base Map (OSM)', visible: true, opacity: 100 },
-        { id: 'aoi', name: 'Bounding Boxes (AOI)', visible: true, opacity: 100 },
-        { id: 'output', name: 'Generated Outputs', visible: true, opacity: 80 },
+        { id: 'base', name: 'Base Map (OSM)', visible: true, opacity: 100, isBase: true }
     ]);
 
     useEffect(() => {
@@ -76,50 +90,68 @@ const MapViewport = React.memo(({ onAoiDrawn, selectedNode, activeWorkspace }) =
         };
     }, [onAoiDrawn]);
 
-    const selectedNodeId = selectedNode?.id;
-    const selectedNodeParamsString = JSON.stringify(selectedNode?.params || {});
+    // THE OVERLAY ENGINE (Dynamic Sync)
+    useEffect(() => {
+        setLayers(prevLayers => {
+            const baseLayer = prevLayers.find(l => l.isBase) || { id: 'base', name: 'Base Map (OSM)', visible: true, opacity: 100, isBase: true };
+            
+            const dynamicLayers = nodes
+                .filter(n => n.toolId === 'core_extent' || nodeStatuses[n.id] === 'success')
+                .map(n => {
+                    const existing = prevLayers.find(l => l.id === n.id);
+                    const extent = getAncestralExtent(n.id, nodes, connections);
+                    
+                    return {
+                        id: n.id,
+                        name: n.name || n.toolId,
+                        visible: existing ? existing.visible : true,
+                        opacity: existing ? existing.opacity : (n.toolId === 'core_extent' ? 40 : 80),
+                        selected: n.selected || (selectedNode && selectedNode.id === n.id),
+                        extent: extent
+                    };
+                })
+                .filter(l => l.extent !== null);
+                
+            return [baseLayer, ...dynamicLayers];
+        });
+    }, [nodes, nodeStatuses, connections, selectedNode]);
 
-    // THE OVERLAY ENGINE (Snapping Fix)
     useEffect(() => {
         if (!mapInstance.current || !highlightGroup.current) return;
-
         highlightGroup.current.clearLayers();
 
-        if (selectedNode && selectedNode.params) {
-            const p = selectedNode.params;
-
-            // FIX: Robustly parse floats to ensure Leaflet accepts them instantly
-            if ((selectedNode.toolId === 'core_extent' || selectedNode.toolId === 'mgt_clip') && p.xmin && p.ymin && p.xmax && p.ymax) {
-                try {
-                    const y1 = parseFloat(p.ymin);
-                    const x1 = parseFloat(p.xmin);
-                    const y2 = parseFloat(p.ymax);
-                    const x2 = parseFloat(p.xmax);
+        layers.forEach(layer => {
+            if (!layer.isBase && layer.visible && layer.extent) {
+                const { xmin, ymin, xmax, ymax } = layer.extent;
+                const y1 = parseFloat(ymin), x1 = parseFloat(xmin), y2 = parseFloat(ymax), x2 = parseFloat(xmax);
+                if (!isNaN(y1) && !isNaN(x1) && !isNaN(y2) && !isNaN(x2)) {
+                    const bounds = [[y1, x1], [y2, x2]];
+                    const isSelected = layer.selected;
+                    const color = isSelected ? '#ff8c00' : (layer.id.includes('extent') ? '#00ffff' : '#32d74b');
+                    const weight = isSelected ? 4 : 2;
                     
-                    if (!isNaN(y1) && !isNaN(x1) && !isNaN(y2) && !isNaN(x2)) {
-                        const bounds = [[y1, x1], [y2, x2]];
-                        const rect = L.rectangle(bounds, { color: "#00ffff", weight: 2, fillOpacity: 0.15, dashArray: '4, 4' });
-                        highlightGroup.current.addLayer(rect);
+                    const rect = L.rectangle(bounds, { 
+                        color: color, 
+                        weight: weight, 
+                        fillOpacity: layer.opacity / 100, 
+                        dashArray: layer.id.includes('extent') ? '4, 4' : null 
+                    });
+                    
+                    rect.bindTooltip(layer.name, { 
+                        permanent: isSelected, 
+                        direction: "center", 
+                        className: "bg-slate-900 text-white font-bold text-[10px] border-none shadow-lg" 
+                    });
+                    
+                    highlightGroup.current.addLayer(rect);
+                    
+                    if (isSelected) {
                         mapInstance.current.flyToBounds(bounds, { duration: 0.8, padding: [30, 30] });
                     }
-                } catch (e) {
-                    console.log("Waiting for complete coordinates...");
                 }
-            } 
-            else if (selectedNode.toolId === 'load_raster' && p.file_path) {
-                fetch(`http://localhost:8080/api/describe?file=${encodeURIComponent(p.file_path)}`)
-                    .then(res => res.json())
-                    .then(data => {
-                        if (data && data.wgs84_extent) {
-                            const rect = L.rectangle(data.wgs84_extent, { color: "#3b82f6", weight: 2, fillOpacity: 0.1 });
-                            highlightGroup.current.addLayer(rect);
-                            mapInstance.current.flyToBounds(data.wgs84_extent, { duration: 1.0, padding: [20, 20] });
-                        }
-                    })
-                    .catch(err => console.log("Daemon footprint fetch failed", err));
             }
-        }
-    }, [selectedNodeId, selectedNodeParamsString]);
+        });
+    }, [layers]);
 
     const activateDrawTool = () => {
         if (mapInstance.current) {
