@@ -273,18 +273,23 @@ export default function Toolbox({
     try {
       let parsedBbox = [-180, -90, 180, 90];
       
-      // Look for a connected Spatial Extent node if none provided
+      // Look for connected Spatial Extent nodes if none provided
       if (!bbox || bbox.length !== 4) {
-          const incomingEdge = connections.find(c => c.to === nodeId);
-          if (incomingEdge) {
-              const extentNode = nodes.find(n => n.id === incomingEdge.from);
-              if (extentNode && extentNode.toolId === 'core_extent' && extentNode.params) {
-                  parsedBbox = [
-                      parseFloat(extentNode.params.xmin),
-                      parseFloat(extentNode.params.ymin),
-                      parseFloat(extentNode.params.xmax),
-                      parseFloat(extentNode.params.ymax)
-                  ];
+          const incomingEdges = connections.filter(c => c.to === nodeId);
+          if (incomingEdges.length > 0) {
+              const extentNodes = incomingEdges
+                .map(edge => nodes.find(n => n.id === edge.from))
+                .filter(n => n && n.toolId === 'core_extent' && n.params);
+              
+              if (extentNodes.length > 0) {
+                  let minX = 180, minY = 90, maxX = -180, maxY = -90;
+                  extentNodes.forEach(node => {
+                      minX = Math.min(minX, parseFloat(node.params.xmin));
+                      minY = Math.min(minY, parseFloat(node.params.ymin));
+                      maxX = Math.max(maxX, parseFloat(node.params.xmax));
+                      maxY = Math.max(maxY, parseFloat(node.params.ymax));
+                  });
+                  parsedBbox = [minX, minY, maxX, maxY];
               }
           }
       } else {

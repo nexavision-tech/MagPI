@@ -117,7 +117,7 @@ const MapViewport = React.memo(({ onAoiDrawn, selectedNode, activeWorkspace, nod
                         id: n.id,
                         name: n.name || n.toolId,
                         visible: existing ? existing.visible : true,
-                        opacity: existing ? existing.opacity : (n.toolId === 'core_extent' ? 40 : 80),
+                        opacity: existing ? existing.opacity : (n.toolId === 'core_extent' ? 15 : 80),
                         selected: n.selected || (selectedNode && selectedNode.id === n.id),
                         extent: extent
                     };
@@ -144,7 +144,8 @@ const MapViewport = React.memo(({ onAoiDrawn, selectedNode, activeWorkspace, nod
                 if (!isNaN(y1) && !isNaN(x1) && !isNaN(y2) && !isNaN(x2)) {
                     const bounds = [[y1, x1], [y2, x2]];
                     const isSelected = layer.selected;
-                    const color = isSelected ? '#ff8c00' : (layer.id.includes('extent') ? '#00ffff' : '#32d74b');
+                    const isSuccess = nodeStatuses && nodeStatuses[layer.id] === 'success';
+                    const color = isSelected ? '#ff8c00' : (isSuccess ? '#32d74b' : (layer.id.includes('extent') ? '#00ffff' : '#32d74b'));
                     const weight = isSelected ? 4 : 2;
                     
                     const rect = L.rectangle(bounds, { 
