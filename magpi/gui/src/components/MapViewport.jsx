@@ -30,19 +30,31 @@ const MapViewport = React.memo(({ onAoiDrawn, selectedNode, activeWorkspace, nod
     const mapRef = useRef(null);
     const mapInstance = useRef(null); 
     const highlightGroup = useRef(null);
-    const [showLayers, setShowLayers] = React.useState(false);
+    const osmLayerRef = useRef(null);
+    const osmImageryProvider = React.useMemo(() => new OpenStreetMapImageryProvider({ url: 'https://a.tile.openstreetmap.org/' }), []);
+    const [showLayers, setShowLayers] = React.useState(activeWorkspace !== 'builder');
     const [layers, setLayers] = React.useState([
         { id: 'base', name: 'Base Map (OSM)', visible: true, opacity: 100, isBase: true }
     ]);
+
+    // Keep showLayers synced with workspace mode
+    useEffect(() => {
+        if (activeWorkspace !== 'builder') {
+            setShowLayers(true);
+        } else {
+            setShowLayers(false);
+        }
+    }, [activeWorkspace]);
 
     useEffect(() => {
         if (!mapRef.current) return;
         if (mapInstance.current) return; 
 
-        const map = L.map(mapRef.current, { zoomControl: false }).setView([28.5383, -81.3792], 10);
+        // Zeroized global extent [0, 0] zoom 2
+        const map = L.map(mapRef.current, { zoomControl: false }).setView([0, 0], 2);
         mapInstance.current = map;
 
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        osmLayerRef.current = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '© OSM'
         }).addTo(map);
 
@@ -120,6 +132,11 @@ const MapViewport = React.memo(({ onAoiDrawn, selectedNode, activeWorkspace, nod
         if (!mapInstance.current || !highlightGroup.current) return;
         highlightGroup.current.clearLayers();
 
+        const baseLayer = layers.find(l => l.isBase);
+        if (osmLayerRef.current && baseLayer) {
+            osmLayerRef.current.setOpacity(baseLayer.visible ? baseLayer.opacity / 100 : 0);
+        }
+
         layers.forEach(layer => {
             if (!layer.isBase && layer.visible && layer.extent) {
                 const { xmin, ymin, xmax, ymax } = layer.extent;
@@ -190,85 +207,91 @@ const MapViewport = React.memo(({ onAoiDrawn, selectedNode, activeWorkspace, nod
             {/* Map Container */}
             <div className="flex-1 relative overflow-hidden z-0 leaflet-dark-mode-container flex">
                 
-                {/* Floating Layer Manager */}
+                {/* Docked Layer Manager */}
                 {showLayers && (
-                    <div className="absolute top-4 right-4 w-64 bg-slate-900/90 backdrop-blur-md border border-slate-700 rounded-lg shadow-2xl z-50 p-3 animate-fadeIn flex flex-col space-y-3">
-                        <div className="flex items-center text-xs font-bold text-slate-300 uppercase tracking-widest border-b border-slate-700 pb-2 mb-1">
+                    <div className="w-64 bg-slate-900 border-r border-slate-700 z-10 flex flex-col shrink-0 overflow-y-auto animate-fadeIn">
+                        <div className="flex items-center text-xs font-bold text-slate-300 uppercase tracking-widest border-b border-slate-700 p-3 bg-slate-800/50 sticky top-0 z-20">
                             <Layers size={14} className="mr-2 text-indigo-400" /> Active Layers
                         </div>
-                        {layers.map((l, i) => (
-                            <div key={l.id} className="flex flex-col space-y-1">
-                                <div className="flex items-center justify-between">
-                                    <span className="text-xs text-slate-400 font-medium">{l.name}</span>
-                                    <button 
-                                        onClick={() => {
+                        <div className="p-3 flex flex-col space-y-4">
+                            {layers.map((l, i) => (
+                                <div key={l.id} className="flex flex-col space-y-2 pb-3 border-b border-slate-800/50 last:border-0">
+                                    <div className="flex items-center justify-between">
+                                        <span className={`text-xs font-medium ${l.selected ? 'text-[#ff8c00]' : 'text-slate-300'}`}>{l.name}</span>
+                                        <button 
+                                            onClick={() => {
+                                                const newL = [...layers];
+                                                newL[i].visible = !newL[i].visible;
+                                                setLayers(newL);
+                                            }}
+                                            className={`${l.selected ? 'text-[#ff8c00]' : 'text-slate-500 hover:text-slate-300'}`}
+                                        >
+                                            {l.visible ? <Eye size={14} /> : <EyeOff size={14} />}
+                                        </button>
+                                    </div>
+                                    <input 
+                                        type="range" 
+                                        min="0" max="100" 
+                                        value={l.opacity} 
+                                        onChange={(e) => {
                                             const newL = [...layers];
-                                            newL[i].visible = !newL[i].visible;
+                                            newL[i].opacity = e.target.value;
                                             setLayers(newL);
                                         }}
-                                        className="text-slate-500 hover:text-slate-300"
-                                    >
-                                        {l.visible ? <Eye size={14} /> : <EyeOff size={14} />}
-                                    </button>
+                                        className="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer"
+                                    />
                                 </div>
-                                <input 
-                                    type="range" 
-                                    min="0" max="100" 
-                                    value={l.opacity} 
-                                    onChange={(e) => {
-                                        const newL = [...layers];
-                                        newL[i].opacity = e.target.value;
-                                        setLayers(newL);
-                                    }}
-                                    className="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer"
-                                />
-                            </div>
-                        ))}
+                            ))}
+                        </div>
                     </div>
                 )}
-                {/* Cesium Globe (Hidden when not in globe mode) */}
-                <div className={`w-full h-full bg-[#111827] ${activeWorkspace === 'globe' ? 'block' : 'hidden'}`}>
-                    <Viewer 
-                        full 
-                        timeline={false} 
-                        animation={false} 
-                        baseLayerPicker={false}
-                        navigationHelpButton={false}
-                        geocoder={false}
-                        sceneModePicker={false}
-                        homeButton={false}
-                        fullscreenButton={false}
-                        infoBox={false}
-                        selectionIndicator={false}
-                    >
-                        <ImageryLayer imageryProvider={new OpenStreetMapImageryProvider({ url: 'https://a.tile.openstreetmap.org/' })} />
-                        {selectedNode && selectedNode.params && selectedNode.params.xmin && (
-                            <Entity
-                                name="AOI"
-                                polygon={{
-                                    hierarchy: Cartesian3.fromDegreesArray([
-                                        parseFloat(selectedNode.params.xmin), parseFloat(selectedNode.params.ymin),
-                                        parseFloat(selectedNode.params.xmax), parseFloat(selectedNode.params.ymin),
-                                        parseFloat(selectedNode.params.xmax), parseFloat(selectedNode.params.ymax),
-                                        parseFloat(selectedNode.params.xmin), parseFloat(selectedNode.params.ymax)
-                                    ]),
-                                    material: Color.CYAN.withAlpha(0.2),
-                                    outline: true,
-                                    outlineColor: Color.CYAN
-                                }}
-                            />
-                        )}
-                    </Viewer>
-                </div>
                 
-                {/* Leaflet 2D Map (Hidden when in globe mode) */}
-                <div 
-                    ref={mapRef} 
-                    className={`${activeWorkspace !== 'globe' ? 'block' : 'hidden'}`}
-                    style={{ width: '100%', height: '100%', backgroundColor: '#1f2937', touchAction: 'none' }}
-                ></div>
+                {/* Maps Container (Flex-1) */}
+                <div className="flex-1 relative">
+                    {/* Cesium Globe (Hidden when not in globe mode) */}
+                    <div className={`w-full h-full bg-[#111827] ${activeWorkspace === 'globe' ? 'block' : 'hidden'}`}>
+                        <Viewer 
+                            full 
+                            timeline={false} 
+                            animation={false} 
+                            baseLayerPicker={false}
+                            navigationHelpButton={false}
+                            geocoder={false}
+                            sceneModePicker={false}
+                            homeButton={false}
+                            fullscreenButton={false}
+                            infoBox={false}
+                            selectionIndicator={false}
+                        >
+                            <ImageryLayer imageryProvider={osmImageryProvider} />
+                            {selectedNode && selectedNode.params && selectedNode.params.xmin && (
+                                <Entity
+                                    name="AOI"
+                                    polygon={{
+                                        hierarchy: Cartesian3.fromDegreesArray([
+                                            parseFloat(selectedNode.params.xmin), parseFloat(selectedNode.params.ymin),
+                                            parseFloat(selectedNode.params.xmax), parseFloat(selectedNode.params.ymin),
+                                            parseFloat(selectedNode.params.xmax), parseFloat(selectedNode.params.ymax),
+                                            parseFloat(selectedNode.params.xmin), parseFloat(selectedNode.params.ymax)
+                                        ]),
+                                        material: Color.CYAN.withAlpha(0.2),
+                                        outline: true,
+                                        outlineColor: Color.CYAN
+                                    }}
+                                />
+                            )}
+                        </Viewer>
+                    </div>
+                    
+                    {/* Leaflet 2D Map (Hidden when in globe mode) */}
+                    <div 
+                        ref={mapRef} 
+                        className={`${activeWorkspace !== 'globe' ? 'block' : 'hidden'}`}
+                        style={{ width: '100%', height: '100%', backgroundColor: '#1f2937', touchAction: 'none' }}
+                    ></div>
+                </div>
             </div>
-            
+
             {/* Footer Text (Only show if in compact Builder mode to save space in Globe mode) */}
             {activeWorkspace === 'builder' && (
                 <div className="bg-slate-900 p-4 border-t border-slate-700 text-xs text-slate-400 font-mono leading-relaxed shrink-0">

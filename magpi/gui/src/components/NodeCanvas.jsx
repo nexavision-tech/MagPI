@@ -143,7 +143,7 @@ function CanvasInner({
         id: n.id,
         type: 'magpiNode',
         position: existing ? existing.position : { x: n.x, y: n.y },
-        data: { ...n, selected: n.id === selectedNodeId, status: nodeStatuses[n.id] }
+        data: { ...n, selected: n.selected || n.id === selectedNodeId, status: nodeStatuses[n.id] }
       };
     }));
   }, [nodes, selectedNodeId, nodeStatuses, setRfNodes]);
@@ -213,6 +213,28 @@ function CanvasInner({
   const onNodeClick = (_, node) => { setSelectedNodeId(node.id); setActiveRightTab('inspector'); };
   const onPaneClick = () => { setSelectedNodeId(null); setActiveRightTab('toolbox'); };
 
+  const onSelectionChange = useCallback(({ nodes: selectedNodes }) => {
+    const selectedIds = selectedNodes.map(n => n.id);
+    setNodes(nds => {
+        let changed = false;
+        const newNds = nds.map(n => {
+            const isSel = selectedIds.includes(n.id);
+            if (n.selected !== isSel) {
+                changed = true;
+                return { ...n, selected: isSel };
+            }
+            return n;
+        });
+        return changed ? newNds : nds;
+    });
+
+    if (selectedIds.length === 1) {
+        setSelectedNodeId(selectedIds[0]);
+    } else if (selectedIds.length === 0) {
+        setSelectedNodeId(null);
+    }
+  }, [setNodes, setSelectedNodeId]);
+
   const onDrop = useCallback((event) => {
       event.preventDefault();
       try {
@@ -265,6 +287,7 @@ function CanvasInner({
         onEdgesDelete={onEdgesDelete}
         onReconnect={onReconnect}
         onReconnectEnd={onReconnectEnd}
+        onSelectionChange={onSelectionChange}
         onNodeClick={onNodeClick}
         onPaneClick={onPaneClick}
         nodeTypes={nodeTypes}
