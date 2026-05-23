@@ -275,9 +275,9 @@ export default function Toolbox({
       
       // Look for a connected Spatial Extent node if none provided
       if (!bbox || bbox.length !== 4) {
-          const incomingEdge = connections.find(c => c.target === nodeId);
+          const incomingEdge = connections.find(c => c.to === nodeId);
           if (incomingEdge) {
-              const extentNode = nodes.find(n => n.id === incomingEdge.source);
+              const extentNode = nodes.find(n => n.id === incomingEdge.from);
               if (extentNode && extentNode.toolId === 'core_extent' && extentNode.params) {
                   parsedBbox = [
                       parseFloat(extentNode.params.xmin),
