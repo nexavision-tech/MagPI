@@ -84,7 +84,7 @@ export const generatePythonScript = (nodes, connections, crs, processingScope, g
         
         const p = {};
         for (const [key, val] of Object.entries(n.params || {})) {
-            p[key] = (val && typeof val === 'object' && val.type === 'select') ? val.value : val;
+            p[key] = (val && typeof val === 'object' && ['select', 'date', 'datetime-local'].includes(val.type)) ? val.value : val;
         }
 
         const outVar = varMap[n.id];
@@ -117,6 +117,10 @@ export const generatePythonScript = (nodes, connections, crs, processingScope, g
         else if (n.toolId === 'wfs_sentinel2') {
             const outFileName = `s2_cloud_extract_${n.id.split('_')[1]}.tif`;
             funcCall = `${outVar} = arcpy.wfs.PullSentinel2(${inExtentVar}, "${outFileName}", max_cloud_cover=${p.max_cloud_cover}, date_range="${p.start_date}/${p.end_date}")`;
+        }
+        else if (n.toolId === 'wfs_copernicus') {
+            const outFileName = `copernicus_extract_${n.id.split('_')[1]}.json`;
+            funcCall = `${outVar} = arcpy.wfs.PullCopernicusData(${inExtentVar}, "${outFileName}", collection="${p.collection}", product_type="${p.product_type}", start_date="${p.start_date}", end_date="${p.end_date}", cdse_token="${p.cdse_token}")`;
         }
         else if (n.toolId === 'wfs_elevation') {
             const outFileName = `usgs_dem_extract_${n.id.split('_')[1]}.tif`;
