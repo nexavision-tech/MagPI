@@ -298,12 +298,25 @@ def RasterMath(raster_a, raster_b, expression, out_raster):
     
     try:
         import rasterio
+        from rasterio.warp import reproject, Resampling
+        
         with rasterio.open(path_a) as src_a, rasterio.open(path_b) as src_b:
-            if src_a.shape != src_b.shape:
-                logger.warning(f"Raster Math Warning: Shapes do not match ({src_a.shape} vs {src_b.shape}). Attempting direct evaluation.")
-            
             A = src_a.read(1).astype('float32')
-            B = src_b.read(1).astype('float32')
+            
+            if src_a.shape != src_b.shape or src_a.transform != src_b.transform or src_a.crs != src_b.crs:
+                logger.warning(f"Raster Math Warning: Coregistering B ({src_b.shape}) to A ({src_a.shape}).")
+                B = np.zeros(src_a.shape, dtype='float32')
+                reproject(
+                    source=rasterio.band(src_b, 1),
+                    destination=B,
+                    src_transform=src_b.transform,
+                    src_crs=src_b.crs,
+                    dst_transform=src_a.transform,
+                    dst_crs=src_a.crs,
+                    resampling=Resampling.bilinear
+                )
+            else:
+                B = src_b.read(1).astype('float32')
             
             np.seterr(divide='ignore', invalid='ignore')
             
