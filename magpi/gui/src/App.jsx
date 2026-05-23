@@ -168,28 +168,19 @@ export default function App() {
             crs,
             globalEnv
         };
-        const response = await fetch("http://localhost:8080/api/run_pipeline", { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        const response = await fetch("/api/run_pipeline", { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
         const data = await response.json();
         if (response.ok) {
-            const rawLogs = (data.logs || "Execution finished. See Daemon logs.").split('\n').filter(l => l.trim() !== '');
-            const parsedLogs = rawLogs.map(line => {
-                let logType = 'info';
-                if (line.toLowerCase().includes('error') || line.toLowerCase().includes('fail')) logType = 'error';
-                else if (line.toLowerCase().includes('success') || line.toLowerCase().includes('pass')) logType = 'success';
-                return { type: logType, msg: line };
-            });
-            setLogs(prev => [...prev, ...parsedLogs, { type: data.status === 'success' ? 'success' : 'error', msg: `Matrix Execution ${data.status.toUpperCase()}.` }]);
-            const finalStates = {};
-            nodes.forEach(n => finalStates[n.id] = data.status === 'success' ? 'success' : null);
-            setNodeStatuses(finalStates);
+            setLogs(prev => [...prev, { type: 'success', msg: `Pipeline Dispatched to Daemon. Job ID: ${data.job_id}` }]);
+            // We just set to processing, JobManager handles the real status tracking
         } else {
             setLogs(prev => [...prev, { type: 'error', msg: `Daemon execution failed: ${data.error}` }]);
             setNodeStatuses({});
+            setIsProcessing(false);
         }
     } catch (err) {
         setLogs(prev => [...prev, { type: 'error', msg: `Failed to contact MagPI Daemon: ${err.message}` }]);
         setNodeStatuses({});
-    } finally {
         setIsProcessing(false);
     }
   };

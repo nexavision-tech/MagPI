@@ -8,9 +8,43 @@ import logging
 import time
 import tempfile
 import subprocess
+from datetime import datetime
 from urllib.parse import urlparse, parse_qs
 
 logger = logging.getLogger("MagPI_UI")
+
+JOB_REGISTRY = {}
+
+def execute_pipeline_background(job_id, payload):
+    try:
+        import io
+        import logging
+        log_stream = io.StringIO()
+        log_handler = logging.StreamHandler(log_stream)
+        log_handler.setFormatter(logging.Formatter('[%(levelname)s]: %(message)s'))
+        
+        root_logger = logging.getLogger()
+        root_logger.addHandler(log_handler)
+        
+        JOB_REGISTRY[job_id]['status'] = 'Running'
+        JOB_REGISTRY[job_id]['progress'] = 30
+        
+        from magpi.engine import PipelineRunner
+        runner = PipelineRunner()
+        runner.load_from_json(payload)
+        success = runner.run()
+        
+        root_logger.removeHandler(log_handler)
+        
+        JOB_REGISTRY[job_id]['status'] = 'Finished' if success else 'Failed'
+        JOB_REGISTRY[job_id]['progress'] = 100
+        JOB_REGISTRY[job_id]['logs'] = log_stream.getvalue().split('\n')
+        
+    except Exception as e:
+        JOB_REGISTRY[job_id]['status'] = 'Failed'
+        if 'logs' not in JOB_REGISTRY[job_id]:
+            JOB_REGISTRY[job_id]['logs'] = []
+        JOB_REGISTRY[job_id]['logs'].append(f"Error: {str(e)}")
 
 def LaunchCanvas(port=8080):
     module_dir = os.path.dirname(os.path.abspath(__file__))
@@ -42,6 +76,11 @@ def LaunchCanvas(port=8080):
                 self.handle_browse(parsed_path.query)
             elif parsed_path.path == '/api/describe':
                 self.handle_describe(parsed_path.query)
+            elif parsed_path.path == '/api/jobs':
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps(list(JOB_REGISTRY.values())).encode('utf-8'))
             else:
                 super().do_GET()
 
@@ -97,28 +136,28 @@ def LaunchCanvas(port=8080):
                 content_length = int(self.headers['Content-Length'])
                 post_data = self.rfile.read(content_length)
                 try:
-                    import io
-                    import logging
-                    log_stream = io.StringIO()
-                    log_handler = logging.StreamHandler(log_stream)
-                    log_handler.setFormatter(logging.Formatter('[%(levelname)s]: %(message)s'))
-                    root_logger = logging.getLogger()
-                    root_logger.addHandler(log_handler)
-                    
                     payload = json.loads(post_data.decode('utf-8'))
                     logger.info("Received OOP Pipeline Execution Request from Canvas.")
                     
-                    from magpi.engine import PipelineRunner
-                    runner = PipelineRunner()
-                    runner.load_from_json(payload)
-                    success = runner.run()
+                    job_id = f"pid-{os.getpid()}-{int(time.time())}"
+                    JOB_REGISTRY[job_id] = {
+                        'id': job_id,
+                        'name': 'MagPI Visual Model Execution',
+                        'target': 'Local Python',
+                        'status': 'Queued',
+                        'progress': 10,
+                        'cost': 'N/A',
+                        'time': '0 min',
+                        'started': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                        'logs': []
+                    }
                     
-                    root_logger.removeHandler(log_handler)
-                    captured_logs = log_stream.getvalue()
+                    bg_thread = threading.Thread(target=execute_pipeline_background, args=(job_id, payload))
+                    bg_thread.start()
                     
                     response = {
-                        "status": "success" if success else "error",
-                        "logs": captured_logs
+                        "status": "queued",
+                        "job_id": job_id
                     }
                     self.send_response(200)
                     self.send_header('Content-type', 'application/json')
@@ -214,7 +253,17 @@ def LaunchCanvas(port=8080):
         print("="*50 + "\n")
         while True: time.sleep(1)
     except OSError:
-        logger.error(f"Port {port} is busy. Try another port.")
+        logger.warning(f"Port {port} is busy. Attempting to terminate existing process...")
+        try:
+            pid_bytes = subprocess.check_output(f"lsof -t -i:{port}", shell=True)
+            pid = pid_bytes.decode('utf-8').strip()
+            if pid:
+                logger.info(f"Killing zombie process {pid} on port {port}...")
+                os.kill(int(pid), 9)
+                time.sleep(1)
+                LaunchCanvas(port)
+        except Exception as e:
+            logger.error(f"Failed to kill process on port {port}: {e}")
     except KeyboardInterrupt:
         print("\n")
         logger.info("Shutting down MagPI Daemon API...")
