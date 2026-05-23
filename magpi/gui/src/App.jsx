@@ -168,7 +168,7 @@ export default function App() {
             crs,
             globalEnv
         };
-        const response = await fetch("/api/run_pipeline", { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        const response = await fetch("http://localhost:8080/api/run_pipeline", { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
         const data = await response.json();
         if (response.ok) {
             setLogs(prev => [...prev, { type: 'success', msg: `Pipeline Dispatched to Daemon. Job ID: ${data.job_id}` }]);

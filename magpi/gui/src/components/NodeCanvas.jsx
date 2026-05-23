@@ -156,7 +156,7 @@ function CanvasInner({
       target: c.to,
       sourceHandle: c.sourceHandle || 'out',
       targetHandle: c.targetHandle || 'in',
-      type: 'bezier',
+      type: 'default',
       interactionWidth: 20,
       animated: nodeStatuses[c.from] === 'processing' || nodeStatuses[c.to] === 'processing',
       style: { stroke: nodeStatuses[c.to] === 'success' ? '#32d74b' : '#64748b', strokeWidth: 3 }

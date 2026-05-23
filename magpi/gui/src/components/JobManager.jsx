@@ -9,7 +9,7 @@ export default function JobManager({ activeWorkspace }) {
     if (activeWorkspace === 'jobs') {
       const fetchJobs = async () => {
         try {
-          const res = await fetch('/api/jobs');
+          const res = await fetch('http://localhost:8080/api/jobs');
           if (res.ok) {
             const liveJobs = await res.json();
             setJobs(liveJobs.sort((a, b) => new Date(b.started) - new Date(a.started)));
