@@ -43,7 +43,39 @@ def GetCensusTracts(state_fips, county_fips, year=2020, out_feature_class=None):
         logger.error(f"Failed to retrieve Census Data: {e}")
         return Result(None, status=3)
 
-def PullSentinel2(extent, out_raster, max_cloud_cover=10, date_range="2023-01-01/2023-12-31"):
+def QuerySentinel2(extent, max_cloud_cover=10, date_range="2023-01-01/2023-12-31"):
+    try:
+        min_lon, min_lat, max_lon, max_lat = extent
+        
+        formatted_date = str(date_range).strip()
+        if "T" not in formatted_date:
+            try:
+                start_d, end_d = formatted_date.split('/')
+                formatted_date = f"{start_d.strip()}T00:00:00Z/{end_d.strip()}T23:59:59Z"
+            except Exception: pass 
+            
+        search_url = "https://earth-search.aws.element84.com/v1/search"
+        payload = { "collections": ["sentinel-2-l2a"], "bbox": [min_lon, min_lat, max_lon, max_lat], "datetime": formatted_date, "query": {"eo:cloud_cover": {"lt": int(max_cloud_cover)}}, "limit": 20 }
+        response = requests.post(search_url, json=payload)
+        
+        if not response.ok:
+            logger.error(f"AWS STAC API Error ({response.status_code}): {response.text}")
+            return []
+            
+        data = response.json()
+        results = []
+        for feature in data.get("features", []):
+            results.append({
+                "id": feature["id"],
+                "date": feature["properties"].get("datetime", ""),
+                "cloud_cover": feature["properties"].get("eo:cloud_cover", 0)
+            })
+        return results
+    except Exception as e:
+        logger.error(f"Query Sentinel-2 failed: {e}")
+        return []
+
+def PullSentinel2(extent, out_raster, max_cloud_cover=10, date_range="2023-01-01/2023-12-31", item_ids=None, bands=None):
     logger.info("Initializing MagPI Sovereign Data Pull (Sentinel-2 via AWS Earth Search)...")
     try:
         import rasterio
@@ -52,15 +84,27 @@ def PullSentinel2(extent, out_raster, max_cloud_cover=10, date_range="2023-01-01
         if hasattr(extent, 'XMin'): min_lon, min_lat, max_lon, max_lat = extent.XMin, extent.YMin, extent.XMax, extent.YMax
         else: min_lon, min_lat, max_lon, max_lat = map(float, str(extent).split())
 
-        formatted_date = str(date_range).strip()
-        if "T" not in formatted_date:
-            try:
-                start_d, end_d = formatted_date.split('/')
-                formatted_date = f"{start_d.strip()}T00:00:00Z/{end_d.strip()}T23:59:59Z"
-            except Exception: pass 
-
         search_url = "https://earth-search.aws.element84.com/v1/search"
-        payload = { "collections": ["sentinel-2-l2a"], "bbox": [min_lon, min_lat, max_lon, max_lat], "datetime": formatted_date, "query": {"eo:cloud_cover": {"lt": int(max_cloud_cover)}}, "limit": 1 }
+        payload = { "collections": ["sentinel-2-l2a"] }
+        
+        if item_ids and isinstance(item_ids, str):
+            item_ids = [i.strip() for i in item_ids.split(',')]
+            
+        if item_ids:
+            payload["ids"] = item_ids
+            payload["limit"] = len(item_ids)
+        else:
+            formatted_date = str(date_range).strip()
+            if "T" not in formatted_date:
+                try:
+                    start_d, end_d = formatted_date.split('/')
+                    formatted_date = f"{start_d.strip()}T00:00:00Z/{end_d.strip()}T23:59:59Z"
+                except Exception: pass 
+            payload["bbox"] = [min_lon, min_lat, max_lon, max_lat]
+            payload["datetime"] = formatted_date
+            payload["query"] = {"eo:cloud_cover": {"lt": int(max_cloud_cover)}}
+            payload["limit"] = 1
+
         response = requests.post(search_url, json=payload)
         
         if not response.ok:
@@ -72,8 +116,30 @@ def PullSentinel2(extent, out_raster, max_cloud_cover=10, date_range="2023-01-01
             logger.error("No Sentinel-2 imagery found.")
             return Result(None, status=3)
 
+        # In MagPI, PullSentinel2 returns a single raster. If multiple item_ids are passed, 
+        # this function gets called in a loop (list comprehension) per item_id by the code generator.
+        # So we just take the first feature.
         best_scene = data["features"][0]
-        band_urls = [best_scene["assets"]["red"]["href"], best_scene["assets"]["green"]["href"], best_scene["assets"]["blue"]["href"], best_scene["assets"]["nir"]["href"]]
+        
+        if bands and isinstance(bands, str):
+            band_keys = [b.strip().lower() for b in bands.split(',')]
+        else:
+            band_keys = ["red", "green", "blue", "nir"]
+            
+        band_urls = []
+        for bk in band_keys:
+            if bk in best_scene["assets"]:
+                band_urls.append(best_scene["assets"][bk]["href"])
+            elif bk == "b02": band_urls.append(best_scene["assets"]["blue"]["href"])
+            elif bk == "b03": band_urls.append(best_scene["assets"]["green"]["href"])
+            elif bk == "b04": band_urls.append(best_scene["assets"]["red"]["href"])
+            elif bk == "b08": band_urls.append(best_scene["assets"]["nir"]["href"])
+            else:
+                logger.warning(f"Band {bk} not found in asset, skipping.")
+        
+        if not band_urls:
+            logger.error("No valid bands selected.")
+            return Result(None, status=3)
         
         with rasterio.Env(CPL_VSIL_CURL_ALLOWED_EXTENSIONS="tif"):
             with rasterio.open(band_urls[0]) as src0:
@@ -81,13 +147,13 @@ def PullSentinel2(extent, out_raster, max_cloud_cover=10, date_range="2023-01-01
                 utm_bounds = transform_bounds('EPSG:4326', src0.crs, min_lon, min_lat, max_lon, max_lat)
                 window = from_bounds(*utm_bounds, src0.transform).round_offsets().round_lengths()
                 out_meta = src0.meta.copy()
-                out_meta.update({"driver": "GTiff", "count": 4, "height": window.height, "width": window.width, "transform": src0.window_transform(window)})
+                out_meta.update({"driver": "GTiff", "count": len(band_urls), "height": window.height, "width": window.width, "transform": src0.window_transform(window)})
                 with rasterio.open(out_raster, "w", **out_meta) as dest:
                     for i, url in enumerate(band_urls, start=1):
                         logger.info(f"Streaming Band {i}...")
                         with rasterio.open(url) as src_band: dest.write(src_band.read(1, window=window), i)
                             
-        logger.info(f"Saved 4-Band Sentinel-2 chip to: {out_raster}")
+        logger.info(f"Saved {len(band_urls)}-Band Sentinel-2 chip to: {out_raster}")
         return Result(out_raster)
     except Exception as e:
         logger.error(f"Data pull failed: {e}")

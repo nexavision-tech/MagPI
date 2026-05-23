@@ -164,6 +164,33 @@ def LaunchCanvas(port=8080):
                     self.end_headers()
                     self.wfile.write(json.dumps({"error": str(e)}).encode('utf-8'))
                     
+            elif parsed_path.path == '/api/stac_query':
+                content_length = int(self.headers['Content-Length'])
+                post_data = self.rfile.read(content_length)
+                try:
+                    payload = json.loads(post_data.decode('utf-8'))
+                    logger.info("Received STAC Query Request from Canvas.")
+                    
+                    # Call python stac query wrapper
+                    from magpi.wfs import QuerySentinel2
+                    
+                    bbox = payload.get('bbox', [-180, -90, 180, 90])
+                    date_range = payload.get('date_range', '2023-01-01/2023-12-31')
+                    max_cloud_cover = payload.get('max_cloud_cover', 20)
+                    
+                    results = QuerySentinel2(bbox, max_cloud_cover, date_range)
+                    
+                    self.send_response(200)
+                    self.send_header('Content-type', 'application/json')
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"results": results}).encode('utf-8'))
+                except Exception as e:
+                    logger.error(f"STAC Query API failed: {e}")
+                    self.send_response(500)
+                    self.send_header('Content-type', 'application/json')
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"error": str(e)}).encode('utf-8'))
+                    
             elif parsed_path.path == '/api/run_pipeline':
                 content_length = int(self.headers['Content-Length'])
                 post_data = self.rfile.read(content_length)

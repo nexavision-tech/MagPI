@@ -15,7 +15,7 @@ const TOOLBOX_CATEGORIES = [
     tools: [
       { id: 'wfs_sentinel2', name: "Sentinel-2 (AWS 4B)", type: 'input', icon: <Cloud size={14}/>, color: 'bg-cyan-700', border: 'border-cyan-500', 
         description: "Streams Cloud Optimized GeoTIFFs (COGs) from AWS Earth Search based on an AOI. Includes temporal filtering.",
-        params: { max_cloud_cover: 10, start_date: { value: "2023-01-01", type: "date" }, end_date: { value: "2023-12-31", type: "date" }, out_folder: "./sentinel_data" } },
+        params: { max_cloud_cover: 10, start_date: { value: "2023-01-01", type: "date" }, end_date: { value: "2023-12-31", type: "date" }, out_folder: "./sentinel_data", selected_items: "", selected_bands: "B02,B03,B04,B08" } },
       { id: 'wfs_elevation', name: "Pull USGS DEM", type: 'input', icon: <Layers size={14}/>, color: 'bg-cyan-700', border: 'border-cyan-500', 
         description: "Extracts a 3D Digital Elevation Model (DEM) natively from the USGS 3DEP Web Coverage Service.",
         params: {} },
@@ -231,6 +231,10 @@ export default function Toolbox({
   const [metadata, setMetadata] = useState({});
   const [loadingMeta, setLoadingMeta] = useState(false);
 
+  const [stacResults, setStacResults] = useState([]);
+  const [stacLoading, setStacLoading] = useState(false);
+  const [stacError, setStacError] = useState(null);
+
   const toggleCategory = (name) => setExpandedCategories(prev => ({ ...prev, [name]: !prev[name] }));
 
   const handleDragStart = (e, tool) => {
@@ -260,6 +264,44 @@ export default function Toolbox({
       setMetadata(prev => ({ ...prev, [nodeId]: { data: null, error: "Daemon offline or unreachable." } }));
     } finally {
       setLoadingMeta(false);
+    }
+  };
+
+  const fetchStacCatalog = async (nodeId, bbox, max_cloud_cover, date_range) => {
+    setStacLoading(true);
+    setStacError(null);
+    try {
+      // Find connected spatial extent nodes to get bbox
+      // If we don't have bbox, we'll just pass a global one or let backend use default
+      let parsedBbox = [-180, -90, 180, 90];
+      if (bbox && bbox.length === 4) {
+          parsedBbox = bbox;
+      }
+      
+      const payload = {
+        bbox: parsedBbox,
+        max_cloud_cover: max_cloud_cover,
+        date_range: date_range
+      };
+      
+      const response = await fetch(`http://localhost:8080/api/stac_query`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+      });
+      const data = await response.json();
+      
+      if (response.ok && data.results) {
+        setStacResults(data.results);
+      } else {
+        setStacError(data.error || "Failed to query STAC");
+        setStacResults([]);
+      }
+    } catch (err) {
+      setStacError("Daemon offline or unreachable.");
+      setStacResults([]);
+    } finally {
+      setStacLoading(false);
     }
   };
 
@@ -441,6 +483,67 @@ export default function Toolbox({
                       </div>
                     )}
 
+                  </div>
+                )}
+                
+                {selectedNode.toolId === 'wfs_sentinel2' && (
+                  <div className="bg-slate-900 p-4 rounded-lg border border-slate-700 shadow-inner mt-4 animate-fadeIn">
+                    <h4 className="text-[10px] uppercase tracking-widest text-cyan-400 font-bold mb-3 flex items-center">
+                      <Search size={12} className="mr-2" /> STAC Catalog Query
+                    </h4>
+                    
+                    <button 
+                      onClick={() => fetchStacCatalog(
+                        selectedNode.id, 
+                        null, 
+                        selectedNode.params.max_cloud_cover, 
+                        `${selectedNode.params.start_date.value}/${selectedNode.params.end_date.value}`
+                      )}
+                      disabled={stacLoading}
+                      className="w-full py-2 bg-cyan-900/40 hover:bg-cyan-600 text-cyan-300 hover:text-white text-xs font-bold rounded border border-cyan-800/50 hover:border-cyan-500 transition-all flex items-center justify-center mb-3 disabled:opacity-50"
+                    >
+                      {stacLoading ? <Loader2 size={14} className="animate-spin mr-2" /> : <Search size={14} className="mr-2" />}
+                      {stacLoading ? "Querying AWS..." : "Query Catalog"}
+                    </button>
+                    
+                    {stacError && (
+                      <div className="bg-red-900/20 p-3 rounded border border-red-800/50 flex items-start text-xs text-red-400 mt-2 mb-2">
+                        <AlertCircle size={14} className="mr-2 mt-0.5 shrink-0" />
+                        <span className="leading-tight">{stacError}</span>
+                      </div>
+                    )}
+                    
+                    {stacResults && stacResults.length > 0 && (
+                      <div className="mt-3">
+                        <label className="block text-[10px] font-bold text-slate-400 mb-2 uppercase tracking-wide">Available Scenes</label>
+                        <div className="max-h-48 overflow-y-auto space-y-1 pr-1 custom-scrollbar">
+                          {stacResults.map(res => {
+                             const isSelected = selectedNode.params.selected_items && selectedNode.params.selected_items.includes(res.id);
+                             return (
+                               <div key={res.id} 
+                                    className={`p-2 rounded border cursor-pointer transition-colors flex items-center justify-between ${isSelected ? 'bg-cyan-900/40 border-cyan-500' : 'bg-slate-800 border-slate-700 hover:border-slate-500'}`}
+                                    onClick={() => {
+                                      let current = selectedNode.params.selected_items ? selectedNode.params.selected_items.split(',').map(s=>s.trim()).filter(Boolean) : [];
+                                      if (isSelected) current = current.filter(id => id !== res.id);
+                                      else current.push(res.id);
+                                      updateNodeParam(selectedNode.id, 'selected_items', current.join(','));
+                                    }}>
+                                 <div className="flex flex-col">
+                                   <span className="text-[10px] font-mono text-slate-300">{res.date.split('T')[0]}</span>
+                                   <span className="text-[9px] text-slate-500 truncate w-36">{res.id}</span>
+                                 </div>
+                                 <div className="flex items-center">
+                                   <span className={`text-[10px] mr-2 ${res.cloud_cover < 10 ? 'text-emerald-400' : res.cloud_cover < 30 ? 'text-yellow-400' : 'text-red-400'}`}>{res.cloud_cover.toFixed(1)}% ☁</span>
+                                   <div className={`w-3 h-3 rounded-sm flex items-center justify-center border ${isSelected ? 'bg-cyan-500 border-cyan-400' : 'bg-slate-900 border-slate-600'}`}>
+                                     {isSelected && <Check size={8} className="text-white"/>}
+                                   </div>
+                                 </div>
+                               </div>
+                             );
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

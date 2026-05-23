@@ -16,14 +16,19 @@ class PullSentinel2Node(Node):
         p = self.params
         date_range = f"{p.get('start_date', '2023-01-01')}/{p.get('end_date', '2023-12-31')}"
         max_cc = p.get('max_cloud_cover', 10)
+        item_ids = p.get('selected_items', None)
+        bands = p.get('selected_bands', None)
         
-        logger.info(f"Pulling Sentinel-2 data for dates {date_range} with max cloud cover {max_cc}")
+        if item_ids:
+            logger.info(f"Pulling Sentinel-2 data using explicitly selected Item IDs: {item_ids}")
+        else:
+            logger.info(f"Pulling Sentinel-2 data for dates {date_range} with max cloud cover {max_cc}")
         
         self.output = []
         for i, extent in enumerate(extents):
             suffix = f"_{i}" if len(extents) > 1 else ""
             out_filename = f"s2_cloud_extract_{self.id.split('_')[1] if '_' in self.id else '1'}{suffix}.tif"
-            res = PullSentinel2(extent, out_filename, max_cloud_cover=max_cc, date_range=date_range)
+            res = PullSentinel2(extent, out_filename, max_cloud_cover=max_cc, date_range=date_range, item_ids=item_ids, bands=bands)
             if hasattr(res, 'status') and res.status == 4:
                 raise Exception(f"PullSentinel2 failed for extent {i}")
             self.output.append(res)

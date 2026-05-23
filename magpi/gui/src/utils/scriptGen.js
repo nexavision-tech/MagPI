@@ -119,12 +119,16 @@ export const generatePythonScript = (nodes, connections, crs, processingScope, g
             funcCall = `${outVar} = "${p.file_path}"`;
         }
         else if (n.toolId === 'wfs_sentinel2') {
+            let extraArgs = "";
+            if (p.selected_items) extraArgs += `, item_ids="${p.selected_items}"`;
+            if (p.selected_bands) extraArgs += `, bands="${p.selected_bands}"`;
+            
             if (inExtentVars.length > 1) {
                 const outFileNameBase = `s2_cloud_extract_${n.id.split('_')[1]}`;
-                funcCall = `${outVar} = []\nfor i, ext in enumerate([${inExtentVars.join(', ')}]):\n    ${outVar}.append(arcpy.wfs.PullSentinel2(ext, f"${outFileNameBase}_{i}.tif", max_cloud_cover=${p.max_cloud_cover}, date_range="${p.start_date}/${p.end_date}"))`;
+                funcCall = `${outVar} = []\nfor i, ext in enumerate([${inExtentVars.join(', ')}]):\n    ${outVar}.append(arcpy.wfs.PullSentinel2(ext, f"${outFileNameBase}_{i}.tif", max_cloud_cover=${p.max_cloud_cover}, date_range="${p.start_date}/${p.end_date}"${extraArgs}))`;
             } else {
                 const outFileName = `s2_cloud_extract_${n.id.split('_')[1]}.tif`;
-                funcCall = `${outVar} = arcpy.wfs.PullSentinel2(${inExtentVar}, "${outFileName}", max_cloud_cover=${p.max_cloud_cover}, date_range="${p.start_date}/${p.end_date}")`;
+                funcCall = `${outVar} = arcpy.wfs.PullSentinel2(${inExtentVar}, "${outFileName}", max_cloud_cover=${p.max_cloud_cover}, date_range="${p.start_date}/${p.end_date}"${extraArgs})`;
             }
         }
         else if (n.toolId === 'wfs_copernicus') {
