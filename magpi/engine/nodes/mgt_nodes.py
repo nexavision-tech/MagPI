@@ -104,3 +104,21 @@ class ProjectVectorNode(Node):
                 
         if len(self.output) == 1:
             self.output = self.output[0]
+
+@register_node('mgt_array_index')
+class ArrayIndexerNode(Node):
+    def execute(self):
+        in_payload = self.inputs.get("in")
+        p = self.params
+        idx = int(p.get('index', 0))
+        
+        logger.info(f"Extracting index {idx} from payload {in_payload}")
+        
+        if isinstance(in_payload, list):
+            if idx < 0 or idx >= len(in_payload):
+                raise Exception(f"Array Index {idx} out of bounds for array of length {len(in_payload)}")
+            self.output = in_payload[idx]
+        else:
+            if idx != 0:
+                logger.warning(f"Array Index {idx} requested, but payload is not a list. Returning item as index 0.")
+            self.output = in_payload

@@ -263,3 +263,49 @@ def ComputeConfusionMatrix(in_accuracy_assessment_points, out_confusion_matrix):
     except Exception as e:
         logger.error(f"Failed to compute confusion matrix: {e}")
         return Result(None, status=3)
+
+def RasterMath(raster_a, raster_b, expression, out_raster):
+    """
+    Evaluates a mathematical expression across two input rasters.
+    """
+    logger.info(f"Initiating Raster Math: {expression}")
+    
+    path_a = raster_a.name if hasattr(raster_a, 'name') else str(raster_a)
+    path_b = raster_b.name if hasattr(raster_b, 'name') else str(raster_b)
+    
+    try:
+        import rasterio
+        with rasterio.open(path_a) as src_a, rasterio.open(path_b) as src_b:
+            if src_a.shape != src_b.shape:
+                logger.warning(f"Raster Math Warning: Shapes do not match ({src_a.shape} vs {src_b.shape}). Attempting direct evaluation.")
+            
+            A = src_a.read(1).astype('float32')
+            B = src_b.read(1).astype('float32')
+            
+            np.seterr(divide='ignore', invalid='ignore')
+            
+            # Simple safe-eval for raster math
+            allowed_locals = {"A": A, "B": B, "np": np}
+            try:
+                # Security note: evaluation is limited to A, B, and numpy
+                result_array = eval(expression, {"__builtins__": None}, allowed_locals)
+            except Exception as eval_err:
+                raise Exception(f"Failed to evaluate expression '{expression}': {eval_err}")
+                
+            result_array = np.nan_to_num(result_array, nan=0.0)
+            
+            out_meta = src_a.meta.copy()
+            out_meta.update({
+                "driver": "GTiff", 
+                "count": 1, 
+                "dtype": 'float32'
+            })
+            
+            with rasterio.open(out_raster, "w", **out_meta) as dest:
+                dest.write(result_array, 1)
+                
+        logger.info(f"SUCCESS: Raster Math output saved to {out_raster}")
+        return Result(out_raster)
+    except Exception as e:
+        logger.error(f"Raster Math Calculation failed: {e}")
+        return Result(None, status=3)

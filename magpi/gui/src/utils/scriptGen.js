@@ -186,6 +186,13 @@ export const generatePythonScript = (nodes, connections, crs, processingScope, g
         else if (n.toolId === 'ia_export_dl') {
             funcCall = `${outVar} = arcpy.ia.ExportTrainingDataForDeepLearning(in_raster=getattr(${inRasterVar}, 'name', ${inRasterVar}), out_folder="${p.out_folder}", in_class_data=getattr(${inLabelVar}, 'name', ${inLabelVar}), tile_size_x=${p.tile_size}, tile_size_y=${p.tile_size}, stride_x=${p.stride}, stride_y=${p.stride}, shuffle_chips=${p.shuffle ? 'True' : 'False'})`;
         }
+        else if (n.toolId === 'ia_raster_math') {
+            let varA = 'None';
+            let varB = 'None';
+            if (inNodes.length > 0) varA = varMap[inNodes[0].id];
+            if (inNodes.length > 1) varB = varMap[inNodes[1].id];
+            funcCall = `_expr = "${p.expression}"\n${outVar} = [arcpy.ia.RasterMath(a, b, _expr, f"raster_math_{i}.tif") for i, (a, b) in enumerate(zip(${varA} if isinstance(${varA}, list) else [${varA}], ${varB} if isinstance(${varB}, list) else [${varB}]))]`;
+        }
         else if (n.toolId === 'ai_train') {
             const inFolderStr = primaryInVar !== 'None' ? `getattr(${primaryInVar}, 'output', ${primaryInVar})` : `"${p.in_folder}"`;
             funcCall = `${outVar} = arcpy.geoai.TrainDeepLearningModel(in_folder=${inFolderStr}, out_folder="${p.out_folder}", max_epochs=${p.max_epochs}, batch_size=${p.batch_size}, model_type="${p.model_type}")`;
@@ -214,6 +221,9 @@ export const generatePythonScript = (nodes, connections, crs, processingScope, g
         else if (n.toolId === 'mgt_project_vector') {
             const baseName = (p.out_feature_class || `proj_vector_${n.id.split('_')[1]}.shp`).replace('.shp', '');
             funcCall = `${outVar} = [arcpy.management.Project(f, f"${baseName}_{i}.shp", out_coor_system="${p.out_crs}") for i, f in enumerate(${primaryInVar})] if isinstance(${primaryInVar}, list) else arcpy.management.Project(${primaryInVar}, "${baseName}.shp", out_coor_system="${p.out_crs}")`;
+        }
+        else if (n.toolId === 'mgt_array_index') {
+            funcCall = `${outVar} = ${primaryInVar}[${p.index || 0}] if isinstance(${primaryInVar}, list) and len(${primaryInVar}) > ${p.index || 0} else ${primaryInVar}`;
         }
         else if (n.toolId === 'mgt_pyramids') {
             funcCall = `${outVar} = ${primaryInVar}\narcpy.management.BuildPyramidsAndStats(${primaryInVar}, build_pyramids=${p.build_pyramids ? 'True' : 'False'}, calculate_stats=${p.calculate_stats ? 'True' : 'False'})`;

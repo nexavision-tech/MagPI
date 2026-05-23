@@ -50,7 +50,7 @@ const MagPINode = ({ data }) => {
   // Pure endpoints (NO RIGHT PORTS)
   const isEndpoint = ['conv_raster_to_polygon', 'stats_confusion_matrix', 'etl_db_writer'].includes(toolId);
   // Dual-input receivers
-  const isDualInput = ['ia_export_dl', 'stats_confusion_matrix', 'mgt_clip', 'ia_pansharpen', 'etl_spatial_join'].includes(toolId);
+  const isDualInput = ['ia_export_dl', 'stats_confusion_matrix', 'mgt_clip', 'ia_pansharpen', 'etl_spatial_join', 'ia_raster_math'].includes(toolId);
 
   // 2. Visual Hierarchy (Shapes)
   let shapeClass = "rounded-lg"; 
@@ -64,6 +64,7 @@ const MagPINode = ({ data }) => {
   else if (toolId === 'stats_confusion_matrix') { topLbl = "PREDICT"; botLbl = "TRUTH"; }
   else if (toolId === 'mgt_clip') { topLbl = "TARGET"; botLbl = "EXTENT"; }
   else if (toolId === 'etl_spatial_join') { topLbl = "TARGET"; botLbl = "JOIN"; }
+  else if (toolId === 'ia_raster_math') { topLbl = "VAR A"; botLbl = "VAR B"; }
   
   if (toolId === 'ai_train') singleLbl = "TENSORS";
   else if (toolId === 'conv_raster_to_polygon') singleLbl = "MASK";

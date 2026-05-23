@@ -90,3 +90,42 @@ class ReclassifyNode(Node):
                 
         if len(self.output) == 1:
             self.output = self.output[0]
+
+@register_node('ia_raster_math')
+class RasterMathNode(Node):
+    def execute(self):
+        # Dual inputs
+        in_a = self.inputs.get("in1")
+        in_b = self.inputs.get("in2")
+        
+        # We need to handle list comprehensions if A and B are lists of the same length
+        is_a_list = isinstance(in_a, list)
+        is_b_list = isinstance(in_b, list)
+        
+        if is_a_list and not is_b_list: in_b = [in_b] * len(in_a)
+        elif is_b_list and not is_a_list: in_a = [in_a] * len(in_b)
+        elif not is_a_list and not is_b_list:
+            in_a = [in_a]
+            in_b = [in_b]
+            
+        p = self.params
+        expr = p.get('expression', 'A - B')
+        
+        logger.info(f"Executing Raster Math: {expr}")
+        from magpi.ia import RasterMath
+        
+        self.output = []
+        for i, (ra, rb) in enumerate(zip(in_a, in_b)):
+            suffix = f"_{i}" if len(in_a) > 1 else ""
+            out_filename = f"raster_math_{self.id.split('_')[1] if '_' in self.id else '1'}{suffix}.tif"
+            try:
+                res = RasterMath(ra, rb, expression=expr, out_raster=out_filename)
+                if hasattr(res, 'status') and res.status == 4:
+                    raise Exception(f"Raster Math failed on {ra} and {rb}")
+                self.output.append(res)
+            except Exception as e:
+                logger.error(f"Failed to execute Raster Math: {e}")
+                raise
+                
+        if len(self.output) == 1:
+            self.output = self.output[0]

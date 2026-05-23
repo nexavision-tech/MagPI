@@ -95,6 +95,9 @@ const TOOLBOX_CATEGORIES = [
       { id: 'ia_export_dl', name: "Export DL Tensors", type: 'process', icon: <Grid size={14}/>, color: 'bg-emerald-600', border: 'border-emerald-500', 
         description: "Chips massive rasters and paired ground-truth labels into perfectly sized tensors for PyTorch AI training.",
         params: { out_folder: "./dl_chips", tile_size: 256, stride: 128, shuffle: true } },
+      { id: 'ia_raster_math', name: "Raster Math", type: 'process', icon: <SlidersHorizontal size={14}/>, color: 'bg-emerald-600', border: 'border-emerald-500', 
+        description: "Evaluates a mathematical expression (e.g. 'A - B' or '(A+B)/2') across two input rasters.",
+        params: { expression: "A - B" } },
     ]
   },
   {
@@ -137,6 +140,9 @@ const TOOLBOX_CATEGORIES = [
   {
     name: "Data Management", icon: <Settings size={18} className="text-emerald-500/70" />,
     tools: [
+      { id: 'mgt_array_index', name: "Array Indexer", type: 'process', icon: <ListFilter size={14}/>, color: 'bg-slate-600', border: 'border-slate-500', 
+        description: "Extracts a single item from an array payload (like isolating the 2nd chip of a multi-AOI Sentinel-2 pull).",
+        params: { index: 0 } },
       { id: 'mgt_clip', name: "Clip to AOI", type: 'process', icon: <Scissors size={14}/>, color: 'bg-slate-600', border: 'border-slate-500', 
         description: "Extracts a spatial subset of a raster or vector based on a drawn Spatial Extent node.",
         params: {} },
