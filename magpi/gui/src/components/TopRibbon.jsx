@@ -1,5 +1,5 @@
 import React from 'react';
-import { Compass, Server, Code, Save, Globe, Cpu, FolderUp, Trash2, Rss } from 'lucide-react';
+import { Compass, Server, Code, Save, Globe, Cpu, FolderUp, Trash2, Rss, Map as MapIcon } from 'lucide-react';
 
 export default function TopRibbon({ 
   crs, setCrs, 
