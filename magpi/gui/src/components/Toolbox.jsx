@@ -34,7 +34,7 @@ const TOOLBOX_CATEGORIES = [
     ]
   },
   {
-    name: "Sovereign/Premium WFS (Auth Required)", icon: <Satellite size={18} className="text-blue-400" />,
+    name: "Sovereign WFS (Auth)", icon: <Satellite size={18} className="text-blue-400" />,
     tools: [
       { id: 'wfs_copernicus', name: "Copernicus Data Space", type: 'input', icon: <Satellite size={14}/>, color: 'bg-blue-600', border: 'border-blue-500', 
         description: "Connects directly to the ESA Copernicus Data Space Ecosystem (CDSE) to query Sentinel-1, 2, 3, 5P, and Landsat data using OData.",

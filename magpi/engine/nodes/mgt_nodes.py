@@ -41,25 +41,66 @@ class BufferNode(Node):
 @register_node('mgt_project_raster')
 class ProjectRasterNode(Node):
     def execute(self):
-        in_raster = self.inputs.get("in")
+        in_rasters = self.inputs.get("in")
+        if not isinstance(in_rasters, list):
+            in_rasters = [in_rasters]
+            
         p = self.params
         out_crs = p.get('out_crs', 'EPSG:4326')
-        out_filename = f"proj_raster_{self.id.split('_')[1] if '_' in self.id else '1'}.tif"
-        out_path = os.path.join(os.environ.get('MAGPI_OUTPUT', '.'), out_filename)
         
-        logger.info(f"Executing ProjectRaster on {in_raster} to {out_crs}")
+        logger.info(f"Executing ProjectRaster on {in_rasters} to {out_crs}")
         from magpi.management import ProjectRaster
-        self.output = ProjectRaster(in_raster, out_path, out_crs, resampling_type=p.get('resampling', 'NEAREST'))
+        
+        self.output = []
+        for i, r in enumerate(in_rasters):
+            suffix = f"_{i}" if len(in_rasters) > 1 else ""
+            out_filename = f"proj_raster_{self.id.split('_')[1] if '_' in self.id else '1'}{suffix}.tif"
+            out_path = os.path.join(os.environ.get('MAGPI_OUTPUT', '.'), out_filename)
+            try:
+                res = ProjectRaster(r, out_path, out_crs, resampling_type=p.get('resampling', 'NEAREST'))
+                if hasattr(res, 'status') and res.status == 4:
+                    raise Exception(f"ProjectRaster failed on raster {r}")
+                self.output.append(res)
+            except Exception as e:
+                logger.error(f"Failed to execute ProjectRaster on {r}: {e}")
+                raise
+                
+        if len(self.output) == 1:
+            self.output = self.output[0]
+
 
 @register_node('mgt_project_vector')
 class ProjectVectorNode(Node):
     def execute(self):
         in_features = self.inputs.get("in")
+        if not isinstance(in_features, list):
+            in_features = [in_features]
+            
         p = self.params
         out_crs = p.get('out_crs', 'EPSG:4326')
-        out_filename = p.get('out_feature_class', f"proj_vector_{self.id.split('_')[1] if '_' in self.id else '1'}.shp")
-        out_path = os.path.join(os.environ.get('MAGPI_OUTPUT', '.'), out_filename)
         
         logger.info(f"Executing Project Vector on {in_features} to {out_crs}")
         from magpi.management import Project
-        self.output = Project(in_features, out_path, out_crs)
+        
+        self.output = []
+        for i, f in enumerate(in_features):
+            suffix = f"_{i}" if len(in_features) > 1 else ""
+            base_filename = p.get('out_feature_class', f"proj_vector_{self.id.split('_')[1] if '_' in self.id else '1'}.shp")
+            if len(in_features) > 1:
+                name, ext = os.path.splitext(base_filename)
+                out_filename = f"{name}{suffix}{ext}"
+            else:
+                out_filename = base_filename
+                
+            out_path = os.path.join(os.environ.get('MAGPI_OUTPUT', '.'), out_filename)
+            try:
+                res = Project(f, out_path, out_crs)
+                if hasattr(res, 'status') and res.status == 4:
+                    raise Exception(f"Project Vector failed on feature {f}")
+                self.output.append(res)
+            except Exception as e:
+                logger.error(f"Failed to execute Project Vector on {f}: {e}")
+                raise
+                
+        if len(self.output) == 1:
+            self.output = self.output[0]

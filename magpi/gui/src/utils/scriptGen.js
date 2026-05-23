@@ -208,12 +208,12 @@ export const generatePythonScript = (nodes, connections, crs, processingScope, g
             funcCall = `${outVar} = arcpy.analysis.Buffer(${primaryInVar}, "out_buf.shp", "${p.distance} ${p.unit || ''}".strip())`;
         }
         else if (n.toolId === 'mgt_project_raster') {
-            const outFileName = `proj_raster_${n.id.split('_')[1]}.tif`;
-            funcCall = `${outVar} = arcpy.management.ProjectRaster(${inRasterVar}, "${outFileName}", "${p.out_crs}", resampling_type="${p.resampling}")`;
+            const baseName = `proj_raster_${n.id.split('_')[1]}`;
+            funcCall = `${outVar} = [arcpy.management.ProjectRaster(r, f"${baseName}_{i}.tif", "${p.out_crs}", resampling_type="${p.resampling}") for i, r in enumerate(${inRasterVar})] if isinstance(${inRasterVar}, list) else arcpy.management.ProjectRaster(${inRasterVar}, "${baseName}.tif", "${p.out_crs}", resampling_type="${p.resampling}")`;
         }
         else if (n.toolId === 'mgt_project_vector') {
-            const outFileName = p.out_feature_class || `proj_vector_${n.id.split('_')[1]}.shp`;
-            funcCall = `${outVar} = arcpy.management.Project(${primaryInVar}, "${outFileName}", out_coor_system="${p.out_crs}")`;
+            const baseName = (p.out_feature_class || `proj_vector_${n.id.split('_')[1]}.shp`).replace('.shp', '');
+            funcCall = `${outVar} = [arcpy.management.Project(f, f"${baseName}_{i}.shp", out_coor_system="${p.out_crs}") for i, f in enumerate(${primaryInVar})] if isinstance(${primaryInVar}, list) else arcpy.management.Project(${primaryInVar}, "${baseName}.shp", out_coor_system="${p.out_crs}")`;
         }
         else if (n.toolId === 'mgt_pyramids') {
             funcCall = `${outVar} = ${primaryInVar}\narcpy.management.BuildPyramidsAndStats(${primaryInVar}, build_pyramids=${p.build_pyramids ? 'True' : 'False'}, calculate_stats=${p.calculate_stats ? 'True' : 'False'})`;
