@@ -144,14 +144,40 @@ def PullSentinel2(extent, out_raster, max_cloud_cover=10, date_range="2023-01-01
         with rasterio.Env(CPL_VSIL_CURL_ALLOWED_EXTENSIONS="tif"):
             with rasterio.open(band_urls[0]) as src0:
                 from rasterio.warp import transform_bounds
-                utm_bounds = transform_bounds('EPSG:4326', src0.crs, min_lon, min_lat, max_lon, max_lat)
-                window = from_bounds(*utm_bounds, src0.transform).round_offsets().round_lengths()
-                out_meta = src0.meta.copy()
-                out_meta.update({"driver": "GTiff", "count": len(band_urls), "height": window.height, "width": window.width, "transform": src0.window_transform(window)})
-                with rasterio.open(out_raster, "w", **out_meta) as dest:
-                    for i, url in enumerate(band_urls, start=1):
-                        logger.info(f"Streaming Band {i}...")
-                        with rasterio.open(url) as src_band: dest.write(src_band.read(1, window=window), i)
+                from rasterio.vrt import WarpedVRT
+                from rasterio.enums import Resampling
+                from magpi.env import env
+                
+                # Check if global output coordinate system is defined
+                target_crs = f"EPSG:{env.outputCoordinateSystem}" if env.outputCoordinateSystem else src0.crs
+                if env.outputCoordinateSystem:
+                    logger.info(f"Enforcing global Coregistration via WarpedVRT ({target_crs})")
+                
+                # Project the EPSG:4326 extent BBox into the Target CRS
+                target_bounds = transform_bounds('EPSG:4326', target_crs, min_lon, min_lat, max_lon, max_lat)
+                
+                # Wrap source in VRT to dynamically reproject it
+                with WarpedVRT(src0, crs=target_crs, resampling=Resampling.bilinear) as vrt:
+                    # Calculate the pixel window for the target BBox using the VRT's new transform
+                    window = from_bounds(*target_bounds, vrt.transform).round_offsets().round_lengths()
+                    
+                    # Prepare meta for output
+                    out_meta = vrt.meta.copy()
+                    out_meta.update({
+                        "driver": "GTiff", 
+                        "count": len(band_urls), 
+                        "height": window.height, 
+                        "width": window.width, 
+                        "transform": vrt.window_transform(window)
+                    })
+                    
+                    with rasterio.open(out_raster, "w", **out_meta) as dest:
+                        for i, url in enumerate(band_urls, start=1):
+                            logger.info(f"Streaming Band {i} into unified grid...")
+                            with rasterio.open(url) as src_band:
+                                # Apply the same VRT to all bands to guarantee perfect coregistration
+                                with WarpedVRT(src_band, crs=target_crs, resampling=Resampling.bilinear) as band_vrt:
+                                    dest.write(band_vrt.read(1, window=window), i)
                             
         logger.info(f"Saved {len(band_urls)}-Band Sentinel-2 chip to: {out_raster}")
         return Result(out_raster)
