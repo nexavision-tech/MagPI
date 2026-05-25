@@ -141,7 +141,15 @@ def PullSentinel2(extent, out_raster, max_cloud_cover=10, date_range="2023-01-01
             logger.error("No valid bands selected.")
             return Result(None, status=3)
         
-        with rasterio.Env(CPL_VSIL_CURL_ALLOWED_EXTENSIONS="tif"):
+        with rasterio.Env(
+            GDAL_DISABLE_READDIR_ON_OPEN="EMPTY_DIR",
+            GDAL_HTTP_MERGE_CONSECUTIVE_RANGES="YES",
+            GDAL_HTTP_MULTIPLEX="YES",
+            GDAL_HTTP_VERSION="2",
+            VSI_CACHE="TRUE",
+            VSI_CACHE_SIZE="100000000",
+            CPL_VSIL_CURL_ALLOWED_EXTENSIONS="tif"
+        ):
             with rasterio.open(band_urls[0]) as src0:
                 from rasterio.warp import transform_bounds
                 from rasterio.vrt import WarpedVRT
