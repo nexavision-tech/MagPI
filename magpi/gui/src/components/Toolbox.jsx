@@ -360,8 +360,9 @@ export default function Toolbox({
       )}
 
       <div className="flex bg-slate-900 border-b border-slate-700">
-        <button onClick={() => setActiveRightTab('toolbox')} className={`flex-1 py-4 text-xs font-bold uppercase tracking-widest transition-all flex items-center justify-center ${activeRightTab === 'toolbox' ? 'text-emerald-400 border-b-2 border-emerald-400 bg-slate-800' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/50'}`}><Wrench size={14} className="mr-2" /> Tools</button>
-        <button onClick={() => setActiveRightTab('inspector')} className={`flex-1 py-4 text-xs font-bold uppercase tracking-widest transition-all flex items-center justify-center ${activeRightTab === 'inspector' ? 'text-emerald-400 border-b-2 border-emerald-400 bg-slate-800' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/50'}`}><SlidersHorizontal size={14} className="mr-2" /> Params</button>
+        <button onClick={() => setActiveRightTab('toolbox')} className={`flex-1 py-4 text-[10px] font-bold uppercase tracking-widest transition-all flex items-center justify-center ${activeRightTab === 'toolbox' ? 'text-emerald-400 border-b-2 border-emerald-400 bg-slate-800' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/50'}`}><Wrench size={12} className="mr-1" /> Tools</button>
+        <button onClick={() => setActiveRightTab('inspector')} className={`flex-1 py-4 text-[10px] font-bold uppercase tracking-widest transition-all flex items-center justify-center ${activeRightTab === 'inspector' ? 'text-emerald-400 border-b-2 border-emerald-400 bg-slate-800' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/50'}`}><SlidersHorizontal size={12} className="mr-1" /> Params</button>
+        <button onClick={() => setActiveRightTab('explorer')} className={`flex-1 py-4 text-[10px] font-bold uppercase tracking-widest transition-all flex items-center justify-center ${activeRightTab === 'explorer' ? 'text-emerald-400 border-b-2 border-emerald-400 bg-slate-800' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/50'}`}><FolderOpen size={12} className="mr-1" /> Explorer</button>
       </div>
       
       <div className="flex-1 overflow-y-auto bg-slate-800 flex flex-col">
@@ -586,6 +587,20 @@ export default function Toolbox({
                 )}
               </div>
             )}
+          </div>
+        )}
+
+        {activeRightTab === 'explorer' && (
+          <div className="p-4 flex flex-col items-center justify-center h-full text-slate-500">
+            <div className="w-16 h-16 rounded-full bg-slate-900 border border-slate-700 flex items-center justify-center mb-4 shadow-inner">
+              <FolderOpen size={24} className="opacity-50 text-emerald-500" />
+            </div>
+            <p className="text-sm font-bold text-slate-400 mb-2">Native OS Explorer</p>
+            <p className="text-xs text-center px-4">
+              To browse the local or remote filesystem, use the <strong className="text-emerald-500">Paths</strong> button in the Top Ribbon (Global Environment).
+              <br /><br />
+              All processed WFS and Tensor Brew layers will dynamically sync to the Live Viewport's Active Layers!
+            </p>
           </div>
         )}
       </div>

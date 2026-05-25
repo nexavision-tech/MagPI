@@ -195,7 +195,8 @@ export const generatePythonScript = (nodes, connections, crs, processingScope, g
             let varB = 'None';
             if (inNodes.length > 0) varA = varMap[inNodes[0].id];
             if (inNodes.length > 1) varB = varMap[inNodes[1].id];
-            funcCall = `_expr = "${p.expression}"\n${outVar} = [arcpy.ia.RasterMath(a, b, _expr, f"raster_math_{i}.tif") for i, (a, b) in enumerate(zip(${varA} if isinstance(${varA}, list) else [${varA}], ${varB} if isinstance(${varB}, list) else [${varB}]))]`;
+            let varBListStr = varB === 'None' ? '[None]' : `${varB} if isinstance(${varB}, list) else [${varB}]`;
+            funcCall = `_expr = "${p.expression}"\\n${outVar} = [arcpy.ia.RasterMath(a, b, _expr, f"raster_math_{i}.tif") for i, (a, b) in enumerate(zip(${varA} if isinstance(${varA}, list) else [${varA}], ${varBListStr}))]`;
         }
         else if (n.toolId === 'ai_train') {
             const inFolderStr = primaryInVar !== 'None' ? `getattr(${primaryInVar}, 'output', ${primaryInVar})` : `"${p.in_folder}"`;

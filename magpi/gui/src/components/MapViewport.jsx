@@ -48,7 +48,7 @@ const MapViewport = React.memo(({ onAoiDrawn, selectedNode, activeWorkspace, nod
 
     // Dynamically update layers list based on node outputs
     useEffect(() => {
-        const baseLayer = { id: 'base', name: 'CartoDB Dark Matter', visible: true, opacity: 100, isBase: true };
+        const baseLayer = { id: 'base', name: 'Base Map (OSM)', visible: true, opacity: 100, isBase: true };
         const newLayers = [baseLayer];
         
         nodes.forEach(node => {
@@ -84,8 +84,8 @@ const MapViewport = React.memo(({ onAoiDrawn, selectedNode, activeWorkspace, nod
         const map = L.map(mapRef.current, { zoomControl: false }).setView([0, 0], 2);
         mapInstance.current = map;
 
-        osmLayerRef.current = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-            attribution: '© OpenStreetMap contributors, © CARTO'
+        osmLayerRef.current = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OSM'
         }).addTo(map);
 
         L.control.zoom({ position: 'topright' }).addTo(map);
@@ -181,7 +181,7 @@ const MapViewport = React.memo(({ onAoiDrawn, selectedNode, activeWorkspace, nod
                     const rect = L.rectangle(bounds, { 
                         color: color, 
                         weight: weight, 
-                        fillOpacity: layer.opacity / 100, 
+                        fillOpacity: layer.id.includes('extent') ? 0.2 : layer.opacity / 100, 
                         dashArray: layer.id.includes('extent') ? '4, 4' : null 
                     });
                     

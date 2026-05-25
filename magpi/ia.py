@@ -340,11 +340,15 @@ def RasterMath(raster_a, raster_b, expression, out_raster):
     elif hasattr(raster_a, 'output'): path_a = raster_a.output
     else: path_a = str(raster_a)
     
+    if path_a == "None": path_a = None
+    
     path_b = None
-    if raster_b is not None:
+    if raster_b is not None and str(raster_b) != "None":
         if hasattr(raster_b, 'name'): path_b = raster_b.name
         elif hasattr(raster_b, 'output'): path_b = raster_b.output
         else: path_b = str(raster_b)
+        
+        if path_b == "None": path_b = None
         
     from .env import env
     out_raster = env.resolve_path(out_raster)
@@ -353,6 +357,9 @@ def RasterMath(raster_a, raster_b, expression, out_raster):
         import rasterio
         from rasterio.warp import reproject, Resampling
         
+        if not path_a:
+            raise ValueError(f"Input Raster A is invalid or None: {raster_a}")
+            
         with rasterio.open(path_a) as src_a:
             A_all = src_a.read().astype('float32') # Shape: (bands, height, width)
             A = A_all[0] # Fallback to first band for 'A' variable

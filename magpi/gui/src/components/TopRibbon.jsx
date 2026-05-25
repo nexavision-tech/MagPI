@@ -1,10 +1,10 @@
 import React from 'react';
-import { Compass, Server, Code, Save, Globe, Cpu, FolderUp, Trash2, Rss, Map as MapIcon } from 'lucide-react';
+import { Compass, Server, Code, Save, Globe, Cpu, FolderUp, Trash2, Rss, Map as MapIcon, Layers } from 'lucide-react';
 
 export default function TopRibbon({ 
   crs, setCrs, 
   processingScope, setProcessingScope, 
-  onGenerate, onSave, onLoad, onClear, onOpenEnvSettings, onImportENVI
+  onGenerate, onSave, onLoad, onClear, onAutoLayout, onOpenEnvSettings, onImportENVI
 }) {
   const hiddenFileInput = React.useRef(null);
   return (
@@ -60,8 +60,12 @@ export default function TopRibbon({
               e.target.value = null; 
             }} />
           </label>
+          <button onClick={onAutoLayout} className="flex flex-col items-center justify-center p-2 hover:bg-indigo-900/50 hover:text-indigo-400 rounded text-slate-400 transition-colors ml-4 border-l border-slate-700 pl-4" title="Auto Layout Nodes">
+            <Layers size={18} />
+            <span className="text-[10px] mt-1 font-medium">Layout</span>
+          </button>
 
-          <button onClick={onClear} className="flex flex-col items-center justify-center p-2 hover:bg-red-900/50 hover:text-red-400 rounded text-slate-400 transition-colors ml-4 border-l border-slate-700 pl-4" title="Clear Canvas">
+          <button onClick={onClear} className="flex flex-col items-center justify-center p-2 hover:bg-red-900/50 hover:text-red-400 rounded text-slate-400 transition-colors ml-1" title="Clear Canvas">
             <Trash2 size={18} />
             <span className="text-[10px] mt-1 font-medium">Clear</span>
           </button>

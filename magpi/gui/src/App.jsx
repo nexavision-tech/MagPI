@@ -245,6 +245,83 @@ export default function App() {
     });
   };
 
+  const handleAutoLayout = () => {
+    if (nodes.length === 0) return;
+    
+    if (window.dagre) {
+        const g = new window.dagre.graphlib.Graph();
+        g.setGraph({ rankdir: 'LR', align: 'UL', ranksep: 150, nodesep: 50 });
+        g.setDefaultEdgeLabel(() => ({}));
+        
+        const NODE_WIDTH = 250;
+        const NODE_HEIGHT = 80;
+
+        nodes.forEach(n => {
+            g.setNode(n.id, { width: NODE_WIDTH, height: NODE_HEIGHT });
+        });
+        
+        connections.forEach(c => {
+            g.setEdge(c.from, c.to);
+        });
+        
+        window.dagre.layout(g);
+        
+        setNodes(prev => prev.map(n => {
+            const nodeWithPosition = g.node(n.id);
+            return {
+                ...n,
+                x: nodeWithPosition.x - NODE_WIDTH / 2,
+                y: nodeWithPosition.y - NODE_HEIGHT / 2 + 100
+            };
+        }));
+        
+        setLogs([{ type: 'success', msg: 'Auto-Layout successfully optimized via Dagre.' }]);
+    } else {
+        // Fallback Homebrew Auto-Layout
+        const depths = {};
+        const getDepth = (nId, visited = new Set()) => {
+            if (depths[nId] !== undefined) return depths[nId];
+            if (visited.has(nId)) return 0;
+            visited.add(nId);
+            const incomingCxs = connections.filter(c => c.to === nId);
+            if (incomingCxs.length === 0) return 0;
+            
+            let maxParentDepth = 0;
+            for (const cx of incomingCxs) {
+                maxParentDepth = Math.max(maxParentDepth, getDepth(cx.from, new Set(visited)));
+            }
+            depths[nId] = maxParentDepth + 1;
+            return depths[nId];
+        };
+        
+        nodes.forEach(n => getDepth(n.id));
+        const nodesByDepth = {};
+        Object.entries(depths).forEach(([nId, d]) => {
+            if (!nodesByDepth[d]) nodesByDepth[d] = [];
+            nodesByDepth[d].push(nodes.find(n => n.id === nId));
+        });
+        
+        const SPACING_X = 350;
+        const SPACING_Y = 150;
+        const START_X = 50;
+        const START_Y = 100;
+        
+        setNodes(prev => prev.map(n => {
+            const d = depths[n.id];
+            const siblings = nodesByDepth[d];
+            const index = siblings.findIndex(s => s.id === n.id);
+            const verticalOffset = ((siblings.length - 1) * SPACING_Y) / 2;
+            return {
+                ...n,
+                x: START_X + (d * SPACING_X),
+                y: START_Y + (index * SPACING_Y) - verticalOffset + 200
+            };
+        }));
+        setLogs([{ type: 'success', msg: 'Homebrew Auto-Layout successfully executed.' }]);
+    }
+    setShowTerminal(true);
+  };
+
   const handleGenerate = () => {
     const code = generatePythonScript(nodes, connections, crs, processingScope, globalEnv);
     setGeneratedCode(code);
@@ -327,7 +404,7 @@ export default function App() {
   return (
     <div className="absolute inset-0 w-full h-full flex flex-col bg-slate-900 text-slate-200 font-sans overflow-hidden select-none">
       <div className="flex-none z-40 shadow-md">
-        <TopRibbon crs={crs} setCrs={setCrs} processingScope={processingScope} setProcessingScope={setProcessingScope} onGenerate={handleGenerate} onSave={handleSave} onLoad={handleLoad} onClear={handleClear} onOpenEnvSettings={() => setShowEnvSettings(true)} onImportENVI={handleImportENVI} />
+        <TopRibbon crs={crs} setCrs={setCrs} processingScope={processingScope} setProcessingScope={setProcessingScope} onGenerate={handleGenerate} onSave={handleSave} onLoad={handleLoad} onClear={handleClear} onAutoLayout={handleAutoLayout} onOpenEnvSettings={() => setShowEnvSettings(true)} onImportENVI={handleImportENVI} />
         <div className="flex bg-slate-900 border-b border-slate-700 px-4 pt-2">
             <button onClick={() => setActiveWorkspace('builder')} className={`px-6 py-2 text-xs font-bold uppercase tracking-widest rounded-t-lg transition-colors flex items-center border border-b-0 ${activeWorkspace === 'builder' ? 'bg-slate-800 text-emerald-400 border-slate-600' : 'bg-transparent text-slate-500 border-transparent hover:bg-slate-800/50 hover:text-slate-300'}`}><Wrench size={14} className="mr-2" /> Model Builder</button>
             <button onClick={() => setActiveWorkspace('globe')} className={`px-6 py-2 text-xs font-bold uppercase tracking-widest rounded-t-lg transition-colors flex items-center border border-b-0 ml-1 ${activeWorkspace === 'globe' ? 'bg-slate-800 text-cyan-400 border-slate-600' : 'bg-transparent text-slate-500 border-transparent hover:bg-slate-800/50 hover:text-slate-300'}`}><MapIcon size={14} className="mr-2" /> Globe Nexus</button>
