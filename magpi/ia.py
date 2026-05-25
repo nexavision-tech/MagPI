@@ -324,7 +324,9 @@ def ComputeConfusionMatrix(in_accuracy_assessment_points, out_confusion_matrix):
 
 def RasterMath(raster_a, raster_b, expression, out_raster):
     """
-    Evaluates a mathematical expression across two input rasters.
+    Evaluates a mathematical expression across two input rasters, or bands within a single raster.
+    If raster_b is None, it performs band math on raster_a. Use variables b1, b2, b3, etc. for bands.
+    If raster_b is provided, use A and B to represent the first band of raster_a and raster_b.
     """
     logger.info(f"Initiating Raster Math: {expression}")
     
@@ -332,41 +334,55 @@ def RasterMath(raster_a, raster_b, expression, out_raster):
     elif hasattr(raster_a, 'output'): path_a = raster_a.output
     else: path_a = str(raster_a)
     
-    if hasattr(raster_b, 'name'): path_b = raster_b.name
-    elif hasattr(raster_b, 'output'): path_b = raster_b.output
-    else: path_b = str(raster_b)
+    path_b = None
+    if raster_b is not None:
+        if hasattr(raster_b, 'name'): path_b = raster_b.name
+        elif hasattr(raster_b, 'output'): path_b = raster_b.output
+        else: path_b = str(raster_b)
     
     try:
         import rasterio
         from rasterio.warp import reproject, Resampling
         
-        with rasterio.open(path_a) as src_a, rasterio.open(path_b) as src_b:
-            A = src_a.read(1).astype('float32')
+        with rasterio.open(path_a) as src_a:
+            A_all = src_a.read().astype('float32') # Shape: (bands, height, width)
+            A = A_all[0] # Fallback to first band for 'A' variable
             
-            if src_a.shape != src_b.shape or src_a.transform != src_b.transform or src_a.crs != src_b.crs:
-                logger.warning(f"Raster Math Warning: Coregistering B ({src_b.shape}) to A ({src_a.shape}).")
-                B = np.zeros(src_a.shape, dtype='float32')
-                reproject(
-                    source=rasterio.band(src_b, 1),
-                    destination=B,
-                    src_transform=src_b.transform,
-                    src_crs=src_b.crs,
-                    dst_transform=src_a.transform,
-                    dst_crs=src_a.crs,
-                    resampling=Resampling.bilinear
-                )
-            else:
-                B = src_b.read(1).astype('float32')
+            allowed_locals = {"A": A, "np": np}
+            
+            # Inject band variables (b1, b2, b3...)
+            for i in range(src_a.count):
+                allowed_locals[f"b{i+1}"] = A_all[i]
+                
+            if path_b:
+                with rasterio.open(path_b) as src_b:
+                    if src_a.shape != src_b.shape or src_a.transform != src_b.transform or src_a.crs != src_b.crs:
+                        logger.warning(f"Raster Math Warning: Coregistering B ({src_b.shape}) to A ({src_a.shape}).")
+                        B = np.zeros(src_a.shape, dtype='float32')
+                        reproject(
+                            source=rasterio.band(src_b, 1),
+                            destination=B,
+                            src_transform=src_b.transform,
+                            src_crs=src_b.crs,
+                            dst_transform=src_a.transform,
+                            dst_crs=src_a.crs,
+                            resampling=Resampling.bilinear
+                        )
+                    else:
+                        B = src_b.read(1).astype('float32')
+                    allowed_locals["B"] = B
             
             np.seterr(divide='ignore', invalid='ignore')
             
-            # Simple safe-eval for raster math
-            allowed_locals = {"A": A, "B": B, "np": np}
+            # Pre-process expression to make it case-insensitive for b1, b2, etc. (e.g. B1 -> b1)
+            import re
+            processed_expr = re.sub(r'\bB(\d+)\b', r'b\1', expression)
+            
             try:
-                # Security note: evaluation is limited to A, B, and numpy
-                result_array = eval(expression, {"__builtins__": None}, allowed_locals)
+                # Security note: evaluation is limited to allowed locals and numpy
+                result_array = eval(processed_expr, {"__builtins__": None}, allowed_locals)
             except Exception as eval_err:
-                raise Exception(f"Failed to evaluate expression '{expression}': {eval_err}")
+                raise Exception(f"Failed to evaluate expression '{processed_expr}': {eval_err}")
                 
             result_array = np.nan_to_num(result_array, nan=0.0)
             
