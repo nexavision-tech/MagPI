@@ -199,7 +199,7 @@ def PullUSGSElevation(extent, out_raster, resolution_width=1000, resolution_heig
     logger.info("Initializing Z-Axis Data Pull (USGS 3DEP WCS)...")
     try:
         from .env import env
-        out_raster = env.resolve_path(out_raster)
+        out_raster = env.resolve_path(out_raster, intent="input")
         if hasattr(extent, 'XMin'): min_lon, min_lat, max_lon, max_lat = extent.XMin, extent.YMin, extent.XMax, extent.YMax
         else: min_lon, min_lat, max_lon, max_lat = map(float, str(extent).split())
 
@@ -222,7 +222,7 @@ def PullUSGSElevation(extent, out_raster, resolution_width=1000, resolution_heig
 def PullNLCD(extent, out_raster, year=2021, product="Land_Cover"):
     try:
         from .env import env
-        out_raster = env.resolve_path(out_raster)
+        out_raster = env.resolve_path(out_raster, intent="input")
         import numpy as np
         if hasattr(extent, 'XMin'): min_lon, min_lat, max_lon, max_lat = extent.XMin, extent.YMin, extent.XMax, extent.YMax
         else: min_lon, min_lat, max_lon, max_lat = map(float, str(extent).split())

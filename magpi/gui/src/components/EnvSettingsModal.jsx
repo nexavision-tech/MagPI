@@ -1,7 +1,7 @@
 import React from 'react';
 import { X, Globe, Folder, Database, HardDrive, CheckCircle2, Settings } from 'lucide-react';
 
-export default function EnvSettingsModal({ isOpen, onClose, globalEnv, setGlobalEnv }) {
+export default function EnvSettingsModal({ isOpen, onClose, globalEnv, setGlobalEnv, openFileBrowser }) {
   if (!isOpen) return null;
 
   const handleChange = (e) => {
@@ -48,14 +48,22 @@ export default function EnvSettingsModal({ isOpen, onClose, globalEnv, setGlobal
                 <Folder size={14} className="mr-2 text-blue-400" /> Workspace Directory
                 {globalEnv.workspace_dir !== './magpi_workspace' && <span className="ml-3 text-[9px] bg-amber-500/20 text-amber-500 px-1.5 py-0.5 rounded border border-amber-500/30">CUSTOM</span>}
               </label>
-              <input 
-                type="text" 
-                name="workspace_dir"
-                value={globalEnv.workspace_dir} 
-                onChange={handleChange}
-                className="bg-slate-950 border border-slate-700 rounded-lg px-4 py-2.5 text-sm font-mono text-emerald-400 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500/50 transition-all" 
-                placeholder="/home/user/projects/magpi_workspace"
-              />
+              <div className="flex">
+                <input 
+                  type="text" 
+                  name="workspace_dir"
+                  value={globalEnv.workspace_dir} 
+                  onChange={handleChange}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-l-lg px-4 py-2.5 text-sm font-mono text-emerald-400 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500/50 transition-all" 
+                  placeholder="/home/user/projects/magpi_workspace"
+                />
+                <button 
+                  onClick={() => openFileBrowser('env', 'workspace_dir', globalEnv.workspace_dir)}
+                  className="bg-slate-800 border border-l-0 border-slate-700 rounded-r-lg px-3 hover:bg-slate-700 text-slate-400 hover:text-emerald-400 transition-colors"
+                >
+                  <Folder size={16} />
+                </button>
+              </div>
               <span className="text-[10px] text-slate-500 italic">The root directory for all MagPI project files and relative path resolutions.</span>
             </div>
 
@@ -64,14 +72,22 @@ export default function EnvSettingsModal({ isOpen, onClose, globalEnv, setGlobal
                 <HardDrive size={14} className="mr-2 text-yellow-400" /> Scratch Directory
                 {globalEnv.scratch_dir !== './magpi_scratch' && <span className="ml-3 text-[9px] bg-amber-500/20 text-amber-500 px-1.5 py-0.5 rounded border border-amber-500/30">CUSTOM</span>}
               </label>
-              <input 
-                type="text" 
-                name="scratch_dir"
-                value={globalEnv.scratch_dir} 
-                onChange={handleChange}
-                className="bg-slate-950 border border-slate-700 rounded-lg px-4 py-2.5 text-sm font-mono text-emerald-400 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500/50 transition-all" 
-                placeholder="./magpi_scratch"
-              />
+              <div className="flex">
+                <input 
+                  type="text" 
+                  name="scratch_dir"
+                  value={globalEnv.scratch_dir} 
+                  onChange={handleChange}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-l-lg px-4 py-2.5 text-sm font-mono text-emerald-400 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500/50 transition-all" 
+                  placeholder="./magpi_scratch"
+                />
+                <button 
+                  onClick={() => openFileBrowser('env', 'scratch_dir', globalEnv.scratch_dir)}
+                  className="bg-slate-800 border border-l-0 border-slate-700 rounded-r-lg px-3 hover:bg-slate-700 text-slate-400 hover:text-emerald-400 transition-colors"
+                >
+                  <Folder size={16} />
+                </button>
+              </div>
               <span className="text-[10px] text-slate-500 italic">Temporary storage for intermediate raster chips, unzipped shapes, and cached WFS streams. Safe to delete between runs.</span>
             </div>
 
@@ -80,14 +96,22 @@ export default function EnvSettingsModal({ isOpen, onClose, globalEnv, setGlobal
                 <Database size={14} className="mr-2 text-purple-400" /> Output Directory
                 {globalEnv.output_dir !== './magpi_output' && <span className="ml-3 text-[9px] bg-amber-500/20 text-amber-500 px-1.5 py-0.5 rounded border border-amber-500/30">CUSTOM</span>}
               </label>
-              <input 
-                type="text" 
-                name="output_dir"
-                value={globalEnv.output_dir} 
-                onChange={handleChange}
-                className="bg-slate-950 border border-slate-700 rounded-lg px-4 py-2.5 text-sm font-mono text-emerald-400 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500/50 transition-all" 
-                placeholder="./magpi_output"
-              />
+              <div className="flex">
+                <input 
+                  type="text" 
+                  name="output_dir"
+                  value={globalEnv.output_dir} 
+                  onChange={handleChange}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-l-lg px-4 py-2.5 text-sm font-mono text-emerald-400 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500/50 transition-all" 
+                  placeholder="./magpi_output"
+                />
+                <button 
+                  onClick={() => openFileBrowser('env', 'output_dir', globalEnv.output_dir)}
+                  className="bg-slate-800 border border-l-0 border-slate-700 rounded-r-lg px-3 hover:bg-slate-700 text-slate-400 hover:text-emerald-400 transition-colors"
+                >
+                  <Folder size={16} />
+                </button>
+              </div>
               <span className="text-[10px] text-slate-500 italic">The final destination for processed pipelines, AI inference masks, and exported metrics.</span>
             </div>
             

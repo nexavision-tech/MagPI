@@ -46,6 +46,36 @@ const MapViewport = React.memo(({ onAoiDrawn, selectedNode, activeWorkspace, nod
         }
     }, [activeWorkspace]);
 
+    // Dynamically update layers list based on node outputs
+    useEffect(() => {
+        const baseLayer = { id: 'base', name: 'CartoDB Dark Matter', visible: true, opacity: 100, isBase: true };
+        const newLayers = [baseLayer];
+        
+        nodes.forEach(node => {
+            const status = nodeStatuses[node.id];
+            if (status === 'success' || node.toolId.startsWith('load_') || node.toolId === 'core_extent' || node.toolId.startsWith('wfs_')) {
+                // Determine a good display name
+                let layerName = node.name || node.toolId;
+                if (node.params && node.params.out_raster) {
+                    layerName = `${node.name} (${node.params.out_raster})`;
+                } else if (node.params && node.params.file_path) {
+                    layerName = `${node.name} (${node.params.file_path.split('/').pop()})`;
+                }
+                
+                newLayers.push({
+                    id: node.id,
+                    name: layerName,
+                    visible: true,
+                    opacity: 100,
+                    isBase: false,
+                    selected: selectedNode && selectedNode.id === node.id
+                });
+            }
+        });
+        
+        setLayers(newLayers);
+    }, [nodes, nodeStatuses, selectedNode]);
+
     useEffect(() => {
         if (!mapRef.current) return;
         if (mapInstance.current) return; 
@@ -54,8 +84,8 @@ const MapViewport = React.memo(({ onAoiDrawn, selectedNode, activeWorkspace, nod
         const map = L.map(mapRef.current, { zoomControl: false }).setView([0, 0], 2);
         mapInstance.current = map;
 
-        osmLayerRef.current = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OSM'
+        osmLayerRef.current = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            attribution: '© OpenStreetMap contributors, © CARTO'
         }).addTo(map);
 
         L.control.zoom({ position: 'topright' }).addTo(map);

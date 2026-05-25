@@ -15,7 +15,7 @@ import { saveProject, loadProject } from './utils/fileOps';
 
 export default function App() {
   const [activeWorkspace, setActiveWorkspace] = useState('builder');
-  const [crs, setCrs] = useState("EPSG:6438");
+  const [crs, setCrs] = useState("EPSG:4326");
   const [processingScope, setProcessingScope] = useState("Local Python");
   
   const [globalEnv, setGlobalEnv] = useState({
@@ -194,7 +194,11 @@ export default function App() {
   };
 
   const handleFileSelected = (absolutePath) => {
-    if (browserConfig.nodeId && browserConfig.paramKey) updateNodeParam(browserConfig.nodeId, browserConfig.paramKey, absolutePath);
+    if (browserConfig.nodeId === "env" && browserConfig.paramKey) {
+        setGlobalEnv(prev => ({ ...prev, [browserConfig.paramKey]: absolutePath }));
+    } else if (browserConfig.nodeId && browserConfig.paramKey) {
+        updateNodeParam(browserConfig.nodeId, browserConfig.paramKey, absolutePath);
+    }
   };
 
   const updateNodeName = (nodeId, newName) => {
@@ -230,13 +234,13 @@ export default function App() {
   const selectedNode = nodes.find(n => n.id === selectedNodeId);
 
   const handleSave = () => {
-    saveProject(nodes, connections, crs, "MagPI_Active_Pipeline");
+    saveProject(nodes, connections, crs, globalEnv, "MagPI_Active_Pipeline");
     setLogs([{ type: 'success', msg: 'Project saved to disk as .mpjx format.' }]);
     setShowTerminal(true);
   };
 
   const handleLoad = (file) => {
-    loadProject(file, setNodes, setConnections, setCrs, (msg) => {
+    loadProject(file, setNodes, setConnections, setCrs, setGlobalEnv, (msg) => {
         setLogs([msg]); setShowTerminal(true); setNodeStatuses({});
     });
   };
@@ -372,7 +376,7 @@ export default function App() {
       
       <ScriptModal showScript={showScript} setShowScript={setShowScript} generatedCode={generatedCode} processingScope={processingScope} onDeploy={handleDeploy} />
       <FileBrowserModal isOpen={browserConfig.isOpen} onClose={() => setBrowserConfig(prev => ({ ...prev, isOpen: false }))} onSelect={handleFileSelected} initialPath={browserConfig.initialPath} />
-      <EnvSettingsModal isOpen={showEnvSettings} onClose={() => setShowEnvSettings(false)} globalEnv={globalEnv} setGlobalEnv={setGlobalEnv} />
+      <EnvSettingsModal isOpen={showEnvSettings} onClose={() => setShowEnvSettings(false)} globalEnv={globalEnv} setGlobalEnv={setGlobalEnv} openFileBrowser={openFileBrowser} />
     </div>
   );
 }

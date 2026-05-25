@@ -1,9 +1,10 @@
-export const saveProject = (nodes, connections, crs, projectName = "MagPI_Project") => {
+export const saveProject = (nodes, connections, crs, globalEnv, projectName = "MagPI_Project") => {
     // Construct the payload
     const projectData = {
         version: "0.1.3",
         timestamp: new Date().toISOString(),
         crs: crs,
+        globalEnv: globalEnv,
         nodes: nodes,
         connections: connections
     };
@@ -21,7 +22,7 @@ export const saveProject = (nodes, connections, crs, projectName = "MagPI_Projec
     downloadAnchorNode.remove();
 };
 
-export const loadProject = (file, setNodes, setConnections, setCrs, logCallback) => {
+export const loadProject = (file, setNodes, setConnections, setCrs, setGlobalEnv, logCallback) => {
     const reader = new FileReader();
     
     reader.onload = (event) => {
@@ -32,6 +33,7 @@ export const loadProject = (file, setNodes, setConnections, setCrs, logCallback)
             if (projectData.nodes) setNodes(projectData.nodes);
             if (projectData.connections) setConnections(projectData.connections);
             if (projectData.crs) setCrs(projectData.crs);
+            if (projectData.globalEnv) setGlobalEnv(projectData.globalEnv);
             
             logCallback({ type: 'success', msg: `Project loaded successfully. Rehydrated ${projectData.nodes.length} nodes.` });
         } catch (e) {
