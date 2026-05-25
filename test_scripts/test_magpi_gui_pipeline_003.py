@@ -15,22 +15,22 @@ arcpy.AddMessage("Initiating MagPI Visual Model execution...")
 extent_1 = arcpy.Extent(-81.55384, 27.75887, -81.41668, 27.85850)
 extent_2 = arcpy.Extent(-81.46558, 27.68089, -81.32908, 27.77892)
 extent_3 = arcpy.Extent(-81.40267, 27.77089, -81.28471, 27.88022)
-ndvi_4 = [arcpy.ia.NDVI(r, nir_band_id=4, red_band_id=3) for r in None] if isinstance(None, list) else arcpy.ia.NDVI(None, nir_band_id=4, red_band_id=3)
-sentinel2_5 = arcpy.wfs.PullSentinel2(extent_1, "s2_cloud_extract_1779606024893.tif", max_cloud_cover=10, date_range="2023-01-01/2023-12-31", item_ids="S2B_57MYN_20231231_0_L2A", bands="B02,B03,B04,B08")
-sentinel2_6 = arcpy.wfs.PullSentinel2(extent_1, "s2_cloud_extract_1779606043652.tif", max_cloud_cover=10, date_range="2024-01-01/2024-12-31", item_ids="S2A_49CDN_20241231_2_L2A", bands="B02,B03,B04,B08")
-sentinel2_7 = arcpy.wfs.PullSentinel2(extent_2, "s2_cloud_extract_1779606024461.tif", max_cloud_cover=10, date_range="2023-01-01/2023-12-31", item_ids="S2B_57MYN_20231231_0_L2A", bands="B02,B03,B04,B08")
-sentinel2_8 = arcpy.wfs.PullSentinel2(extent_2, "s2_cloud_extract_1779606044082.tif", max_cloud_cover=10, date_range="2024-01-01/2024-12-31", item_ids="S2A_49CDN_20241231_2_L2A", bands="B02,B03,B04,B08")
-sentinel2_9 = arcpy.wfs.PullSentinel2(extent_3, "s2_cloud_extract_1779552489338.tif", max_cloud_cover=10, date_range="2023-01-01/2023-12-31", item_ids="S2B_57MYN_20231231_0_L2A", bands="B02,B03,B04,B08")
-sentinel2_10 = arcpy.wfs.PullSentinel2(extent_3, "s2_cloud_extract_1779553078691.tif", max_cloud_cover=10, date_range="2024-01-01/2024-12-31", item_ids="S2A_49CDN_20241231_2_L2A", bands="B02,B03,B04,B08")
+sentinel2_4 = arcpy.wfs.PullSentinel2(extent_1, "s2_cloud_extract_1779607635511.tif", max_cloud_cover=10, date_range="2023-01-01/2023-12-31", item_ids="S2B_17RML_20231119_0_L2A", bands="B02,B03,B04,B08")
+sentinel2_5 = arcpy.wfs.PullSentinel2(extent_1, "s2_cloud_extract_1779607683626.tif", max_cloud_cover=10, date_range="2024-01-01/2024-12-31", item_ids="S2B_17RML_20241123_0_L2A", bands="B02,B03,B04,B08")
+sentinel2_6 = arcpy.wfs.PullSentinel2(extent_2, "s2_cloud_extract_1779607635906.tif", max_cloud_cover=10, date_range="2023-01-01/2023-12-31", item_ids="S2B_17RML_20231119_0_L2A", bands="B02,B03,B04,B08")
+sentinel2_7 = arcpy.wfs.PullSentinel2(extent_2, "s2_cloud_extract_1779607683985.tif", max_cloud_cover=10, date_range="2024-01-01/2024-12-31", item_ids="S2B_17RML_20241123_0_L2A", bands="B02,B03,B04,B08")
+sentinel2_8 = arcpy.wfs.PullSentinel2(extent_3, "s2_cloud_extract_1779552489338.tif", max_cloud_cover=10, date_range="2023-01-01/2023-12-31", item_ids="S2B_17RML_20231119_0_L2A", bands="B02,B03,B04,B08")
+sentinel2_9 = arcpy.wfs.PullSentinel2(extent_3, "s2_cloud_extract_1779553078691.tif", max_cloud_cover=10, date_range="2024-01-01/2024-12-31", item_ids="S2B_17RML_20241123_0_L2A", bands="B02,B03,B04,B08")
+ndvi_10 = [arcpy.ia.NDVI(r, nir_band_id=4, red_band_id=3) for r in sentinel2_4] if isinstance(sentinel2_4, list) else arcpy.ia.NDVI(sentinel2_4, nir_band_id=4, red_band_id=3)
 ndvi_11 = [arcpy.ia.NDVI(r, nir_band_id=4, red_band_id=3) for r in sentinel2_5] if isinstance(sentinel2_5, list) else arcpy.ia.NDVI(sentinel2_5, nir_band_id=4, red_band_id=3)
 ndvi_12 = [arcpy.ia.NDVI(r, nir_band_id=4, red_band_id=3) for r in sentinel2_6] if isinstance(sentinel2_6, list) else arcpy.ia.NDVI(sentinel2_6, nir_band_id=4, red_band_id=3)
-ndvi_13 = [arcpy.ia.NDVI(r, nir_band_id=4, red_band_id=3) for r in sentinel2_8] if isinstance(sentinel2_8, list) else arcpy.ia.NDVI(sentinel2_8, nir_band_id=4, red_band_id=3)
-ndvi_14 = [arcpy.ia.NDVI(r, nir_band_id=4, red_band_id=3) for r in sentinel2_9] if isinstance(sentinel2_9, list) else arcpy.ia.NDVI(sentinel2_9, nir_band_id=4, red_band_id=3)
-ndvi_15 = [arcpy.ia.NDVI(r, nir_band_id=4, red_band_id=3) for r in sentinel2_10] if isinstance(sentinel2_10, list) else arcpy.ia.NDVI(sentinel2_10, nir_band_id=4, red_band_id=3)
+ndvi_13 = [arcpy.ia.NDVI(r, nir_band_id=4, red_band_id=3) for r in sentinel2_7] if isinstance(sentinel2_7, list) else arcpy.ia.NDVI(sentinel2_7, nir_band_id=4, red_band_id=3)
+ndvi_14 = [arcpy.ia.NDVI(r, nir_band_id=4, red_band_id=3) for r in sentinel2_8] if isinstance(sentinel2_8, list) else arcpy.ia.NDVI(sentinel2_8, nir_band_id=4, red_band_id=3)
+ndvi_15 = [arcpy.ia.NDVI(r, nir_band_id=4, red_band_id=3) for r in sentinel2_9] if isinstance(sentinel2_9, list) else arcpy.ia.NDVI(sentinel2_9, nir_band_id=4, red_band_id=3)
 _expr = "A - B"
-math_16 = [arcpy.ia.RasterMath(a, b, _expr, f"raster_math_{i}.tif") for i, (a, b) in enumerate(zip(ndvi_11 if isinstance(ndvi_11, list) else [ndvi_11], ndvi_12 if isinstance(ndvi_12, list) else [ndvi_12]))]
+math_16 = [arcpy.ia.RasterMath(a, b, _expr, f"raster_math_{i}.tif") for i, (a, b) in enumerate(zip(ndvi_10 if isinstance(ndvi_10, list) else [ndvi_10], ndvi_11 if isinstance(ndvi_11, list) else [ndvi_11]))]
 _expr = "A - B"
-math_17 = [arcpy.ia.RasterMath(a, b, _expr, f"raster_math_{i}.tif") for i, (a, b) in enumerate(zip(ndvi_4 if isinstance(ndvi_4, list) else [ndvi_4], ndvi_13 if isinstance(ndvi_13, list) else [ndvi_13]))]
+math_17 = [arcpy.ia.RasterMath(a, b, _expr, f"raster_math_{i}.tif") for i, (a, b) in enumerate(zip(ndvi_12 if isinstance(ndvi_12, list) else [ndvi_12], ndvi_13 if isinstance(ndvi_13, list) else [ndvi_13]))]
 _expr = "A - B"
 math_18 = [arcpy.ia.RasterMath(a, b, _expr, f"raster_math_{i}.tif") for i, (a, b) in enumerate(zip(ndvi_14 if isinstance(ndvi_14, list) else [ndvi_14], ndvi_15 if isinstance(ndvi_15, list) else [ndvi_15]))]
 # Execute GLCM Textural Features

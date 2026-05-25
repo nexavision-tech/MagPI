@@ -33,14 +33,90 @@ export default function TensorBrew({ activeWorkspace }) {
     setKernelMatrix(newKernel);
   };
 
-  // State for ML Config
-  const [mlConfig, setMlConfig] = useState({
-    modelRepo: 'huggingface/deep-earth-v2',
-    activation: 'ReLU',
-    epochs: 50,
-    batchSize: 16,
-    ganRes: '2x'
-  });
+  // State for ML Config (Neural Architect)
+  const [nnLayers, setNnLayers] = useState([
+    { id: 1, type: 'Input(Tensor)', filters: '-', kernel: '-', activation: '-' },
+    { id: 2, type: 'Conv2D', filters: '64', kernel: '3x3', activation: 'ReLU' },
+    { id: 3, type: 'Dropout', filters: '-', kernel: '-', activation: 'Rate: 0.5' },
+    { id: 4, type: 'Dense(Logits)', filters: '1', kernel: '-', activation: 'Sigmoid' }
+  ]);
+  const [learningRate, setLearningRate] = useState(0.001);
+
+  // State for Data Stewardship (Center Panel)
+  const [normalization, setNormalization] = useState('raw'); // 'raw', 'minmax', 'zscore'
+  const [nodataHandling, setNodataHandling] = useState('nan'); // 'nan', 'zero'
+
+  // Compilation State
+  const [isCompiling, setIsCompiling] = useState(false);
+  const [compileOutput, setCompileOutput] = useState('');
+  const [showTerminal, setShowTerminal] = useState(false);
+
+  const generatePyTorchCode = () => {
+    let code = `import torch\nimport torch.nn as nn\n\nclass MagPI_Net(nn.Module):\n    def __init__(self):\n        super().__init__()\n        self.model = nn.Sequential(\n`;
+    
+    nnLayers.forEach(layer => {
+      if (layer.type === 'Input(Tensor)') {
+         code += `            # Input Layer (Handled by DataLoader)\n`;
+      } else if (layer.type === 'Conv2D') {
+         code += `            nn.Conv2d(in_channels=3, out_channels=${layer.filters}, kernel_size=${layer.kernel.split('x')[0]}, padding=1),\n`;
+         if (layer.activation && layer.activation !== '-') {
+             if(layer.activation === 'ReLU') code += `            nn.ReLU(),\n`;
+             if(layer.activation === 'Sigmoid') code += `            nn.Sigmoid(),\n`;
+         }
+      } else if (layer.type === 'Dropout') {
+         const rate = layer.activation.replace('Rate: ', '');
+         code += `            nn.Dropout(p=${rate}),\n`;
+      } else if (layer.type === 'Dense(Logits)') {
+         code += `            nn.AdaptiveAvgPool2d((1,1)),\n`;
+         code += `            nn.Flatten(),\n`;
+         code += `            nn.Linear(64, ${layer.filters}),\n`;
+         if (layer.activation && layer.activation !== '-') {
+             if(layer.activation === 'ReLU') code += `            nn.ReLU(),\n`;
+             if(layer.activation === 'Sigmoid') code += `            nn.Sigmoid(),\n`;
+         }
+      }
+    });
+
+    code += `        )\n\n    def forward(self, x):\n        return self.model(x)\n\n`;
+    code += `print("--- MAGPI TENSOR BREW (PYTORCH GRAPH COMPILER) ---")\n`;
+    code += `print(f"Optimizer LR: ${learningRate}")\n`;
+    code += `model = MagPI_Net()\n`;
+    code += `print(model)\n`;
+    code += `try:\n`;
+    code += `    from torchsummary import summary\n`;
+    code += `    summary(model, (3, 256, 256))\n`;
+    code += `except Exception as e:\n`;
+    code += `    print("Note: Install torchsummary to view layer parameter count.")\n`;
+    return code;
+  };
+
+  const compileModelGraph = async () => {
+    setIsCompiling(true);
+    setShowTerminal(true);
+    setCompileOutput('Generating PyTorch script...\n');
+    
+    const code = generatePyTorchCode();
+    setCompileOutput(prev => prev + 'Dispatching graph to MagPI Daemon (/api/run)...\n\n');
+
+    try {
+      const res = await fetch('http://localhost:8080/api/run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code })
+      });
+      const data = await res.json();
+      
+      if (data.status === 'success') {
+         setCompileOutput(prev => prev + data.stdout);
+      } else {
+         setCompileOutput(prev => prev + "[ERROR] " + data.stderr);
+      }
+    } catch (e) {
+      setCompileOutput(prev => prev + `[NETWORK ERROR] Could not connect to MagPI Daemon at 8080. Is it running? (${e.message})`);
+    }
+    
+    setIsCompiling(false);
+  };
 
   if (activeWorkspace !== 'tensor_brew') return null;
 
@@ -153,16 +229,49 @@ export default function TensorBrew({ activeWorkspace }) {
              </div>
           </div>
 
-          {/* Actual Viewport Area (Simulated for now) */}
-          <div className="flex-1 flex items-center justify-center p-8 z-10">
-            <div className="w-[512px] h-[512px] bg-slate-900 rounded border border-slate-700 shadow-[0_0_50px_rgba(0,0,0,0.5)] flex items-center justify-center relative overflow-hidden group">
-               {/* Dummy Visualization Grid pattern */}
+          {/* Actual Viewport Area & Data Stewardship Console */}
+          <div className="flex-1 flex flex-col items-center justify-center p-8 z-10 space-y-4">
+            
+            {/* 256x256 WebGL Chip Dummy */}
+            <div className="w-[384px] h-[384px] bg-slate-900 rounded border border-slate-700 shadow-[0_0_50px_rgba(0,0,0,0.5)] flex items-center justify-center relative overflow-hidden group">
                <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'linear-gradient(#334155 1px, transparent 1px), linear-gradient(90deg, #334155 1px, transparent 1px)', backgroundSize: '32px 32px' }}></div>
-               
                <div className="text-center z-20 bg-black/60 p-6 rounded-xl border border-slate-700 backdrop-blur-md transition-opacity group-hover:opacity-20">
                  <Hexagon size={48} className="mx-auto text-indigo-500 mb-4 animate-pulse" />
                  <h3 className="text-sm font-black text-white mb-1 uppercase tracking-widest">Active Monitor</h3>
                  <p className="text-[10px] text-slate-400">WebGL Tensor Rendering Active</p>
+               </div>
+            </div>
+
+            {/* Data Stewardship Controls */}
+            <div className="w-[384px] bg-slate-900/80 backdrop-blur border border-slate-700 rounded-lg p-3">
+               <h4 className="text-[10px] font-bold text-slate-300 uppercase tracking-widest mb-2 flex items-center">
+                 <Settings size={12} className="mr-2 text-indigo-400" /> Data Stewardship Console
+               </h4>
+               
+               <div className="flex space-x-2 mb-2">
+                 <button onClick={()=>setNormalization('raw')} className={`flex-1 py-1 text-[9px] font-bold uppercase rounded border ${normalization === 'raw' ? 'bg-indigo-600/30 text-indigo-300 border-indigo-500' : 'bg-slate-800 text-slate-500 border-slate-700 hover:text-slate-300'}`}>Raw NumPy</button>
+                 <button onClick={()=>setNormalization('minmax')} className={`flex-1 py-1 text-[9px] font-bold uppercase rounded border ${normalization === 'minmax' ? 'bg-indigo-600/30 text-indigo-300 border-indigo-500' : 'bg-slate-800 text-slate-500 border-slate-700 hover:text-slate-300'}`}>Min-Max (0-1)</button>
+                 <button onClick={()=>setNormalization('zscore')} className={`flex-1 py-1 text-[9px] font-bold uppercase rounded border ${normalization === 'zscore' ? 'bg-indigo-600/30 text-indigo-300 border-indigo-500' : 'bg-slate-800 text-slate-500 border-slate-700 hover:text-slate-300'}`}>Z-Score</button>
+               </div>
+
+               <div className="flex space-x-2">
+                 <div className="flex-1 bg-slate-950 rounded p-2 border border-slate-800 flex justify-between items-center">
+                   <span className="text-[9px] text-slate-500 uppercase">NoData Mask</span>
+                   <select value={nodataHandling} onChange={(e)=>setNodataHandling(e.target.value)} className="bg-transparent text-[9px] text-indigo-300 outline-none cursor-pointer">
+                     <option value="nan">np.nan</option>
+                     <option value="zero">Zero (0)</option>
+                   </select>
+                 </div>
+                 <div className="flex-1 bg-slate-950 rounded p-2 border border-slate-800 flex flex-col justify-center">
+                   <div className="flex justify-between text-[8px] text-slate-500 font-mono mb-1">
+                     <span>MIN: {normalization==='minmax' ? '0.00' : '-1.24'}</span>
+                     <span>MAX: {normalization==='minmax' ? '1.00' : '8.92'}</span>
+                   </div>
+                   <div className="flex justify-between text-[8px] text-slate-500 font-mono">
+                     <span>μ: {normalization==='zscore' ? '0.00' : '3.14'}</span>
+                     <span>σ: {normalization==='zscore' ? '1.00' : '0.85'}</span>
+                   </div>
+                 </div>
                </div>
             </div>
           </div>
@@ -176,7 +285,7 @@ export default function TensorBrew({ activeWorkspace }) {
              <button onClick={()=>setRightTab('kernel')} className={`shrink-0 px-3 py-3 text-[10px] font-bold uppercase tracking-widest ${rightTab === 'kernel' ? 'text-indigo-400 border-b-2 border-indigo-500 bg-slate-900' : 'text-slate-500 hover:text-slate-300'}`}>Kernel</button>
              <button onClick={()=>setRightTab('spectral')} className={`shrink-0 px-3 py-3 text-[10px] font-bold uppercase tracking-widest ${rightTab === 'spectral' ? 'text-pink-400 border-b-2 border-pink-500 bg-slate-900' : 'text-slate-500 hover:text-slate-300'}`}>Spectral</button>
              <button onClick={()=>setRightTab('rf')} className={`shrink-0 px-3 py-3 text-[10px] font-bold uppercase tracking-widest ${rightTab === 'rf' ? 'text-amber-400 border-b-2 border-amber-500 bg-slate-900' : 'text-slate-500 hover:text-slate-300'}`}>RF/Gini</button>
-             <button onClick={()=>setRightTab('ml')} className={`shrink-0 px-3 py-3 text-[10px] font-bold uppercase tracking-widest ${rightTab === 'ml' ? 'text-emerald-400 border-b-2 border-emerald-500 bg-slate-900' : 'text-slate-500 hover:text-slate-300'}`}>Deep ML</button>
+             <button onClick={()=>setRightTab('ml')} className={`shrink-0 px-3 py-3 text-[10px] font-bold uppercase tracking-widest ${rightTab === 'ml' ? 'text-emerald-400 border-b-2 border-emerald-500 bg-slate-900' : 'text-slate-500 hover:text-slate-300'}`}>Neural Architect</button>
            </div>
 
            <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
@@ -306,76 +415,51 @@ export default function TensorBrew({ activeWorkspace }) {
                 </div>
               )}
 
-              {/* ML MODEL TAB */}
+              {/* NEURAL ARCHITECT TAB */}
               {rightTab === 'ml' && (
                 <div className="animate-fadeIn">
                   <h3 className="text-xs font-bold text-slate-300 mb-4 uppercase tracking-widest flex items-center">
-                    <GitBranch size={14} className="mr-2 text-emerald-400" /> HuggingFace Interface
+                    <Cpu size={14} className="mr-2 text-emerald-400" /> Neural Architect
                   </h3>
-
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-[10px] uppercase text-slate-500 font-bold mb-1">Model Repository (Hub)</label>
-                      <input 
-                        type="text" 
-                        value={mlConfig.modelRepo}
-                        onChange={e => setMlConfig({...mlConfig, modelRepo: e.target.value})}
-                        className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-xs text-emerald-300 font-mono outline-none focus:border-emerald-500" 
-                      />
+                  
+                  <div className="mb-4">
+                    <p className="text-[10px] text-slate-500 mb-2 leading-relaxed">
+                      Construct a custom PyTorch/TensorFlow graph layer-by-layer for deep feature extraction.
+                    </p>
+                    <div className="flex justify-between items-center bg-slate-950 border border-slate-800 rounded px-3 py-2">
+                       <span className="text-[10px] uppercase font-bold text-slate-400">Learning Rate</span>
+                       <input type="number" step="0.001" value={learningRate} onChange={(e)=>setLearningRate(e.target.value)} className="w-16 bg-slate-900 text-[10px] text-emerald-300 border border-slate-700 rounded px-1 outline-none text-right" />
                     </div>
+                  </div>
 
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-[10px] uppercase text-slate-500 font-bold mb-1">Epochs</label>
-                        <input 
-                          type="number" 
-                          value={mlConfig.epochs}
-                          onChange={e => setMlConfig({...mlConfig, epochs: e.target.value})}
-                          className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-xs text-slate-300 outline-none focus:border-emerald-500" 
-                        />
+                  {/* Layer Stacker */}
+                  <div className="space-y-2 mb-4">
+                    {nnLayers.map((layer, i) => (
+                      <div key={layer.id} className="bg-slate-950 border border-slate-800 rounded p-2 flex flex-col group relative">
+                        <div className="flex justify-between items-center mb-1">
+                          <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">{i}: {layer.type}</span>
+                          {i !== 0 && (
+                            <button className="text-slate-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <Trash2 size={10} />
+                            </button>
+                          )}
+                        </div>
+                        <div className="flex justify-between text-[9px] text-slate-500 font-mono">
+                          <span>F:{layer.filters}</span>
+                          <span>K:{layer.kernel}</span>
+                          <span className="text-slate-400">{layer.activation}</span>
+                        </div>
                       </div>
-                      <div>
-                        <label className="block text-[10px] uppercase text-slate-500 font-bold mb-1">Batch Size</label>
-                        <input 
-                          type="number" 
-                          value={mlConfig.batchSize}
-                          onChange={e => setMlConfig({...mlConfig, batchSize: e.target.value})}
-                          className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-xs text-slate-300 outline-none focus:border-emerald-500" 
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-[10px] uppercase text-slate-500 font-bold mb-1">Activation Function</label>
-                      <select 
-                        value={mlConfig.activation}
-                        onChange={e => setMlConfig({...mlConfig, activation: e.target.value})}
-                        className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-xs text-slate-300 outline-none focus:border-emerald-500"
-                      >
-                        <option>ReLU</option>
-                        <option>LeakyReLU</option>
-                        <option>Sigmoid</option>
-                        <option>Swish</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-[10px] uppercase text-slate-500 font-bold mb-1">GAN Res Multiplier</label>
-                      <select 
-                        value={mlConfig.ganRes}
-                        onChange={e => setMlConfig({...mlConfig, ganRes: e.target.value})}
-                        className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-xs text-slate-300 outline-none focus:border-emerald-500"
-                      >
-                        <option>1x (Native)</option>
-                        <option>2x</option>
-                        <option>4x (Super Resolution)</option>
-                      </select>
-                    </div>
-
-                    <button className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-xs font-bold transition-colors flex justify-center items-center">
-                      <Settings size={14} className="mr-2" /> Commit Hyperparameters
+                    ))}
+                    
+                    <button className="w-full py-2 border border-dashed border-slate-700 text-slate-500 hover:text-emerald-400 hover:border-emerald-500/50 rounded flex justify-center items-center text-[10px] font-bold uppercase transition-colors">
+                      <Plus size={12} className="mr-1" /> Add Layer
                     </button>
                   </div>
+
+                  <button onClick={compileModelGraph} disabled={isCompiling} className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-xs font-bold transition-colors flex justify-center items-center">
+                    <Settings size={14} className="mr-2" /> {isCompiling ? 'Compiling...' : 'Compile Model Graph'}
+                  </button>
                 </div>
               )}
 
@@ -383,6 +467,25 @@ export default function TensorBrew({ activeWorkspace }) {
         </div>
 
       </div>
+
+      {/* Terminal Modal for Compilation Output */}
+      {showTerminal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-8">
+           <div className="w-full max-w-4xl h-[80vh] bg-slate-950 border border-slate-700 rounded-lg shadow-2xl flex flex-col overflow-hidden animate-fadeIn">
+              <div className="h-10 bg-slate-900 border-b border-slate-800 flex justify-between items-center px-4 shrink-0">
+                 <div className="flex items-center text-emerald-400 font-mono text-xs font-bold uppercase">
+                   <Cpu size={14} className="mr-2" /> PyTorch Compilation Output
+                 </div>
+                 <button onClick={() => setShowTerminal(false)} className="text-slate-500 hover:text-white transition-colors">
+                   <Trash2 size={16} />
+                 </button>
+              </div>
+              <div className="flex-1 p-4 overflow-y-auto bg-black font-mono text-xs text-slate-300 leading-relaxed custom-scrollbar whitespace-pre-wrap">
+                 {compileOutput}
+              </div>
+           </div>
+        </div>
+      )}
     </div>
   );
 }
