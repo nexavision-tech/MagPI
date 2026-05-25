@@ -6,7 +6,7 @@ import {
   SlidersHorizontal, Wrench, Check, FolderOpen, ListFilter,
   Search, Copy, Info, Fingerprint, Loader2, AlertCircle, 
   Cloud, Map as MapIcon, Satellite, Box, Globe, DownloadCloud, PaintBucket, 
-  FileOutput, LineChart, Brain, Sparkles, RefreshCcw, Activity
+  FileOutput, LineChart, Brain, Sparkles, RefreshCcw, Activity, BrainCircuit
 } from 'lucide-react';
 
 const TOOLBOX_CATEGORIES = [
@@ -215,6 +215,15 @@ const TOOLBOX_CATEGORIES = [
       { id: 'stats_confusion_matrix', name: "Compute Confusion Matrix", type: 'process', icon: <Grid size={14}/>, color: 'bg-rose-600', border: 'border-rose-500', 
         description: "Compares ground truth labels against AI classifications. Calculates User/Producer accuracies and Kappa coefficients.",
         params: { out_table: "confusion_matrix.csv" } 
+      },
+    ]
+  },
+  {
+    name: "Tensor Brew Deep Learning", icon: <BrainCircuit size={18} className="text-violet-400" />,
+    tools: [
+      { id: 'ml_pytorch_inference', name: "PyTorch Inference", type: 'process', icon: <Brain size={14}/>, color: 'bg-violet-600', border: 'border-violet-500', 
+        description: "Executes a custom compiled PyTorch neural network against a raster. Automatically tiles and batches the imagery.",
+        params: { model_script_path: "./magpi_scratch/model.py", out_raster: "prediction.tif", tile_size: 256, batch_size: 4, device: { value: "cuda", type: "select", options: ["cuda", "cpu"] } } 
       },
     ]
   }

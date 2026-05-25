@@ -14,6 +14,7 @@ from .sa import Raster
 from . import wfs
 from . import ia
 from . import geoai
+from . import ml
 from . import management
 from . import ddd
 from . import conversion

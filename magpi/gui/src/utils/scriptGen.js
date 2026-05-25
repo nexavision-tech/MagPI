@@ -319,6 +319,10 @@ export const generatePythonScript = (nodes, connections, crs, processingScope, g
             const outFileName = `tasseled_cap_${n.id.split('_')[1]}.tif`;
             funcCall = `${outVar} = arcpy.sa.TasseledCap(in_raster=${primaryInVar}, sensor="${p.sensor}")\n${outVar}.save("${outFileName}")`;
         }
+        else if (n.toolId === 'ml_pytorch_inference') {
+            const outFileName = p.out_raster || `prediction_${n.id.split('_')[1]}.tif`;
+            funcCall = `${outVar} = arcpy.ml.PyTorchInference(in_raster=${primaryInVar}, model_script_path="${p.model_script_path}", out_raster="${outFileName}", tile_size=${p.tile_size}, batch_size=${p.batch_size}, device="${p.device}")`;
+        }
         else {
             funcCall = `# Execute ${n.name}`;
         }
