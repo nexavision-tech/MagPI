@@ -86,6 +86,12 @@ export default function App() {
 
   const [browserConfig, setBrowserConfig] = useState({ isOpen: false, nodeId: null, paramKey: null, initialPath: "." });
 
+  // --- UI LAYOUT FIX ---
+  // Fixes Leaflet/ReactFlow Map getting stuck at 0x0 size when switching tabs due to 'display: hidden'
+  useEffect(() => {
+    setTimeout(() => window.dispatchEvent(new Event('resize')), 100);
+  }, [activeWorkspace]);
+
   // --- AUTO-SAVE ENGINE (Prevents Losing Work!) ---
   useEffect(() => {
     // Load from LocalStorage on initial boot
@@ -272,6 +278,48 @@ export default function App() {
     }
   };
 
+  const handleRunUpToNode = async (targetNodeId) => {
+    setShowScript(false); setShowTerminal(true); setIsProcessing(true); setNodeStatuses({});
+    
+    // Calculate subgraph (backward traversal)
+    const activeNodes = new Set([targetNodeId]);
+    let added = true;
+    while(added) {
+        added = false;
+        connections.forEach(c => {
+            if (activeNodes.has(c.to) && !activeNodes.has(c.from)) {
+                activeNodes.add(c.from);
+                added = true;
+            }
+        });
+    }
+    
+    const subgraphNodes = nodes.filter(n => activeNodes.has(n.id));
+    const subgraphConnections = connections.filter(c => activeNodes.has(c.from) && activeNodes.has(c.to));
+    
+    const processingStates = {};
+    subgraphNodes.forEach(n => processingStates[n.id] = 'processing');
+    setNodeStatuses(processingStates);
+    
+    setLogs([{ type: 'info', msg: `Initiating partial run up to node ${targetNodeId}...` }]);
+    
+    try {
+        const payload = { nodes: subgraphNodes, connections: subgraphConnections, crs, globalEnv };
+        const response = await fetch("http://localhost:8080/api/run_pipeline", { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        const data = await response.json();
+        if (response.ok) {
+            setLogs(prev => [...prev, { type: 'success', msg: `Partial Pipeline Dispatched. Job ID: ${data.job_id}` }]);
+            setActiveJobId(data.job_id);
+        } else {
+            setLogs(prev => [...prev, { type: 'error', msg: `Daemon execution failed: ${data.error}` }]);
+            setNodeStatuses({}); setIsProcessing(false);
+        }
+    } catch (err) {
+        setLogs(prev => [...prev, { type: 'error', msg: `Failed to contact MagPI Daemon: ${err.message}` }]);
+        setNodeStatuses({}); setIsProcessing(false);
+    }
+  };
+
   return (
     <div className="absolute inset-0 w-full h-full flex flex-col bg-slate-900 text-slate-200 font-sans overflow-hidden select-none">
       <div className="flex-none z-40 shadow-md">
@@ -293,7 +341,7 @@ export default function App() {
             <MapViewport onAoiDrawn={handleAoiDrawn} selectedNode={selectedNode} activeWorkspace={activeWorkspace} nodes={nodes} nodeStatuses={nodeStatuses} connections={connections} />
         </div>
         <div className={`w-[320px] relative ${activeWorkspace === 'builder' ? 'flex' : 'hidden'} flex-col z-20`}>
-            <Toolbox activeRightTab={activeRightTab} setActiveRightTab={setActiveRightTab} selectedNode={selectedNode} updateNodeParam={updateNodeParam} updateNodeName={updateNodeName} deleteNode={deleteNode} addNode={addNode} duplicateNode={duplicateNode} openFileBrowser={openFileBrowser} nodes={nodes} connections={connections} />
+            <Toolbox activeRightTab={activeRightTab} setActiveRightTab={setActiveRightTab} selectedNode={selectedNode} updateNodeParam={updateNodeParam} updateNodeName={updateNodeName} deleteNode={deleteNode} addNode={addNode} duplicateNode={duplicateNode} openFileBrowser={openFileBrowser} nodes={nodes} connections={connections} handleRunUpToNode={handleRunUpToNode} />
         </div>
         
         {/* Render Tensor Brew Fullscreen when Active */}

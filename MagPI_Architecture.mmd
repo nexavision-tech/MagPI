@@ -1,25 +1,31 @@
 graph TD
-    A[Legacy User Script] -->|import magpi as arcpy| B(MagPI __init__.py Routing Hub)
+    A[MagPI React Frontend IDE] -->|JSON Payload| B(Daemon API - port 8080)
+    B -->|Code Gen| C(Python Pipeline Executor)
     
-    B --> C{Global State & Objects}
-    C --> C1(arcpy.env Singleton)
-    C --> C2(Result Object Duck-Type)
-    C --> C3(Describe Object Duck-Type)
+    Z[Legacy User Script] -->|import magpi as arcpy| C
     
-    B --> D{Processing Modules}
+    C --> D{Global State & Objects}
+    D --> D1(arcpy.env Singleton)
+    D --> D2(Result Object Duck-Type)
+    D --> D3(Describe Object Duck-Type)
     
-    D -->|arcpy.management| E[Data Mgmt]
-    D -->|arcpy.analysis| F[Vector Analysis]
-    D -->|arcpy.sa| G[Spatial Analyst]
-    D -->|arcpy.da| H[Data Access]
+    C --> E{Processing Modules}
     
-    E & F --> I[GeoPandas / Shapely]
-    G --> J[Rasterio / SciPy]
-    H --> K[Fiona / GDAL 3.6+ OpenFileGDB]
+    E -->|arcpy.management| F[Data Mgmt]
+    E -->|arcpy.sa / ia| G[Spatial / Image Analyst]
+    E -->|arcpy.wfs| H[Sovereign Data Pull]
+    E -->|arcpy.ml| I[Tensor Brew Deep Learning]
     
-    I & J & K --> L((Output identical to ArcPy 3.6))
+    F --> J[GeoPandas / Shapely]
+    G --> K[Rasterio / SciPy / NumPy]
+    H --> L[Requests / STAC AWS / Copernicus]
+    I --> M[PyTorch / CUDA / TorchVision]
+    
+    J & K & L & M --> N((Output files written to \n Workspace/Scratch/Output \n identical to ArcPy))
 
-    style B fill:#f2849e,stroke:#333,stroke-width:2px,color:#fff
-    style C fill:#f1c40f,stroke:#333,stroke-width:2px,color:#000
-    style D fill:#00ccff,stroke:#333,stroke-width:2px,color:#000
-    style K fill:#2ecc71,stroke:#333,stroke-width:2px,color:#000
+    style A fill:#4287f5,stroke:#333,stroke-width:2px,color:#fff
+    style B fill:#333,stroke:#333,stroke-width:2px,color:#fff
+    style C fill:#f2849e,stroke:#333,stroke-width:2px,color:#fff
+    style D fill:#f1c40f,stroke:#333,stroke-width:2px,color:#000
+    style E fill:#00ccff,stroke:#333,stroke-width:2px,color:#000
+    style M fill:#ee4c2c,stroke:#333,stroke-width:2px,color:#fff

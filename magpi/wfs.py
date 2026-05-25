@@ -78,6 +78,8 @@ def QuerySentinel2(extent, max_cloud_cover=10, date_range="2023-01-01/2023-12-31
 def PullSentinel2(extent, out_raster, max_cloud_cover=10, date_range="2023-01-01/2023-12-31", item_ids=None, bands=None):
     logger.info("Initializing MagPI Sovereign Data Pull (Sentinel-2 via AWS Earth Search)...")
     try:
+        from .env import env
+        out_raster = env.resolve_path(out_raster, intent="input")
         import rasterio
         from rasterio.windows import from_bounds
         
@@ -196,6 +198,8 @@ def PullSentinel2(extent, out_raster, max_cloud_cover=10, date_range="2023-01-01
 def PullUSGSElevation(extent, out_raster, resolution_width=1000, resolution_height=1000):
     logger.info("Initializing Z-Axis Data Pull (USGS 3DEP WCS)...")
     try:
+        from .env import env
+        out_raster = env.resolve_path(out_raster)
         if hasattr(extent, 'XMin'): min_lon, min_lat, max_lon, max_lat = extent.XMin, extent.YMin, extent.XMax, extent.YMax
         else: min_lon, min_lat, max_lon, max_lat = map(float, str(extent).split())
 
@@ -217,6 +221,8 @@ def PullUSGSElevation(extent, out_raster, resolution_width=1000, resolution_heig
 
 def PullNLCD(extent, out_raster, year=2021, product="Land_Cover"):
     try:
+        from .env import env
+        out_raster = env.resolve_path(out_raster)
         import numpy as np
         if hasattr(extent, 'XMin'): min_lon, min_lat, max_lon, max_lat = extent.XMin, extent.YMin, extent.XMax, extent.YMax
         else: min_lon, min_lat, max_lon, max_lat = map(float, str(extent).split())

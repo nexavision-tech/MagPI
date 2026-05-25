@@ -17,6 +17,9 @@ def PyTorchInference(in_raster, model_script_path, out_raster, tile_size=256, ba
     elif hasattr(in_raster, 'output'): raster_path = in_raster.output
     else: raster_path = str(in_raster)
         
+    from .env import env
+    out_raster = env.resolve_path(out_raster)
+        
     try:
         import torch
         import importlib.util

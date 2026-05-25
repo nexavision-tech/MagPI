@@ -148,6 +148,49 @@ class _Environment:
             logger.debug(f"Intercepted unsupported arcpy.env.{name} = {value}. Storing safely.")
             self._unsupported_envs[name] = value
 
+    def resolve_path(self, filename, intent="output"):
+        """
+        Resolves a filename into an absolute path based on the global workspaces.
+        intent: 'input' (workspace), 'scratch' (scratchWorkspace), 'output' (outputWorkspace)
+        Also enforces the overwriteOutput global setting.
+        """
+        import os
+        
+        # If no filename is provided, generate a random one in scratch
+        if not filename:
+            import uuid
+            filename = f"magpi_temp_{uuid.uuid4().hex[:8]}.tif"
+            intent = "scratch"
+            
+        # Determine the base directory
+        base_dir = self._workspace or os.getcwd()
+        if intent == "scratch":
+            base_dir = self._scratchWorkspace or os.path.join(base_dir, "scratch")
+        elif intent == "output":
+            base_dir = getattr(self, "outputWorkspace", None) or os.path.join(base_dir, "output")
+            
+        # Resolve the absolute path
+        if os.path.isabs(filename):
+            final_path = filename
+        else:
+            final_path = os.path.join(base_dir, filename)
+            
+        # Ensure directory exists
+        os.makedirs(os.path.dirname(final_path), exist_ok=True)
+        
+        # Enforce Overwrite
+        if intent in ["output", "scratch"] and os.path.exists(final_path):
+            if not self._overwriteOutput:
+                raise FileExistsError(f"File {final_path} already exists and arcpy.env.overwriteOutput is False.")
+            else:
+                logger.info(f"Overwriting existing file: {final_path}")
+                try:
+                    os.remove(final_path)
+                except Exception as e:
+                    logger.warning(f"Could not remove {final_path} before overwrite: {e}")
+                    
+        return final_path
+
 # Initialize the Singleton Instance
 env = _Environment()
 logger.info("MagPI Global Environment (arcpy.env) Initialized.")

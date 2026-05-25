@@ -112,9 +112,11 @@ The translation of an entire proprietary ecosystem is a massive undertaking. We 
 
 - [x] `arcpy.env` (Environment Settings) - Active
 
-- [x] `arcpy.wfs` (Sovereign Data Pulls) - Active
+- [x] `arcpy.wfs` (Sovereign Data Pulls via AWS STAC/Copernicus) - Active
 
-- [x] `arcpy.geoai` (HuggingFace/PyTorch Object Detection) - Active
+- [x] `arcpy.geoai` (HuggingFace Object Detection / Classification) - Active
+
+- [x] `arcpy.ml` (Tensor Brew Deep Learning Engine via PyTorch) - Active
 
 # 🤝 Contributing
 MagPI is an initiative of The NexaVision and the Tech Union. We welcome pull requests from data scientists, GIS developers, and open-source advocates who want to help translate specific modules.

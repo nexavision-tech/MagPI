@@ -11,7 +11,8 @@ def NDVI(in_raster, nir_band_id=4, red_band_id=1):
     elif hasattr(in_raster, 'output'): raster_path = in_raster.output
     else: raster_path = str(in_raster)
 
-    out_raster = raster_path.replace(".tif", "_NDVI.tif")
+    from .env import env
+    out_raster = env.resolve_path(raster_path.replace(".tif", "_NDVI.tif"))
     logger.info(f"Executing Open-Source NDVI Calculation on: {raster_path}")
 
     try:
@@ -42,7 +43,8 @@ def GLCMTexturalFeatures(in_raster, window_size="3x3", shift_x=1, shift_y=1):
     elif hasattr(in_raster, 'output'): raster_path = in_raster.output
     else: raster_path = str(in_raster)
 
-    out_raster = raster_path.replace(".tif", "_GLCM_Proxy.tif")
+    from .env import env
+    out_raster = env.resolve_path(raster_path.replace(".tif", "_GLCM_Proxy.tif"))
     logger.info(f"Executing Vectorized Textural Variance (GLCM Proxy) on: {raster_path}")
     logger.warning("Note: Using scipy.ndimage variance proxy for GLCM to avoid 10hr execution time without scikit-image C-extensions.")
 
@@ -84,6 +86,8 @@ def Pansharpen(in_raster, panchromatic_image, out_raster, method="BROVEY", weigh
     if hasattr(panchromatic_image, 'name'): pan_path = panchromatic_image.name
     else: pan_path = str(panchromatic_image)
 
+    from .env import env
+    out_raster = env.resolve_path(out_raster)
     logger.info(f"Initiating Algebraic Pansharpening (Method: {method})...")
 
     try:
@@ -128,6 +132,8 @@ def Reclassify(in_raster, out_raster, remap_string):
     elif hasattr(in_raster, 'output'): raster_path = in_raster.output
     else: raster_path = str(in_raster)
 
+    from .env import env
+    out_raster = env.resolve_path(out_raster)
     logger.info(f"Initiating Pixel Reclassification Matrix: [{remap_string}]")
     
     try:
@@ -339,6 +345,9 @@ def RasterMath(raster_a, raster_b, expression, out_raster):
         if hasattr(raster_b, 'name'): path_b = raster_b.name
         elif hasattr(raster_b, 'output'): path_b = raster_b.output
         else: path_b = str(raster_b)
+        
+    from .env import env
+    out_raster = env.resolve_path(out_raster)
     
     try:
         import rasterio

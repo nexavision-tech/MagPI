@@ -12,7 +12,8 @@ import {
   useReactFlow,
   useNodesState,
   useEdgesState,
-  reconnectEdge
+  reconnectEdge,
+  Panel
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { 
@@ -130,7 +131,13 @@ function CanvasInner({
   selectedNodeId, setSelectedNodeId, setActiveRightTab, nodeStatuses, addNode 
 }) {
   const reactFlowWrapper = useRef(null);
-  const { screenToFlowPosition } = useReactFlow();
+  const { screenToFlowPosition, fitView } = useReactFlow();
+
+  React.useEffect(() => {
+    if (nodes.length > 0) {
+      setTimeout(() => fitView({ padding: 0.2, duration: 800 }), 100);
+    }
+  }, [nodes.length > 0, fitView]);
 
   const [rfNodes, setRfNodes, onNodesChange] = useNodesState([]);
   const [rfEdges, setRfEdges, onEdgesChange] = useEdgesState([]);

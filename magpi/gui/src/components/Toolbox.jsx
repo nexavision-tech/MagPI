@@ -6,7 +6,7 @@ import {
   SlidersHorizontal, Wrench, Check, FolderOpen, ListFilter,
   Search, Copy, Info, Fingerprint, Loader2, AlertCircle, 
   Cloud, Map as MapIcon, Satellite, Box, Globe, DownloadCloud, PaintBucket, 
-  FileOutput, LineChart, Brain, Sparkles, RefreshCcw, Activity, BrainCircuit
+  FileOutput, LineChart, Brain, Sparkles, RefreshCcw, Activity, BrainCircuit, Play
 } from 'lucide-react';
 
 const TOOLBOX_CATEGORIES = [
@@ -232,7 +232,7 @@ const TOOLBOX_CATEGORIES = [
 export default function Toolbox({ 
   activeRightTab, setActiveRightTab, 
   selectedNode, updateNodeParam, updateNodeName, deleteNode, addNode, duplicateNode,
-  openFileBrowser, nodes, connections
+  openFileBrowser, nodes, connections, handleRunUpToNode
 }) {
   const [expandedCategories, setExpandedCategories] = useState({});
   const [searchQuery, setSearchQuery] = useState('');
@@ -420,6 +420,7 @@ export default function Toolbox({
                     <input type="text" value={selectedNode.name} onChange={(e) => updateNodeName(selectedNode.id, e.target.value)} className="bg-transparent border-none text-white font-bold text-sm outline-none w-full focus:ring-1 focus:ring-white/50 rounded px-2 py-1 placeholder-white/50" placeholder="Node Name" />
                   </div>
                   <div className="flex space-x-2 shrink-0 pr-2">
+                    <button onClick={() => handleRunUpToNode(selectedNode.id)} className="w-7 h-7 rounded bg-emerald-600 hover:bg-emerald-500 flex items-center justify-center transition-colors shadow-sm" title="Run Pipeline Up To This Node"><Play size={13} /></button>
                     <button onClick={() => duplicateNode(selectedNode.id)} className="w-7 h-7 rounded bg-black/20 hover:bg-emerald-500/80 flex items-center justify-center transition-colors shadow-sm" title="Duplicate Node"><Copy size={13} /></button>
                     <button onClick={() => deleteNode(selectedNode.id)} className="w-7 h-7 rounded bg-black/20 hover:bg-red-500/80 flex items-center justify-center transition-colors shadow-sm" title="Delete Node"><Trash2 size={13} /></button>
                   </div>
