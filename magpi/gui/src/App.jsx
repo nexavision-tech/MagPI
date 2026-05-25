@@ -249,35 +249,42 @@ export default function App() {
     if (nodes.length === 0) return;
     
     if (window.dagre) {
-        const g = new window.dagre.graphlib.Graph();
-        g.setGraph({ rankdir: 'LR', align: 'UL', ranksep: 150, nodesep: 50 });
-        g.setDefaultEdgeLabel(() => ({}));
-        
-        const NODE_WIDTH = 250;
-        const NODE_HEIGHT = 80;
+        try {
+            const g = new window.dagre.graphlib.Graph();
+            g.setGraph({ rankdir: 'LR', align: 'UL', ranksep: 150, nodesep: 50 });
+            g.setDefaultEdgeLabel(() => ({}));
+            
+            const NODE_WIDTH = 250;
+            const NODE_HEIGHT = 80;
 
-        nodes.forEach(n => {
-            g.setNode(n.id, { width: NODE_WIDTH, height: NODE_HEIGHT });
-        });
-        
-        connections.forEach(c => {
-            g.setEdge(c.from, c.to);
-        });
-        
-        window.dagre.layout(g);
-        
-        setNodes(prev => prev.map(n => {
-            const nodeWithPosition = g.node(n.id);
-            return {
-                ...n,
-                x: nodeWithPosition.x - NODE_WIDTH / 2,
-                y: nodeWithPosition.y - NODE_HEIGHT / 2 + 100
-            };
-        }));
-        
-        setLogs([{ type: 'success', msg: 'Auto-Layout successfully optimized via Dagre.' }]);
-    } else {
-        // Fallback Homebrew Auto-Layout
+            nodes.forEach(n => {
+                g.setNode(n.id, { width: NODE_WIDTH, height: NODE_HEIGHT });
+            });
+            
+            connections.forEach(c => {
+                g.setEdge(c.from, c.to);
+            });
+            
+            window.dagre.layout(g);
+            
+            setNodes(prev => prev.map(n => {
+                const nodeWithPosition = g.node(n.id);
+                return {
+                    ...n,
+                    x: nodeWithPosition.x - NODE_WIDTH / 2,
+                    y: nodeWithPosition.y - NODE_HEIGHT / 2 + 100
+                };
+            }));
+            
+            setLogs([{ type: 'success', msg: 'Auto-Layout successfully optimized via Dagre.' }]);
+            setShowTerminal(true);
+            return; // Exit if successful
+        } catch (e) {
+            console.error("Dagre layout failed, likely due to a cycle:", e);
+        }
+    }
+    
+    // Fallback Homebrew Auto-Layout (executes if Dagre is missing or fails)
         const depths = {};
         const getDepth = (nId, visited = new Set()) => {
             if (depths[nId] !== undefined) return depths[nId];
@@ -318,7 +325,6 @@ export default function App() {
             };
         }));
         setLogs([{ type: 'success', msg: 'Homebrew Auto-Layout successfully executed.' }]);
-    }
     setShowTerminal(true);
   };
 

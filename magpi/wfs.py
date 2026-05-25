@@ -83,8 +83,19 @@ def PullSentinel2(extent, out_raster, max_cloud_cover=10, date_range="2023-01-01
         import rasterio
         from rasterio.windows import from_bounds
         
-        if hasattr(extent, 'XMin'): min_lon, min_lat, max_lon, max_lat = extent.XMin, extent.YMin, extent.XMax, extent.YMax
-        else: min_lon, min_lat, max_lon, max_lat = map(float, str(extent).split())
+        if hasattr(extent, 'output'):
+            extent = extent.output
+            
+        if hasattr(extent, 'XMin'): 
+            min_lon, min_lat, max_lon, max_lat = extent.XMin, extent.YMin, extent.XMax, extent.YMax
+        elif isinstance(extent, str) and (extent.endswith('.shp') or extent.endswith('.geojson') or os.path.exists(extent)):
+            import geopandas as gpd
+            gdf = gpd.read_file(extent)
+            if gdf.crs and not gdf.crs.is_geographic:
+                gdf = gdf.to_crs("EPSG:4326")
+            min_lon, min_lat, max_lon, max_lat = gdf.total_bounds
+        else: 
+            min_lon, min_lat, max_lon, max_lat = map(float, str(extent).split())
 
         search_url = "https://earth-search.aws.element84.com/v1/search"
         payload = { "collections": ["sentinel-2-l2a"] }
@@ -200,8 +211,19 @@ def PullUSGSElevation(extent, out_raster, resolution_width=1000, resolution_heig
     try:
         from .env import env
         out_raster = env.resolve_path(out_raster, intent="input")
-        if hasattr(extent, 'XMin'): min_lon, min_lat, max_lon, max_lat = extent.XMin, extent.YMin, extent.XMax, extent.YMax
-        else: min_lon, min_lat, max_lon, max_lat = map(float, str(extent).split())
+        if hasattr(extent, 'output'):
+            extent = extent.output
+            
+        if hasattr(extent, 'XMin'): 
+            min_lon, min_lat, max_lon, max_lat = extent.XMin, extent.YMin, extent.XMax, extent.YMax
+        elif isinstance(extent, str) and (extent.endswith('.shp') or extent.endswith('.geojson') or os.path.exists(extent)):
+            import geopandas as gpd
+            gdf = gpd.read_file(extent)
+            if gdf.crs and not gdf.crs.is_geographic:
+                gdf = gdf.to_crs("EPSG:4326")
+            min_lon, min_lat, max_lon, max_lat = gdf.total_bounds
+        else: 
+            min_lon, min_lat, max_lon, max_lat = map(float, str(extent).split())
 
         wcs_url = (f"https://elevation.nationalmap.gov/arcgis/services/3DEPElevation/ImageServer/WCSServer"
                    f"?request=GetCoverage&service=WCS&version=1.0.0&coverage=3DEPElevation"
@@ -224,8 +246,19 @@ def PullNLCD(extent, out_raster, year=2021, product="Land_Cover"):
         from .env import env
         out_raster = env.resolve_path(out_raster, intent="input")
         import numpy as np
-        if hasattr(extent, 'XMin'): min_lon, min_lat, max_lon, max_lat = extent.XMin, extent.YMin, extent.XMax, extent.YMax
-        else: min_lon, min_lat, max_lon, max_lat = map(float, str(extent).split())
+        if hasattr(extent, 'output'):
+            extent = extent.output
+            
+        if hasattr(extent, 'XMin'): 
+            min_lon, min_lat, max_lon, max_lat = extent.XMin, extent.YMin, extent.XMax, extent.YMax
+        elif isinstance(extent, str) and (extent.endswith('.shp') or extent.endswith('.geojson') or os.path.exists(extent)):
+            import geopandas as gpd
+            gdf = gpd.read_file(extent)
+            if gdf.crs and not gdf.crs.is_geographic:
+                gdf = gdf.to_crs("EPSG:4326")
+            min_lon, min_lat, max_lon, max_lat = gdf.total_bounds
+        else: 
+            min_lon, min_lat, max_lon, max_lat = map(float, str(extent).split())
 
         # FIX: Calculate exact WCS pixel dimensions based on native 30m NLCD resolution!
         lon_dist = (max_lon - min_lon) * 111320 * np.cos(np.radians((min_lat + max_lat) / 2))
@@ -296,8 +329,19 @@ def PullCopernicusData(extent, out_feature_class, collection="SENTINEL-1", produ
     
     try:
         import json
-        if hasattr(extent, 'XMin'): min_lon, min_lat, max_lon, max_lat = extent.XMin, extent.YMin, extent.XMax, extent.YMax
-        else: min_lon, min_lat, max_lon, max_lat = map(float, str(extent).split())
+        if hasattr(extent, 'output'):
+            extent = extent.output
+            
+        if hasattr(extent, 'XMin'): 
+            min_lon, min_lat, max_lon, max_lat = extent.XMin, extent.YMin, extent.XMax, extent.YMax
+        elif isinstance(extent, str) and (extent.endswith('.shp') or extent.endswith('.geojson') or os.path.exists(extent)):
+            import geopandas as gpd
+            gdf = gpd.read_file(extent)
+            if gdf.crs and not gdf.crs.is_geographic:
+                gdf = gdf.to_crs("EPSG:4326")
+            min_lon, min_lat, max_lon, max_lat = gdf.total_bounds
+        else: 
+            min_lon, min_lat, max_lon, max_lat = map(float, str(extent).split())
 
         # Construct the OData query (compliant with the user's provided spec)
         odata_filter = f"Collection/Name eq '{collection}' and Attributes/OData.CSC.StringAttribute/any(att:att/Name eq 'productType' and att/OData.CSC.StringAttribute/Value eq '{product_type}')"

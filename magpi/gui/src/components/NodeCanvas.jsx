@@ -146,11 +146,22 @@ function CanvasInner({
   React.useEffect(() => {
     setRfNodes((current) => nodes.map(n => {
       const existing = current.find(crn => crn.id === n.id);
+      
+      let position = { x: n.x, y: n.y };
+      if (existing) {
+          const dx = Math.abs(existing.position.x - n.x);
+          const dy = Math.abs(existing.position.y - n.y);
+          // Only override ReactFlow's internal position if App.jsx changes it significantly (e.g. Auto Layout)
+          if (dx < 5 && dy < 5) {
+              position = existing.position;
+          }
+      }
+      
       return {
         ...existing, // keeps dragging, measured, selected
         id: n.id,
         type: 'magpiNode',
-        position: existing ? existing.position : { x: n.x, y: n.y },
+        position: position,
         data: { ...n, selected: n.selected || n.id === selectedNodeId, status: nodeStatuses[n.id] }
       };
     }));

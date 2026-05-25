@@ -5,3 +5,4 @@ from .etl_nodes import *
 from .ia_nodes import *
 from .mgt_nodes import *
 from .geoai_nodes import *
+from .ml_nodes import *

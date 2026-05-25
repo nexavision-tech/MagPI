@@ -9,10 +9,24 @@ from .objects import Result
 
 logger = logging.getLogger("MagPI_Management")
 
+def _resolve_features(features):
+    logger.info(f"[_resolve_features] Input type: {type(features)}, value: {features}")
+    if hasattr(features, 'output'):
+        features = features.output
+        logger.info(f"[_resolve_features] Unwrapped Result output. New type: {type(features)}")
+    if hasattr(features, 'XMin'):
+        logger.info("[_resolve_features] Features has XMin. Converting to GeoDataFrame.")
+        import shapely.geometry
+        polygon = shapely.geometry.box(features.XMin, features.YMin, features.XMax, features.YMax)
+        crs = getattr(features, 'spatialReference', "EPSG:4326") or "EPSG:4326"
+        return gpd.GeoDataFrame(geometry=[polygon], crs=crs)
+    logger.info("[_resolve_features] Calling gpd.read_file.")
+    return gpd.read_file(features)
+
 def GetCount(in_rows):
     logger.info(f"Executing GetCount on: {in_rows}")
     try:
-        gdf = gpd.read_file(in_rows)
+        gdf = _resolve_features(in_rows)
         count = len(gdf)
         logger.info(f"Count result: {count}")
         return Result(count)
@@ -23,7 +37,7 @@ def GetCount(in_rows):
 def CopyFeatures(in_features, out_feature_class, config_keyword=None, spatial_grid_1=None, spatial_grid_2=None, spatial_grid_3=None):
     logger.info(f"Copying features from {in_features} to {out_feature_class}")
     try:
-        gdf = gpd.read_file(in_features)
+        gdf = _resolve_features(in_features)
         gdf.to_file(out_feature_class)
         return Result(out_feature_class)
     except Exception as e:
@@ -50,7 +64,7 @@ def Delete(in_data, data_type=None):
 def Project(in_dataset, out_dataset, out_coor_system, transform_method=None, in_coor_system=None, preserve_shape="NO_PRESERVE_SHAPE", max_deviation=None, vertical="NO_VERTICAL"):
     logger.info(f"Executing Open-Source Project (Reprojection) on: {in_dataset}")
     try:
-        gdf = gpd.read_file(in_dataset)
+        gdf = _resolve_features(in_dataset)
         
         if hasattr(out_coor_system, 'factoryCode'):
             target_crs = f"EPSG:{out_coor_system.factoryCode}"
@@ -80,7 +94,7 @@ def Merge(inputs, output, field_mappings=None, add_source="NO_SOURCE_INFO"):
         gdfs = []
         for f in inputs:
             if os.path.exists(f):
-                gdfs.append(gpd.read_file(f))
+                gdfs.append(_resolve_features(f))
             else:
                 logger.warning(f"Merge input not found: {f}")
         
@@ -99,12 +113,12 @@ def Merge(inputs, output, field_mappings=None, add_source="NO_SOURCE_INFO"):
 def JoinField(in_data, in_field, join_table, join_field, fields=None):
     logger.info(f"Executing Open-Source JoinField on {in_data} using {join_table}")
     try:
-        gdf = gpd.read_file(in_data)
+        gdf = _resolve_features(in_data)
         
         if str(join_table).endswith('.csv'):
             df = pd.read_csv(join_table)
         else:
-            df = gpd.read_file(join_table).drop(columns='geometry', errors='ignore')
+            df = _resolve_features(join_table).drop(columns='geometry', errors='ignore')
 
         gdf[in_field] = gdf[in_field].astype(str)
         df[join_field] = df[join_field].astype(str)
@@ -133,7 +147,7 @@ def JoinField(in_data, in_field, join_table, join_field, fields=None):
 def AddField(in_table, field_name, field_type, field_precision=None, field_scale=None, field_length=None, field_alias=None, field_is_nullable="NULLABLE", field_is_required="NON_REQUIRED", field_domain=""):
     logger.info(f"Adding field '{field_name}' of type '{field_type}' to {in_table}")
     try:
-        gdf = gpd.read_file(in_table)
+        gdf = _resolve_features(in_table)
         ftype_upper = field_type.upper()
         if ftype_upper in ["TEXT", "STRING"]:
             gdf[field_name] = ""
@@ -156,7 +170,7 @@ def AddField(in_table, field_name, field_type, field_precision=None, field_scale
 def CalculateField(in_table, field, expression, expression_type="PYTHON3", code_block="", field_type=""):
     logger.info(f"Calculating field '{field}' on {in_table}")
     try:
-        gdf = gpd.read_file(in_table)
+        gdf = _resolve_features(in_table)
         pandas_expr = re.sub(r'!([^!]+)!', r"gdf['\1']", expression)
         gdf[field] = eval(pandas_expr)
         gdf.to_file(in_table)
@@ -289,7 +303,7 @@ def Dissolve(in_features, out_feature_class, dissolve_field=None):
     logger.info(f"Executing Open-Source Dissolve on: {in_features}")
     try:
         import geopandas as gpd
-        gdf = gpd.read_file(in_features)
+        gdf = _resolve_features(in_features)
         
         if dissolve_field:
             logger.info(f"Dissolving by field: {dissolve_field}")

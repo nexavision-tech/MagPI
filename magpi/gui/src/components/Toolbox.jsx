@@ -135,6 +135,10 @@ const TOOLBOX_CATEGORIES = [
         description: "Executes a trained Classical ML model over a raster to produce a classified land cover map.",
         params: { out_raster: "ml_classified.tif" } 
       },
+      { id: 'ml_pytorch_inference', name: "PyTorch Tensor Brew", type: 'process', icon: <BrainCircuit size={14}/>, color: 'bg-red-700', border: 'border-red-500', 
+        description: "Runs advanced PyTorch model inference on raster imagery.",
+        params: { model_script_path: "./dummy_model.py", tile_size: 256, batch_size: 4, device: { value: "cpu", type: "select", options: ["cpu", "cuda"] }, out_raster: "pytorch_inference_out.tif" } 
+      },
     ]
   },
   {
