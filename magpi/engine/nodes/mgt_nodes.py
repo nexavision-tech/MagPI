@@ -38,6 +38,41 @@ class BufferNode(Node):
         from magpi.analysis import Buffer
         self.output = Buffer(in_features, out_path, dist_str)
 
+@register_node('mgt_intersect')
+class IntersectNode(Node):
+    def execute(self):
+        in_features = self.inputs.get("in")
+        # in_features could be a list if multiple edges are connected to the 'in' handle
+        out_filename = f"intersect_{self.id.split('_')[1] if '_' in self.id else '1'}.shp"
+        out_path = os.path.join(os.environ.get('MAGPI_OUTPUT', '.'), out_filename)
+        
+        logger.info(f"Executing Intersect on {in_features}")
+        from magpi.analysis import Intersect
+        self.output = Intersect(in_features, out_path)
+
+@register_node('mgt_erase')
+class EraseNode(Node):
+    def execute(self):
+        in_features = self.inputs.get("in")
+        erase_features = self.inputs.get("erase")
+        out_filename = f"erase_{self.id.split('_')[1] if '_' in self.id else '1'}.shp"
+        out_path = os.path.join(os.environ.get('MAGPI_OUTPUT', '.'), out_filename)
+        
+        logger.info(f"Executing Erase on {in_features} using {erase_features}")
+        from magpi.analysis import Erase
+        self.output = Erase(in_features, erase_features, out_path)
+
+@register_node('mgt_merge')
+class MergeNode(Node):
+    def execute(self):
+        in_features = self.inputs.get("in")
+        out_filename = f"merge_{self.id.split('_')[1] if '_' in self.id else '1'}.shp"
+        out_path = os.path.join(os.environ.get('MAGPI_OUTPUT', '.'), out_filename)
+        
+        logger.info(f"Executing Merge on {in_features}")
+        from magpi.management import Merge
+        self.output = Merge(in_features, out_path)
+
 @register_node('mgt_project_raster')
 class ProjectRasterNode(Node):
     def execute(self):

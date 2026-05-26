@@ -154,6 +154,18 @@ const TOOLBOX_CATEGORIES = [
         description: "Creates polygon boundaries at a specified distance around input vector features.",
         params: { distance: 50, unit: { value: "Meters", type: "select", options: ["Meters", "Kilometers", "Feet", "Miles"] } } 
       },
+      { id: 'mgt_intersect', name: "Intersect", type: 'process', icon: <Layers size={14}/>, color: 'bg-slate-600', border: 'border-slate-500', 
+        description: "Computes a geometric intersection of the input features.",
+        params: {} 
+      },
+      { id: 'mgt_erase', name: "Erase", type: 'process', icon: <Scissors size={14}/>, color: 'bg-slate-600', border: 'border-slate-500', 
+        description: "Creates a feature class by overlaying the Input Features with the polygons of the Erase Features.",
+        params: {} 
+      },
+      { id: 'mgt_merge', name: "Merge", type: 'process', icon: <Layers size={14}/>, color: 'bg-slate-600', border: 'border-slate-500', 
+        description: "Combines multiple input datasets of the same data type into a single, new output dataset.",
+        params: {} 
+      },
       { id: 'mgt_project_raster', name: "Project Raster", type: 'process', icon: <MapIcon size={14}/>, color: 'bg-slate-600', border: 'border-slate-500', 
         description: "Warps a raster image from one coordinate system to another.",
         params: { out_crs: "EPSG:6438", resampling: { value: "NEAREST", type: "select", options: ["NEAREST", "BILINEAR", "CUBIC", "MAJORITY"] } } 
@@ -207,7 +219,7 @@ const TOOLBOX_CATEGORIES = [
       { id: 'envi_tasseled_cap', name: "Tasseled Cap", type: 'process', icon: <Leaf size={14}/>, color: 'bg-pink-600', border: 'border-pink-500', 
         description: "Calculates Tasseled Cap transformation (Brightness, Greenness, Wetness).",
         params: { sensor: { value: "Landsat_8", type: "select", options: ["Landsat_8", "Sentinel_2", "Landsat_5"] } } },
-      { id: 'envi_glcm', name: "GLCM Textural Features", type: 'process', icon: <Grid size={14}/>, color: 'bg-pink-600', border: 'border-pink-500', 
+      { id: 'ia_glcm', name: "GLCM Textural Features", type: 'process', icon: <Grid size={14}/>, color: 'bg-pink-600', border: 'border-pink-500', 
         description: "Computes Gray-Level Co-occurrence Matrix textural features (Contrast, Correlation, Entropy, etc.).",
         params: { window_size: { value: "3x3", type: "select", options: ["3x3", "5x5", "7x7", "9x9", "11x11", "15x15"] }, shift_x: 1, shift_y: 1 } }
     ]

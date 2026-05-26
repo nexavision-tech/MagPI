@@ -33,7 +33,7 @@ class NDVINode(Node):
         if len(self.output) == 1:
             self.output = self.output[0]
 
-@register_node('envi_glcm')
+@register_node('ia_glcm')
 class GLCMNode(Node):
     def execute(self):
         in_rasters = self.inputs.get("in")
