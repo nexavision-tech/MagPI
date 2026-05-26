@@ -78,6 +78,12 @@ const TOOLBOX_CATEGORIES = [
       { id: 'load_vector', name: "Input Vector", type: 'input', icon: <Hexagon size={14}/>, color: 'bg-blue-600', border: 'border-blue-500', 
         description: "Loads a vector feature class or shapefile containing points, lines, or polygons.",
         params: { file_path: "./test_data/Orange_County_Tracts.shp" } },
+      { id: 'core_create_vector', name: "Create Feature Class", type: 'process', icon: <Hexagon size={14}/>, color: 'bg-blue-600', border: 'border-blue-500', 
+        description: "Creates an empty feature class (shapefile) or an AOI polygon, serving as a blank canvas for vectors.",
+        params: { out_feature_class: "new_vector.shp", crs: "EPSG:4326" } },
+      { id: 'core_create_raster', name: "Create Constant Raster", type: 'process', icon: <ImageIcon size={14}/>, color: 'bg-blue-600', border: 'border-blue-500', 
+        description: "Generates a raster layer filled with a constant value across a given spatial extent.",
+        params: { out_raster: "new_raster.tif", cell_size: 30, fill_value: 0, crs: "EPSG:4326" } },
     ]
   },
   {
