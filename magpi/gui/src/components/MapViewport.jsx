@@ -95,7 +95,7 @@ const MapViewport = React.memo(({ onAoiDrawn, selectedNode, activeWorkspace, nod
 
         const drawControl = new L.Control.Draw({
             draw: {
-                polyline: false, polygon: false, circle: false, marker: false, circlemarker: false,
+                polyline: true, polygon: true, circle: false, marker: true, circlemarker: false,
                 rectangle: { shapeOptions: { color: '#00ffff', weight: 2, fillOpacity: 0.15 } } 
             },
             edit: false 
@@ -107,7 +107,14 @@ const MapViewport = React.memo(({ onAoiDrawn, selectedNode, activeWorkspace, nod
         document.head.appendChild(style);
 
         map.on(L.Draw.Event.CREATED, function (e) {
-            const bounds = e.layer.getBounds();
+            let bounds;
+            if (e.layerType === 'marker') {
+                const latlng = e.layer.getLatLng();
+                bounds = L.latLngBounds(latlng, latlng); // Zero-size bounds for a point
+            } else {
+                bounds = e.layer.getBounds();
+            }
+            
             if (onAoiDrawn) {
                 onAoiDrawn({
                     xmin: bounds.getWest().toFixed(5),
@@ -142,6 +149,16 @@ const MapViewport = React.memo(({ onAoiDrawn, selectedNode, activeWorkspace, nod
                 .map(n => {
                     const existing = prevLayers.find(l => l.id === n.id);
                     const extent = getAncestralExtent(n.id, nodes, connections);
+                    let vectorPath = null;
+                    if (n.params && (n.params.file_path || n.params.out_shp || n.params.out_feature_class)) {
+                        let raw = n.params.file_path || n.params.out_shp || n.params.out_feature_class;
+                        if (!raw.startsWith('/') && !raw.startsWith('./')) {
+                            // Assumed to be an output file, prefix with globalEnv.output_dir
+                            vectorPath = `${globalEnv ? globalEnv.output_dir : './magpi_output'}/${raw}`;
+                        } else {
+                            vectorPath = raw;
+                        }
+                    }
                     
                     return {
                         id: n.id,
@@ -149,7 +166,9 @@ const MapViewport = React.memo(({ onAoiDrawn, selectedNode, activeWorkspace, nod
                         visible: existing ? existing.visible : true,
                         opacity: existing ? existing.opacity : (n.toolId === 'core_extent' ? 15 : 80),
                         selected: n.selected || (selectedNode && selectedNode.id === n.id),
-                        extent: extent
+                        extent: extent,
+                        vectorPath: vectorPath,
+                        geojsonData: existing ? existing.geojsonData : null
                     };
                 })
                 .filter(l => l.extent !== null);
@@ -181,7 +200,7 @@ const MapViewport = React.memo(({ onAoiDrawn, selectedNode, activeWorkspace, nod
                     const rect = L.rectangle(bounds, { 
                         color: color, 
                         weight: weight, 
-                        fillOpacity: layer.id.includes('extent') ? 0.2 : layer.opacity / 100, 
+                        fillOpacity: layer.id.includes('extent') ? 0.2 : 0, // only fill if it's an extent, GeoJSON will draw on top
                         dashArray: layer.id.includes('extent') ? '4, 4' : null 
                     });
                     
@@ -192,6 +211,25 @@ const MapViewport = React.memo(({ onAoiDrawn, selectedNode, activeWorkspace, nod
                     });
                     
                     highlightGroup.current.addLayer(rect);
+                    
+                    // Render GeoJSON if available, OR start fetch
+                    if (layer.vectorPath && !layer.id.includes('extent') && !layer.id.includes('raster')) {
+                        if (layer.geojsonData) {
+                            const gjLayer = L.geoJSON(layer.geojsonData, {
+                                style: { color: color, weight: weight, fillOpacity: layer.opacity / 100 }
+                            });
+                            highlightGroup.current.addLayer(gjLayer);
+                        } else if (!layer.isFetching) {
+                            layer.isFetching = true;
+                            fetch(`http://localhost:8080/api/geojson?file=${encodeURIComponent(layer.vectorPath)}`)
+                                .then(r => r.ok ? r.json() : null)
+                                .then(data => {
+                                    if (data) {
+                                        setLayers(current => current.map(l => l.id === layer.id ? { ...l, geojsonData: data, isFetching: false } : l));
+                                    }
+                                }).catch(() => { layer.isFetching = false; });
+                        }
+                    }
                     
                     if (isSelected) {
                         mapInstance.current.flyToBounds(bounds, { duration: 0.8, padding: [30, 30] });

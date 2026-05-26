@@ -113,6 +113,8 @@ def LaunchCanvas(port=8080):
                 self.send_header('Content-type', 'application/json')
                 self.end_headers()
                 self.wfile.write(json.dumps(list(JOB_REGISTRY.values())).encode('utf-8'))
+            elif parsed_path.path == '/api/geojson':
+                self.handle_geojson(parsed_path.query)
             else:
                 super().do_GET()
 
@@ -228,6 +230,34 @@ def LaunchCanvas(port=8080):
                     self.send_header('Content-type', 'application/json')
                     self.end_headers()
                     self.wfile.write(json.dumps({"error": str(e)}).encode('utf-8'))
+
+        def handle_geojson(self, query):
+            qs = parse_qs(query)
+            target_file = qs.get('file', [''])[0]
+            
+            try:
+                import geopandas as gpd
+                logger.info(f"API Request: Streaming GeoJSON for {target_file}")
+                
+                if not os.path.exists(target_file):
+                    raise FileNotFoundError(f"File not found: {target_file}")
+                    
+                gdf = gpd.read_file(target_file)
+                if gdf.crs and not gdf.crs.is_geographic:
+                    gdf = gdf.to_crs("EPSG:4326")
+                    
+                geojson_str = gdf.to_json()
+                
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(geojson_str.encode('utf-8'))
+            except Exception as e:
+                logger.error(f"GeoJSON API failed: {e}")
+                self.send_response(500)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": str(e)}).encode('utf-8'))
 
         def handle_describe(self, query):
             qs = parse_qs(query)
