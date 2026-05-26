@@ -10,10 +10,14 @@ def _resolve_features(features):
     if hasattr(features, 'output'):
         features = features.output
         logger.info(f"[_resolve_features] Unwrapped Result output. New type: {type(features)}")
-    if hasattr(features, 'XMin'):
-        logger.info("[_resolve_features] Features has XMin. Converting to GeoDataFrame.")
+    if hasattr(features, 'XMin') or hasattr(features, 'xmin'):
+        logger.info("[_resolve_features] Features has XMin/xmin. Converting to GeoDataFrame.")
         import shapely.geometry
-        polygon = shapely.geometry.box(features.XMin, features.YMin, features.XMax, features.YMax)
+        xmin = getattr(features, 'XMin', getattr(features, 'xmin', 0))
+        ymin = getattr(features, 'YMin', getattr(features, 'ymin', 0))
+        xmax = getattr(features, 'XMax', getattr(features, 'xmax', 0))
+        ymax = getattr(features, 'YMax', getattr(features, 'ymax', 0))
+        polygon = shapely.geometry.box(xmin, ymin, xmax, ymax)
         crs = getattr(features, 'spatialReference', "EPSG:4326") or "EPSG:4326"
         return gpd.GeoDataFrame(geometry=[polygon], crs=crs)
     logger.info("[_resolve_features] Calling gpd.read_file.")

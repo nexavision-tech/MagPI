@@ -216,7 +216,21 @@ const MapViewport = React.memo(({ onAoiDrawn, selectedNode, activeWorkspace, nod
                     if (layer.vectorPath && !layer.id.includes('extent') && !layer.id.includes('raster')) {
                         if (layer.geojsonData) {
                             const gjLayer = L.geoJSON(layer.geojsonData, {
-                                style: { color: color, weight: weight, fillOpacity: layer.opacity / 100 }
+                                style: { color: color, weight: weight, fillOpacity: layer.opacity / 100 },
+                                onEachFeature: (feature, featureLayer) => {
+                                    featureLayer.on('click', (e) => {
+                                        // Stop map click propagation
+                                        L.DomEvent.stopPropagation(e);
+                                        let popupContent = '<div class="text-xs max-h-48 overflow-auto"><table class="min-w-full"><tbody class="text-slate-800">';
+                                        if (feature.properties) {
+                                            for (let key in feature.properties) {
+                                                popupContent += `<tr><td class="font-bold pr-2 border-b border-slate-200">${key}:</td><td class="border-b border-slate-200">${feature.properties[key]}</td></tr>`;
+                                            }
+                                        }
+                                        popupContent += '</tbody></table></div>';
+                                        featureLayer.bindPopup(popupContent).openPopup();
+                                    });
+                                }
                             });
                             highlightGroup.current.addLayer(gjLayer);
                         } else if (!layer.isFetching) {
