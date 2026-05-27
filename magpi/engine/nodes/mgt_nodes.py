@@ -183,3 +183,32 @@ class BuildPyramidsNode(Node):
                 
         if len(self.output) == 1:
             self.output = self.output[0]
+
+@register_node('mgt_extract_band')
+class BandExtractorNode(Node):
+    def execute(self):
+        in_raster = self.inputs.get("in")
+        p = self.params
+        band_index = p.get('band_index', 1)
+        
+        out_filename = f"band_{band_index}_extract_{self.id.split('_')[1] if '_' in self.id else '1'}.tif"
+        out_path = os.path.join(os.environ.get('MAGPI_OUTPUT', '.'), out_filename)
+        
+        logger.info(f"Extracting Band {band_index} from {in_raster}")
+        
+        try:
+            import rasterio
+            with rasterio.open(in_raster) as src:
+                if band_index < 1 or band_index > src.count:
+                    raise ValueError(f"Band index {band_index} out of range (1-{src.count})")
+                    
+                meta = src.meta.copy()
+                meta.update({"count": 1})
+                
+                with rasterio.open(out_path, 'w', **meta) as dst:
+                    dst.write(src.read(band_index), 1)
+                    
+            self.output = out_path
+        except Exception as e:
+            logger.error(f"Band extraction failed: {e}")
+            raise

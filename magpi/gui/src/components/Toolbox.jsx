@@ -221,6 +221,11 @@ const TOOLBOX_CATEGORIES = [
         params: { index: 0 }
       },
       {
+        id: 'mgt_extract_band', name: "Extract Band", type: 'process', icon: <Layers size={14} />, color: 'bg-slate-600', border: 'border-slate-500',
+        description: "Extracts a specific single band from a multi-band raster (e.g. Band 1 VV from SAR, or Band 4 NIR from Sentinel-2).",
+        params: { band_index: 1 }
+      },
+      {
         id: 'mgt_clip', name: "Clip to AOI", type: 'process', icon: <Scissors size={14} />, color: 'bg-slate-600', border: 'border-slate-500',
         description: "Extracts a spatial subset of a raster or vector based on a drawn Spatial Extent node.",
         params: {}
