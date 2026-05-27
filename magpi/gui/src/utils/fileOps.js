@@ -1,4 +1,4 @@
-export const saveProject = (nodes, connections, crs, globalEnv, projectName = "MagPI_Project") => {
+export const saveProject = async (nodes, connections, crs, globalEnv, projectName = "untitled_project") => {
     // Construct the payload
     const projectData = {
         version: "0.1.3",
@@ -9,17 +9,26 @@ export const saveProject = (nodes, connections, crs, globalEnv, projectName = "M
         connections: connections
     };
 
-    // Convert to a JSON string and create a downloadable blob
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(projectData, null, 2));
-    
-    // Create a temporary hidden link in the browser to trigger the download
-    const downloadAnchorNode = document.createElement('a');
-    downloadAnchorNode.setAttribute("href", dataStr);
-    downloadAnchorNode.setAttribute("download", projectName + ".mpjx");
-    
-    document.body.appendChild(downloadAnchorNode); // required for firefox
-    downloadAnchorNode.click();
-    downloadAnchorNode.remove();
+    try {
+        const response = await fetch("http://localhost:8080/api/save_project", {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                project_name: projectName,
+                project_data: projectData
+            })
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const result = await response.json();
+        console.log("Project saved to daemon:", result);
+        return result;
+    } catch (error) {
+        console.error("Failed to save project via daemon API:", error);
+        throw error;
+    }
 };
 
 export const loadProject = (file, setNodes, setConnections, setCrs, setGlobalEnv, logCallback) => {

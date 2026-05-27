@@ -231,6 +231,41 @@ def LaunchCanvas(port=8080):
                     self.end_headers()
                     self.wfile.write(json.dumps({"error": str(e)}).encode('utf-8'))
 
+            elif parsed_path.path == '/api/save_project':
+                content_length = int(self.headers['Content-Length'])
+                post_data = self.rfile.read(content_length)
+                try:
+                    payload = json.loads(post_data.decode('utf-8'))
+                    logger.info("Received Project Save Request.")
+                    
+                    project_name = payload.get('project_name', 'untitled')
+                    project_data = payload.get('project_data', {})
+                    
+                    # Force .mpjx extension
+                    if not project_name.endswith('.mpjx'):
+                        project_name += '.mpjx'
+                        
+                    # Save to magpi_workspace/projects/
+                    workspace_dir = os.path.join(os.getcwd(), 'magpi_workspace')
+                    projects_dir = os.path.join(workspace_dir, 'projects')
+                    os.makedirs(projects_dir, exist_ok=True)
+                    
+                    file_path = os.path.join(projects_dir, project_name)
+                    with open(file_path, 'w') as f:
+                        json.dump(project_data, f, indent=2)
+                        
+                    response = {"status": "success", "file": file_path}
+                    self.send_response(200)
+                    self.send_header('Content-type', 'application/json')
+                    self.end_headers()
+                    self.wfile.write(json.dumps(response).encode('utf-8'))
+                except Exception as e:
+                    logger.error(f"Project Save API failed: {e}")
+                    self.send_response(500)
+                    self.send_header('Content-type', 'application/json')
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"error": str(e)}).encode('utf-8'))
+
         def handle_geojson(self, query):
             qs = parse_qs(query)
             target_file = qs.get('file', [''])[0]

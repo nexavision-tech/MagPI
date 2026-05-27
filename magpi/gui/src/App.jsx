@@ -234,10 +234,18 @@ export default function App() {
 
   const selectedNode = nodes.find(n => n.id === selectedNodeId);
 
-  const handleSave = () => {
-    saveProject(nodes, connections, crs, globalEnv, "MagPI_Active_Pipeline");
-    setLogs([{ type: 'success', msg: 'Project saved to disk as .mpjx format.' }]);
-    setShowTerminal(true);
+  const handleSave = async () => {
+    const projectName = prompt("Enter project name:", "untitled_project");
+    if (!projectName) return;
+    
+    try {
+        await saveProject(nodes, connections, crs, globalEnv, projectName);
+        setLogs([{ type: 'success', msg: `Project saved successfully to magpi_workspace/projects/${projectName}.mpjx` }]);
+        setShowTerminal(true);
+    } catch (e) {
+        setLogs([{ type: 'error', msg: `Failed to save project: ${e.message}` }]);
+        setShowTerminal(true);
+    }
   };
 
   const handleLoad = (file) => {
