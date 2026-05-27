@@ -63,3 +63,27 @@ class WFSCopernicusNode(Node):
             
         if len(self.output) == 1:
             self.output = self.output[0]
+
+@register_node('wfs_arcgis_rest')
+class PullArcGISRestNode(Node):
+    def execute(self):
+        extent = self.inputs.get("in")
+        p = self.params
+        
+        url = p.get("service_url")
+        width = p.get("width", 1024)
+        height = p.get("height", 1024)
+        fmt = p.get("format", "tiff")
+        
+        if not url:
+            raise ValueError("ArcGIS REST service URL is required.")
+        if not extent:
+            raise ValueError("Spatial Extent is required to query an ArcGIS REST service.")
+            
+        import os
+        from magpi.wfs import PullArcGISRest
+        out_filename = f"arcgis_pull_{self.id[-4:]}.{fmt}"
+        out_path = os.path.join(os.environ.get('MAGPI_OUTPUT', '.'), out_filename)
+        
+        logger.info(f"Pulling from ArcGIS REST MapServer/ImageServer: {url}")
+        self.output = PullArcGISRest(url, extent, out_path, width=width, height=height, format=fmt)
