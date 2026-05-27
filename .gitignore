@@ -32,4 +32,4 @@ env/
 node_modules/
 
 # Ref Docs
-ArcPy_Functions.pdf
+/Docs

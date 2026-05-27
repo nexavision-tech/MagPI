@@ -7,6 +7,47 @@ from .objects import Result
 
 logger = logging.getLogger("MagPI_WFS")
 
+def PullArcGISRest(url, extent, out_file, width=1024, height=1024, format="tiff"):
+    """
+    Pulls data from an ArcGIS REST MapServer or ImageServer using the export API.
+    """
+    logger.info(f"Querying ArcGIS REST Service: {url}")
+    try:
+        from .env import env
+        
+        # Ensure extent is unwrapped if it's a MagPI_AOI object
+        if hasattr(extent, 'xmin'):
+            bbox = f"{extent.xmin},{extent.ymin},{extent.xmax},{extent.ymax}"
+        else:
+            bbox = f"{extent[0]},{extent[1]},{extent[2]},{extent[3]}"
+
+        export_url = f"{url}/export"
+        params = {
+            "bbox": bbox,
+            "bboxSR": "4326",
+            "size": f"{width},{height}",
+            "imageSR": "4326",
+            "format": format,
+            "f": "image"
+        }
+        
+        import requests
+        response = requests.get(export_url, params=params, stream=True)
+        response.raise_for_status()
+        
+        with open(out_file, 'wb') as fd:
+            for chunk in response.iter_content(chunk_size=8192): 
+                fd.write(chunk)
+                
+        logger.info(f"SUCCESS: ArcGIS REST data saved to {out_file}")
+        from .objects import Result
+        return Result(out_file)
+    except Exception as e:
+        logger.error(f"Failed to retrieve ArcGIS REST Data: {e}")
+        from .objects import Result
+        return Result(None, status=3)
+
+
 def GetCensusTracts(state_fips, county_fips, year=2020, out_feature_class=None):
     state_str = str(state_fips).zfill(2)
     county_str = str(county_fips).zfill(3)

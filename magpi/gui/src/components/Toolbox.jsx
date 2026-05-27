@@ -19,6 +19,9 @@ const TOOLBOX_CATEGORIES = [
       { id: 'wfs_elevation', name: "Pull USGS DEM", type: 'input', icon: <Layers size={14}/>, color: 'bg-cyan-700', border: 'border-cyan-500', 
         description: "Extracts a 3D Digital Elevation Model (DEM) natively from the USGS 3DEP Web Coverage Service.",
         params: {} },
+      { id: 'wfs_arcgis_rest', name: "ArcGIS REST (MapServer)", type: 'input', icon: <Database size={14}/>, color: 'bg-cyan-700', border: 'border-cyan-500', 
+        description: "Pulls map image data dynamically from an Esri MapServer or ImageServer.",
+        params: { service_url: "https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer", width: 1024, height: 1024, format: "tiff" } },
       { id: 'wfs_nlcd', name: "Pull NLCD Labels", type: 'input', icon: <Grid size={14}/>, color: 'bg-cyan-700', border: 'border-cyan-500', 
         description: "Streams categorical ground-truth labels via the free MRLC GeoServer WCS (bypassing the AWS 403 block).",
         params: { year: { value: "2021", type: "select", options: ["2021", "2019", "2016", "2011", "2001"] }, product: { value: "Land_Cover", type: "select", options: ["Land_Cover", "Impervious"] } } },
@@ -78,6 +81,12 @@ const TOOLBOX_CATEGORIES = [
       { id: 'load_vector', name: "Input Vector", type: 'input', icon: <Hexagon size={14}/>, color: 'bg-blue-600', border: 'border-blue-500', 
         description: "Loads a vector feature class or shapefile containing points, lines, or polygons.",
         params: { file_path: "./test_data/Orange_County_Tracts.shp" } },
+      { id: 'core_create_vector', name: "Create Feature Class", type: 'process', icon: <Hexagon size={14}/>, color: 'bg-blue-600', border: 'border-blue-500', 
+        description: "Creates an empty feature class (shapefile) or an AOI polygon, serving as a blank canvas for vectors.",
+        params: { out_feature_class: "new_vector.shp", crs: "EPSG:4326" } },
+      { id: 'core_create_raster', name: "Create Constant Raster", type: 'process', icon: <ImageIcon size={14}/>, color: 'bg-blue-600', border: 'border-blue-500', 
+        description: "Generates a raster layer filled with a constant value across a given spatial extent.",
+        params: { out_raster: "new_raster.tif", cell_size: 30, fill_value: 0, crs: "EPSG:4326" } },
     ]
   },
   {
