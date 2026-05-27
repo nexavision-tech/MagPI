@@ -132,6 +132,10 @@ const TOOLBOX_CATEGORIES = [
         description: "Uses a Generative Adversarial Network to mathematically hallucinate and up-sample raw imagery (e.g., 10m to 2m resolution).",
         params: { scale_factor: { value: 2, type: "select", options: [2, 4, 8] } } 
       },
+      { id: 'ai_change_detection', name: "Change Detection", type: 'process', icon: <Compass size={14}/>, color: 'bg-indigo-600', border: 'border-indigo-500',
+        description: "Mathematically analyzes the structural variance between a PRE and POST temporal raster.",
+        params: { method: { value: "absolute_difference", type: "select", options: ["absolute_difference"] }, threshold: 0.1, out_raster: "change_mask.tif" }
+      },
       { id: 'ai_rl', name: "Agentic Optimizer (RL)", type: 'process', icon: <RefreshCcw size={14}/>, color: 'bg-orange-600', border: 'border-orange-500', 
         description: "Unleashes an autonomous Reinforcement Learning agent to iteratively optimize geoprocessing parameters.",
         params: { target_accuracy: 95.0, max_iterations: 100 } 

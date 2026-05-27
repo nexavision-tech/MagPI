@@ -115,6 +115,8 @@ def LaunchCanvas(port=8080):
                 self.wfile.write(json.dumps(list(JOB_REGISTRY.values())).encode('utf-8'))
             elif parsed_path.path == '/api/geojson':
                 self.handle_geojson(parsed_path.query)
+            elif parsed_path.path == '/api/load_project':
+                self.handle_load_project(parsed_path.query)
             else:
                 super().do_GET()
 
@@ -265,6 +267,28 @@ def LaunchCanvas(port=8080):
                     self.send_header('Content-type', 'application/json')
                     self.end_headers()
                     self.wfile.write(json.dumps({"error": str(e)}).encode('utf-8'))
+
+        def handle_load_project(self, query):
+            qs = parse_qs(query)
+            target_file = qs.get('file', [''])[0]
+            
+            try:
+                if not os.path.exists(target_file):
+                    raise FileNotFoundError(f"Project file not found: {target_file}")
+                    
+                with open(target_file, 'r') as f:
+                    project_data = json.load(f)
+                    
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"status": "success", "project_data": project_data}).encode('utf-8'))
+            except Exception as e:
+                logger.error(f"Load Project API failed: {e}")
+                self.send_response(500)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": str(e)}).encode('utf-8'))
 
         def handle_geojson(self, query):
             qs = parse_qs(query)

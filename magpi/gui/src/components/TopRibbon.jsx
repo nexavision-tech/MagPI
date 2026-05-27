@@ -52,14 +52,10 @@ export default function TopRibbon({
             <span className="text-[10px] mt-1 font-medium">Save</span>
           </button>
           
-          <label className="flex flex-col items-center justify-center p-2 hover:bg-slate-700 rounded text-slate-400 transition-colors ml-1 cursor-pointer" title="Load Project">
+          <button onClick={onLoad} className="flex flex-col items-center justify-center p-2 hover:bg-slate-700 rounded text-slate-400 transition-colors ml-1 cursor-pointer" title="Load Project">
             <FolderUp size={18} />
             <span className="text-[10px] mt-1 font-medium">Load</span>
-            <input type="file" accept=".mpjx,.json" className="hidden" onChange={(e) => {
-              if (e.target.files.length > 0) onLoad(e.target.files[0]);
-              e.target.value = null; 
-            }} />
-          </label>
+          </button>
           <button onClick={onAutoLayout} className="flex flex-col items-center justify-center p-2 hover:bg-indigo-900/50 hover:text-indigo-400 rounded text-slate-400 transition-colors ml-4 border-l border-slate-700 pl-4" title="Auto Layout Nodes">
             <Layers size={18} />
             <span className="text-[10px] mt-1 font-medium">Layout</span>

@@ -45,6 +45,55 @@ class ClassifyPixelsNode(Node):
         from magpi.geoai import ClassifyPixelsUsingDeepLearning
         self.output = ClassifyPixelsUsingDeepLearning(in_raster, out_raster, p.get('model'))
 
+@register_node('ai_change_detection')
+class ChangeDetectionNode(Node):
+    def execute(self):
+        pre_raster = self.inputs.get("PRE", self.params.get("pre_image", ""))
+        post_raster = self.inputs.get("POST", self.params.get("post_image", ""))
+        p = self.params
+        out_raster = p.get("out_raster", "change_mask.tif")
+        method = p.get("method", "absolute_difference")
+        
+        if not pre_raster or not post_raster:
+            raise ValueError("Both PRE and POST rasters are required for Change Detection.")
+            
+        logger.info(f"Running Temporal Change Detection (Method: {method})")
+        logger.info(f"PRE: {pre_raster}")
+        logger.info(f"POST: {post_raster}")
+        
+        import os
+        from magpi.ia import RasterMath
+        
+        # Ensure output path
+        out_path = os.path.join(os.environ.get('MAGPI_OUTPUT', '.'), out_raster)
+        
+        # For a simple structural change detection, subtract pre from post
+        if method == "absolute_difference":
+            # We'll use RasterMath logic under the hood, or simply wrap it here
+            try:
+                import rasterio
+                import numpy as np
+                with rasterio.open(pre_raster) as src1, rasterio.open(post_raster) as src2:
+                    meta = src1.meta
+                    arr1 = src1.read().astype(np.float32)
+                    arr2 = src2.read().astype(np.float32)
+                    
+                    diff = np.abs(arr2 - arr1)
+                    # Normalize or threshold
+                    threshold = p.get("threshold", 0.1)
+                    mask = (diff > threshold).astype(np.uint8)
+                    
+                    meta.update(dtype=rasterio.uint8)
+                    with rasterio.open(out_path, 'w', **meta) as dst:
+                        dst.write(mask)
+                        
+                self.output = out_path
+            except Exception as e:
+                logger.error(f"Change detection failed: {e}")
+                raise
+        else:
+            raise NotImplementedError(f"Change detection method {method} not implemented yet.")
+
 @register_node('ai_insight')
 class AIInsightNode(Node):
     def execute(self):

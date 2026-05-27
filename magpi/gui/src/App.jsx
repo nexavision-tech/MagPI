@@ -194,8 +194,29 @@ export default function App() {
     setBrowserConfig({ isOpen: true, nodeId, paramKey, initialPath: currentPath || "." });
   };
 
-  const handleFileSelected = (absolutePath) => {
-    if (browserConfig.nodeId === "env" && browserConfig.paramKey) {
+  const handleFileSelected = async (absolutePath) => {
+    if (browserConfig.nodeId === "LOAD_PROJECT") {
+        try {
+            setLogs([{ type: 'info', msg: `Loading project from ${absolutePath}...` }]);
+            const response = await fetch(`http://localhost:8080/api/load_project?file=${encodeURIComponent(absolutePath)}`);
+            const data = await response.json();
+            if (response.ok && data.status === 'success') {
+                const pd = data.project_data;
+                if (pd.nodes) setNodes(pd.nodes);
+                if (pd.connections) setConnections(pd.connections);
+                if (pd.crs) setCrs(pd.crs);
+                if (pd.globalEnv) setGlobalEnv(pd.globalEnv);
+                setLogs([{ type: 'success', msg: `Project loaded successfully. Rehydrated ${pd.nodes.length} nodes.` }]);
+                setNodeStatuses({});
+                setShowTerminal(true);
+            } else {
+                throw new Error(data.error || "Unknown error loading project from daemon.");
+            }
+        } catch (e) {
+            setLogs([{ type: 'error', msg: `Failed to load project: ${e.message}` }]);
+            setShowTerminal(true);
+        }
+    } else if (browserConfig.nodeId === "env" && browserConfig.paramKey) {
         setGlobalEnv(prev => ({ ...prev, [browserConfig.paramKey]: absolutePath }));
     } else if (browserConfig.nodeId && browserConfig.paramKey) {
         updateNodeParam(browserConfig.nodeId, browserConfig.paramKey, absolutePath);
@@ -248,10 +269,8 @@ export default function App() {
     }
   };
 
-  const handleLoad = (file) => {
-    loadProject(file, setNodes, setConnections, setCrs, setGlobalEnv, (msg) => {
-        setLogs([msg]); setShowTerminal(true); setNodeStatuses({});
-    });
+  const handleLoad = () => {
+    openFileBrowser("LOAD_PROJECT", "file", "./magpi_workspace/projects");
   };
 
   const handleAutoLayout = () => {
