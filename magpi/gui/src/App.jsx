@@ -11,6 +11,7 @@ import ScriptModal from './components/ScriptModal';
 import FileBrowserModal from './components/FileBrowserModal';
 import EnvSettingsModal from './components/EnvSettingsModal';
 import { generatePythonScript } from './utils/scriptGen';
+import { generateAirflowDAG } from './utils/airflowGen';
 import { saveProject, loadProject } from './utils/fileOps';
 
 export default function App() {
@@ -329,7 +330,12 @@ export default function App() {
   };
 
   const handleGenerate = () => {
-    const code = generatePythonScript(nodes, connections, crs, processingScope, globalEnv);
+    let code;
+    if (processingScope === "Apache Airflow") {
+        code = generateAirflowDAG(nodes, connections, crs, globalEnv);
+    } else {
+        code = generatePythonScript(nodes, connections, crs, processingScope, globalEnv);
+    }
     setGeneratedCode(code);
     setShowScript(true);
   };
