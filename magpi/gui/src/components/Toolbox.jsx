@@ -194,6 +194,23 @@ const TOOLBOX_CATEGORIES = [
     ]
   },
   {
+    name: "Logic & Variables", icon: <SlidersHorizontal size={18} className="text-yellow-500/70" />,
+    tools: [
+      { id: 'logic_constant', name: "Constant Value", type: 'input', icon: <Box size={14}/>, color: 'bg-yellow-600', border: 'border-yellow-500', 
+        description: "Defines a static number or string to pass into downstream math or geoprocessing operations.",
+        params: { value: "0", type: { value: "float", type: "select", options: ["float", "integer", "string"] } } 
+      },
+      { id: 'logic_math', name: "Math Operator", type: 'process', icon: <Cpu size={14}/>, color: 'bg-yellow-600', border: 'border-yellow-500', 
+        description: "Performs basic scalar math (+, -, *, /) on two input variables or constants.",
+        params: { operator: { value: "+", type: "select", options: ["+", "-", "*", "/"] }, value_a: 0.0, value_b: 0.0 } 
+      },
+      { id: 'logic_extract_attr', name: "Extract Attribute", type: 'process', icon: <Database size={14}/>, color: 'bg-yellow-600', border: 'border-yellow-500', 
+        description: "Extracts a scalar value from a Vector dataset column (e.g. max area, first ID).",
+        params: { column: "Shape_Area", statistic: { value: "first", type: "select", options: ["first", "max", "min", "mean", "sum"] } } 
+      },
+    ]
+  },
+  {
     name: "Conversion Tools", icon: <FileOutput size={18} className="text-orange-400" />,
     tools: [
       { id: 'conv_raster_to_polygon', name: "Raster to Polygon", type: 'process', icon: <Hexagon size={14}/>, color: 'bg-orange-600', border: 'border-orange-500', 

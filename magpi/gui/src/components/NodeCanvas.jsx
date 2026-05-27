@@ -41,17 +41,31 @@ const getIconElement = (iconName) => {
   return <Settings size={14} className="text-slate-400" />;
 };
 
+const getInHandleColor = (lbl) => {
+  if (['VAR A', 'VAR B', 'MATH', 'CONST', 'VAL'].includes(lbl)) return '#ffcc00'; // Yellow
+  if (['AOI', 'VECTOR', 'EXTENT', 'MASK', 'TRUTH', 'JOIN'].includes(lbl)) return '#32d74b'; // Green
+  if (['IMG', 'RASTER', 'TENSORS', 'PREDICT', 'TARGET'].includes(lbl)) return '#5ac8fa'; // Blue
+  return '#a3a3a3'; // Default Grey
+};
+
+const getOutHandleColor = (toolId) => {
+  if (toolId.startsWith('logic_') || toolId === 'core_extent') return '#ffcc00'; // Yellow
+  if (toolId === 'core_create_vector' || toolId === 'mgt_buffer' || toolId === 'conv_raster_to_polygon') return '#32d74b'; // Green
+  if (toolId.startsWith('wfs_') || toolId === 'load_raster' || toolId === 'mgt_clip') return '#5ac8fa'; // Blue
+  return '#ff3b30'; // Default Red
+};
+
 // --- DYNAMIC CHAINNER NODE COMPONENT ---
 const MagPINode = ({ data }) => {
   // 1. Structural Logic
   const toolId = data.toolId || '';
   
   // Pure sources (NO LEFT PORTS)
-  const isPureSource = ['core_extent', 'load_raster', 'load_vector'].includes(toolId);
+  const isPureSource = ['core_extent', 'load_raster', 'load_vector', 'logic_constant'].includes(toolId);
   // Pure endpoints (NO RIGHT PORTS)
   const isEndpoint = ['conv_raster_to_polygon', 'stats_confusion_matrix', 'etl_db_writer'].includes(toolId);
   // Dual-input receivers
-  const isDualInput = ['ia_export_dl', 'stats_confusion_matrix', 'mgt_clip', 'ia_pansharpen', 'etl_spatial_join', 'ia_raster_math'].includes(toolId);
+  const isDualInput = ['ia_export_dl', 'stats_confusion_matrix', 'mgt_clip', 'ia_pansharpen', 'etl_spatial_join', 'ia_raster_math', 'logic_math'].includes(toolId);
 
   // 2. Visual Hierarchy (Shapes)
   let shapeClass = "rounded-lg"; 
@@ -65,11 +79,12 @@ const MagPINode = ({ data }) => {
   else if (toolId === 'stats_confusion_matrix') { topLbl = "PREDICT"; botLbl = "TRUTH"; }
   else if (toolId === 'mgt_clip') { topLbl = "TARGET"; botLbl = "EXTENT"; }
   else if (toolId === 'etl_spatial_join') { topLbl = "TARGET"; botLbl = "JOIN"; }
-  else if (toolId === 'ia_raster_math') { topLbl = "VAR A"; botLbl = "VAR B"; }
+  else if (toolId === 'ia_raster_math' || toolId === 'logic_math') { topLbl = "VAR A"; botLbl = "VAR B"; }
   
   if (toolId === 'ai_train') singleLbl = "TENSORS";
   else if (toolId === 'conv_raster_to_polygon') singleLbl = "MASK";
   else if (toolId.startsWith('wfs_')) singleLbl = "AOI";
+  else if (toolId === 'logic_extract_attr') singleLbl = "VECTOR";
 
   return (
     <div className={`flex flex-col min-w-[170px] max-w-[250px] transition-all duration-200 bg-[#2b2b2b] rounded-lg shadow-[0_4px_15px_rgba(0,0,0,0.5)] border ${data.selected ? 'border-[#ff8c00] shadow-[0_0_15px_rgba(255,140,0,0.3)]' : 'border-[#1a1a1a]'}`}>
@@ -95,27 +110,27 @@ const MagPINode = ({ data }) => {
         {/* SINGLE INPUT */}
         {!isPureSource && !isDualInput && (
             <>
-            <Handle type="target" position={Position.Left} id="in" isConnectableStart={false} className="w-3.5 h-3.5 rounded-full bg-[#a3a3a3] border-[2.5px] border-[#1a1a1a] cursor-crosshair hover:bg-white transition-all z-50" />
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[9px] font-mono text-[#a3a3a3] font-bold pointer-events-none tracking-widest">{singleLbl}</span>
+            <Handle type="target" position={Position.Left} id="in" isConnectableStart={false} style={{ backgroundColor: getInHandleColor(singleLbl) }} className="w-3.5 h-3.5 rounded-full border-[2.5px] border-[#1a1a1a] cursor-crosshair hover:bg-white transition-all z-50" />
+            <span style={{ color: getInHandleColor(singleLbl) }} className="absolute left-3 top-1/2 -translate-y-1/2 text-[9px] font-mono font-bold pointer-events-none tracking-widest">{singleLbl}</span>
             </>
         )}
 
         {/* DUAL INPUTS */}
         {isDualInput && (
             <>
-            <Handle type="target" position={Position.Left} id="in1" style={{ top: '30%' }} isConnectableStart={false} className="w-3.5 h-3.5 rounded-full bg-[#5ac8fa] border-[2.5px] border-[#1a1a1a] cursor-crosshair hover:bg-white transition-all z-50" />
-            <span className="absolute left-3 top-[30%] -translate-y-1/2 text-[9px] font-mono text-[#5ac8fa] font-bold pointer-events-none tracking-widest">{topLbl}</span>
+            <Handle type="target" position={Position.Left} id="in1" style={{ top: '30%', backgroundColor: getInHandleColor(topLbl) }} isConnectableStart={false} className="w-3.5 h-3.5 rounded-full border-[2.5px] border-[#1a1a1a] cursor-crosshair hover:bg-white transition-all z-50" />
+            <span style={{ color: getInHandleColor(topLbl) }} className="absolute left-3 top-[30%] -translate-y-1/2 text-[9px] font-mono font-bold pointer-events-none tracking-widest">{topLbl}</span>
 
-            <Handle type="target" position={Position.Left} id="in2" style={{ top: '70%' }} isConnectableStart={false} className="w-3.5 h-3.5 rounded-full bg-[#ffcc00] border-[2.5px] border-[#1a1a1a] cursor-crosshair hover:bg-white transition-all z-50" />
-            <span className="absolute left-3 top-[70%] -translate-y-1/2 text-[9px] font-mono text-[#ffcc00] font-bold pointer-events-none tracking-widest">{botLbl}</span>
+            <Handle type="target" position={Position.Left} id="in2" style={{ top: '70%', backgroundColor: getInHandleColor(botLbl) }} isConnectableStart={false} className="w-3.5 h-3.5 rounded-full border-[2.5px] border-[#1a1a1a] cursor-crosshair hover:bg-white transition-all z-50" />
+            <span style={{ color: getInHandleColor(botLbl) }} className="absolute left-3 top-[70%] -translate-y-1/2 text-[9px] font-mono font-bold pointer-events-none tracking-widest">{botLbl}</span>
             </>
         )}
 
         {/* OUTPUT */}
         {!isEndpoint && (
             <>
-            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[9px] font-mono text-[#ff3b30] font-bold pointer-events-none tracking-widest">OUT</span>
-            <Handle type="source" position={Position.Right} id="out" className="w-3.5 h-3.5 rounded-full bg-[#ff3b30] border-[2.5px] border-[#1a1a1a] cursor-crosshair hover:bg-white transition-all z-50" />
+            <span style={{ color: getOutHandleColor(toolId) }} className="absolute right-3 top-1/2 -translate-y-1/2 text-[9px] font-mono font-bold pointer-events-none tracking-widest">OUT</span>
+            <Handle type="source" position={Position.Right} id="out" style={{ backgroundColor: getOutHandleColor(toolId) }} className="w-3.5 h-3.5 rounded-full border-[2.5px] border-[#1a1a1a] cursor-crosshair hover:bg-white transition-all z-50" />
             </>
         )}
       </div>
