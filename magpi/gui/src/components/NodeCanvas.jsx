@@ -203,12 +203,16 @@ function CanvasInner({
   }, [setNodes]);
 
   const onConnect = useCallback((params) => {
-    setConnections((eds) => [...eds, { 
-        from: params.source, 
-        to: params.target,
-        sourceHandle: params.sourceHandle || 'out',
-        targetHandle: params.targetHandle || 'in'
-    }]);
+    setConnections((eds) => {
+        // Enforce 1-to-1 input rule: if target handle is occupied, sever old connection
+        const filteredEdges = eds.filter(e => !(e.to === params.target && (e.targetHandle || 'in') === (params.targetHandle || 'in')));
+        return [...filteredEdges, { 
+            from: params.source, 
+            to: params.target,
+            sourceHandle: params.sourceHandle || 'out',
+            targetHandle: params.targetHandle || 'in'
+        }];
+    });
   }, [setConnections]);
 
   const onEdgesDelete = useCallback((edgesToDelete) => {

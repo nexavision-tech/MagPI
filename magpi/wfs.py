@@ -247,6 +247,107 @@ def PullSentinel2(extent, out_raster, max_cloud_cover=10, date_range="2023-01-01
         logger.error(f"Data pull failed: {e}")
         return Result(None, status=3)
 
+def PullSentinel1(extent, out_raster, date_range="2023-01-01/2023-12-31"):
+    logger.info("Initializing Sentinel-1 SAR Pull (Planetary Computer STAC)...")
+    try:
+        from .env import env
+        out_raster = env.resolve_path(out_raster, intent="input")
+        import rasterio
+        from rasterio.windows import from_bounds
+        
+        if hasattr(extent, 'output'):
+            extent = extent.output
+            
+        if hasattr(extent, 'XMin'): 
+            min_lon, min_lat, max_lon, max_lat = extent.XMin, extent.YMin, extent.XMax, extent.YMax
+        elif isinstance(extent, str) and (extent.endswith('.shp') or extent.endswith('.geojson') or os.path.exists(extent)):
+            import geopandas as gpd
+            gdf = gpd.read_file(extent)
+            if gdf.crs and not gdf.crs.is_geographic:
+                gdf = gdf.to_crs("EPSG:4326")
+            min_lon, min_lat, max_lon, max_lat = gdf.total_bounds
+        else: 
+            min_lon, min_lat, max_lon, max_lat = map(float, str(extent).split())
+
+        search_url = "https://planetarycomputer.microsoft.com/api/stac/v1/search"
+        
+        formatted_date = str(date_range).strip()
+        if "T" not in formatted_date:
+            try:
+                start_d, end_d = formatted_date.split('/')
+                formatted_date = f"{start_d.strip()}T00:00:00Z/{end_d.strip()}T23:59:59Z"
+            except Exception: pass 
+            
+        payload = {
+            "collections": ["sentinel-1-rtc"],
+            "bbox": [min_lon, min_lat, max_lon, max_lat],
+            "datetime": formatted_date,
+            "limit": 1
+        }
+        
+        response = requests.post(search_url, json=payload)
+        if not response.ok:
+            logger.error(f"PC STAC API Error: {response.text}")
+            return Result(None, status=3)
+            
+        stac_data = response.json()
+        features = stac_data.get('features', [])
+        if not features:
+            logger.warning(f"No Sentinel-1 SAR data found for {date_range}")
+            return Result(None, status=3)
+            
+        item = features[0]
+        # Get VV and VH polarizations
+        assets = item.get('assets', {})
+        band_urls = []
+        if 'vv' in assets: band_urls.append(assets['vv']['href'])
+        if 'vh' in assets: band_urls.append(assets['vh']['href'])
+        
+        if not band_urls:
+            logger.warning("Sentinel-1 item found, but missing VV/VH assets.")
+            return Result(None, status=3)
+            
+        # Optional: For Planetary Computer, you usually need a SAS token.
+        # We will attempt to fetch a SAS token anonymously
+        token_res = requests.get("https://planetarycomputer.microsoft.com/api/sas/v1/token/sentinel-1-rtc")
+        if token_res.ok:
+            sas_token = token_res.json().get('token', '')
+            band_urls = [f"{url}?{sas_token}" for url in band_urls]
+
+        # Use Rasterio to window read and merge
+        with rasterio.Env(GDAL_DISABLE_READDIR_ON_OPEN="EMPTY_DIR", CPL_VSIL_CURL_ALLOWED_EXTENSIONS="tif"):
+            with rasterio.open(band_urls[0]) as src0:
+                from rasterio.warp import transform_bounds
+                from rasterio.vrt import WarpedVRT
+                from rasterio.enums import Resampling
+                
+                target_crs = f"EPSG:{env.outputCoordinateSystem}" if env.outputCoordinateSystem else src0.crs
+                target_bounds = transform_bounds('EPSG:4326', target_crs, min_lon, min_lat, max_lon, max_lat)
+                
+                with WarpedVRT(src0, crs=target_crs, resampling=Resampling.bilinear) as vrt:
+                    window = from_bounds(*target_bounds, vrt.transform).round_offsets().round_lengths()
+                    out_meta = vrt.meta.copy()
+                    out_meta.update({
+                        "driver": "GTiff", 
+                        "count": len(band_urls), 
+                        "height": window.height, 
+                        "width": window.width, 
+                        "transform": vrt.window_transform(window)
+                    })
+                    
+                    with rasterio.open(out_raster, "w", **out_meta) as dest:
+                        for i, url in enumerate(band_urls, start=1):
+                            logger.info(f"Streaming SAR Polarization {i} into grid...")
+                            with rasterio.open(url) as src_band:
+                                with WarpedVRT(src_band, crs=target_crs, resampling=Resampling.bilinear) as band_vrt:
+                                    dest.write(band_vrt.read(1, window=window), i)
+                                    
+        logger.info(f"Saved Sentinel-1 SAR chip to: {out_raster}")
+        return Result(out_raster)
+    except Exception as e:
+        logger.error(f"SAR Data pull failed: {e}")
+        return Result(None, status=3)
+
 def PullUSGSElevation(extent, out_raster, resolution_width=1000, resolution_height=1000):
     logger.info("Initializing Z-Axis Data Pull (USGS 3DEP WCS)...")
     try:

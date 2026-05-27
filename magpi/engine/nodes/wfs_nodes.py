@@ -25,14 +25,56 @@ class PullSentinel2Node(Node):
             logger.info(f"Pulling Sentinel-2 data for dates {date_range} with max cloud cover {max_cc}")
         
         self.output = []
+        import os
         for i, extent in enumerate(extents):
             suffix = f"_{i}" if len(extents) > 1 else ""
             out_filename = f"s2_cloud_extract_{self.id.split('_')[1] if '_' in self.id else '1'}{suffix}.tif"
-            res = PullSentinel2(extent, out_filename, max_cloud_cover=max_cc, date_range=date_range, item_ids=item_ids, bands=bands)
-            if hasattr(res, 'status') and res.status == 3:
-                raise Exception(f"PullSentinel2 failed for extent {i}")
+            out_path = os.path.join(os.environ.get('MAGPI_OUTPUT', '.'), out_filename)
+            
+            if os.path.exists(out_path):
+                logger.info(f"Found cached Sentinel-2 pull: {out_path}. Skipping download.")
+                from magpi.objects import Result
+                res = Result(out_path)
+            else:
+                res = PullSentinel2(extent, out_filename, max_cloud_cover=max_cc, date_range=date_range, item_ids=item_ids, bands=bands)
+                if hasattr(res, 'status') and res.status == 3:
+                    raise Exception(f"PullSentinel2 failed for extent {i}")
             self.output.append(res)
         
+        if len(self.output) == 1:
+            self.output = self.output[0]
+
+@register_node('wfs_sentinel1')
+class PullSentinel1Node(Node):
+    def execute(self):
+        extents = self.inputs.get("in")
+        if not isinstance(extents, list):
+            extents = [extents]
+            
+        p = self.params
+        date_range = f"{p.get('start_date', '2023-01-01')}/{p.get('end_date', '2023-12-31')}"
+        
+        logger.info(f"Pulling Sentinel-1 SAR data for dates {date_range}")
+        
+        from magpi.wfs import PullSentinel1
+        import os
+        
+        self.output = []
+        for i, extent in enumerate(extents):
+            suffix = f"_{i}" if len(extents) > 1 else ""
+            out_filename = f"s1_sar_extract_{self.id.split('_')[1] if '_' in self.id else '1'}{suffix}.tif"
+            out_path = os.path.join(os.environ.get('MAGPI_OUTPUT', '.'), out_filename)
+            
+            if os.path.exists(out_path):
+                logger.info(f"Found cached Sentinel-1 SAR pull: {out_path}. Skipping download.")
+                from magpi.objects import Result
+                res = Result(out_path)
+            else:
+                res = PullSentinel1(extent, out_filename, date_range=date_range)
+                if hasattr(res, 'status') and res.status == 3:
+                    raise Exception(f"PullSentinel1 failed for extent {i}")
+            self.output.append(res)
+            
         if len(self.output) == 1:
             self.output = self.output[0]
 
