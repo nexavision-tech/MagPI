@@ -15,7 +15,7 @@ import { generateAirflowDAG } from './utils/airflowGen';
 import { saveProject, loadProject } from './utils/fileOps';
 
 export default function App() {
-  const [activeWorkspace, setActiveWorkspace] = useState('planar');
+  const [activeWorkspace, setActiveWorkspace] = useState('builder');
   const [crs, setCrs] = useState("EPSG:4326");
   const [processingScope, setProcessingScope] = useState("Local Python");
   
