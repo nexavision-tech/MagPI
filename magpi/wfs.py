@@ -247,7 +247,7 @@ def PullSentinel2(extent, out_raster, max_cloud_cover=10, date_range="2023-01-01
         logger.error(f"Data pull failed: {e}")
         return Result(None, status=3)
 
-def PullSentinel1(extent, out_raster, date_range="2023-01-01/2023-12-31"):
+def PullSentinel1(extent, out_raster, date_range="2023-01-01/2023-12-31", item_ids=None):
     logger.info("Initializing Sentinel-1 SAR Pull (Planetary Computer STAC)...")
     try:
         from .env import env
@@ -270,20 +270,25 @@ def PullSentinel1(extent, out_raster, date_range="2023-01-01/2023-12-31"):
             min_lon, min_lat, max_lon, max_lat = map(float, str(extent).split())
 
         search_url = "https://planetarycomputer.microsoft.com/api/stac/v1/search"
+        payload = { "collections": ["sentinel-1-rtc"] }
         
-        formatted_date = str(date_range).strip()
-        if "T" not in formatted_date:
-            try:
-                start_d, end_d = formatted_date.split('/')
-                formatted_date = f"{start_d.strip()}T00:00:00Z/{end_d.strip()}T23:59:59Z"
-            except Exception: pass 
+        if item_ids and isinstance(item_ids, str):
+            item_ids = [i.strip() for i in item_ids.split(',')]
             
-        payload = {
-            "collections": ["sentinel-1-rtc"],
-            "bbox": [min_lon, min_lat, max_lon, max_lat],
-            "datetime": formatted_date,
-            "limit": 1
-        }
+        if item_ids:
+            payload["ids"] = item_ids
+            payload["limit"] = len(item_ids)
+        else:
+            formatted_date = str(date_range).strip()
+            if "T" not in formatted_date:
+                try:
+                    start_d, end_d = formatted_date.split('/')
+                    formatted_date = f"{start_d.strip()}T00:00:00Z/{end_d.strip()}T23:59:59Z"
+                except Exception: pass 
+                
+            payload["bbox"] = [min_lon, min_lat, max_lon, max_lat]
+            payload["datetime"] = formatted_date
+            payload["limit"] = 1
         
         response = requests.post(search_url, json=payload)
         if not response.ok:

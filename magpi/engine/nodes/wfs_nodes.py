@@ -54,7 +54,12 @@ class PullSentinel1Node(Node):
         p = self.params
         date_range = f"{p.get('start_date', '2023-01-01')}/{p.get('end_date', '2023-12-31')}"
         
-        logger.info(f"Pulling Sentinel-1 SAR data for dates {date_range}")
+        item_ids = p.get('selected_items', None)
+        
+        if item_ids:
+            logger.info(f"Pulling Sentinel-1 SAR data using explicitly selected Item IDs: {item_ids}")
+        else:
+            logger.info(f"Pulling Sentinel-1 SAR data for dates {date_range}")
         
         from magpi.wfs import PullSentinel1
         import os
@@ -70,7 +75,7 @@ class PullSentinel1Node(Node):
                 from magpi.objects import Result
                 res = Result(out_path)
             else:
-                res = PullSentinel1(extent, out_filename, date_range=date_range)
+                res = PullSentinel1(extent, out_filename, date_range=date_range, item_ids=item_ids)
                 if hasattr(res, 'status') and res.status == 3:
                     raise Exception(f"PullSentinel1 failed for extent {i}")
             self.output.append(res)

@@ -21,7 +21,7 @@ const TOOLBOX_CATEGORIES = [
       {
         id: 'wfs_sentinel1', name: "Sentinel-1 (SAR)", type: 'input', icon: <Satellite size={14} />, color: 'bg-cyan-700', border: 'border-cyan-500',
         description: "Streams Synthetic Aperture Radar (SAR) imagery via Planetary Computer. Perfect for cloud penetration.",
-        params: { start_date: { value: "2023-01-01", type: "date" }, end_date: { value: "2023-12-31", type: "date" } }
+        params: { start_date: { value: "2023-01-01", type: "date" }, end_date: { value: "2023-12-31", type: "date" }, selected_items: "" }
       },
       {
         id: 'wfs_elevation', name: "Pull USGS DEM", type: 'input', icon: <Layers size={14} />, color: 'bg-cyan-700', border: 'border-cyan-500',
