@@ -6,7 +6,7 @@ import {
   SlidersHorizontal, Wrench, Check, FolderOpen, ListFilter,
   Search, Copy, Info, Fingerprint, Loader2, AlertCircle,
   Cloud, Map as MapIcon, Satellite, Box, Globe, DownloadCloud, PaintBucket,
-  FileOutput, LineChart, Brain, Sparkles, RefreshCcw, Activity, BrainCircuit, Play
+  FileOutput, LineChart, Brain, Sparkles, RefreshCcw, Activity, BrainCircuit, Play, Compass
 } from 'lucide-react';
 
 const TOOLBOX_CATEGORIES = [

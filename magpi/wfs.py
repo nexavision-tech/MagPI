@@ -315,7 +315,7 @@ def PullSentinel1(extent, out_raster, date_range="2023-01-01/2023-12-31"):
             band_urls = [f"{url}?{sas_token}" for url in band_urls]
 
         # Use Rasterio to window read and merge
-        with rasterio.Env(GDAL_DISABLE_READDIR_ON_OPEN="EMPTY_DIR", CPL_VSIL_CURL_ALLOWED_EXTENSIONS="tif"):
+        with rasterio.Env(GDAL_DISABLE_READDIR_ON_OPEN="EMPTY_DIR", CPL_VSIL_CURL_ALLOWED_EXTENSIONS="tif,tiff"):
             with rasterio.open(band_urls[0]) as src0:
                 from rasterio.warp import transform_bounds
                 from rasterio.vrt import WarpedVRT
