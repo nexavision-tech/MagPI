@@ -256,9 +256,12 @@ export default function App() {
   const selectedNode = nodes.find(n => n.id === selectedNodeId);
 
   const handleSave = () => {
+    const projectName = prompt("Enter project name:", "magpi_project");
+    if (!projectName) return;
+    
     try {
-        saveProject(nodes, connections, crs, globalEnv, "magpi_project");
-        setLogs([{ type: 'success', msg: `Project successfully downloaded to your local device as magpi_project.mpjx` }]);
+        saveProject(nodes, connections, crs, globalEnv, projectName);
+        setLogs([{ type: 'success', msg: `Project successfully downloaded to your local device as ${projectName}.mpjx` }]);
         setShowTerminal(true);
     } catch (e) {
         setLogs([{ type: 'error', msg: `Failed to save project: ${e.message}` }]);
