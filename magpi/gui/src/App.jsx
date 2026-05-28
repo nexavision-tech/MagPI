@@ -368,6 +368,30 @@ export default function App() {
   };
 
   const handleDeploy = async () => {
+    // 1. Pre-Flight Validation for Orphaned / Unkinked Nodes
+    const invalidNodes = nodes.filter(n => {
+        const hasIncoming = connections.some(c => c.to === n.id);
+        const hasOutgoing = connections.some(c => c.from === n.id);
+        
+        // Identify Source Nodes that generate data (don't inherently need inputs)
+        const isSource = ['core_extent', 'load_raster', 'load_vector', 'logic_constant', 'core_create_vector', 'core_create_raster'].includes(n.toolId) || n.toolId.startsWith('wfs_');
+        
+        // Completely floating/orphaned (no ins, no outs)
+        if (!hasIncoming && !hasOutgoing) return true;
+        
+        // Processing nodes that are missing incoming connections
+        if (!isSource && !hasIncoming) return true;
+        
+        return false;
+    });
+
+    if (invalidNodes.length > 0) {
+        const names = invalidNodes.map(n => n.name).join(", ");
+        setLogs([{ type: 'error', msg: `Pipeline Validation Failed: The following nodes are disconnected or missing required inputs: ${names}` }]);
+        setShowTerminal(true);
+        return;
+    }
+
     setShowScript(false); setShowTerminal(true); setIsProcessing(true); setNodeStatuses({});
     const processingStates = {};
     nodes.forEach(n => processingStates[n.id] = 'processing');
