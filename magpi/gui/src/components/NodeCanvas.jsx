@@ -84,6 +84,20 @@ const MagPINode = ({ data }) => {
       return '#a3a3a3'; // Grey
   };
 
+  // 4. Legacy Typographical Labels (Fallback)
+  let topLbl = "IN 1", botLbl = "IN 2", singleLbl = "IN";
+  
+  if (toolId === 'ia_export_dl') { topLbl = "IMG"; botLbl = "LBL"; }
+  else if (toolId === 'stats_confusion_matrix') { topLbl = "PREDICT"; botLbl = "TRUTH"; }
+  else if (toolId === 'mgt_clip') { topLbl = "TARGET"; botLbl = "EXTENT"; }
+  else if (toolId === 'etl_spatial_join') { topLbl = "TARGET"; botLbl = "JOIN"; }
+  else if (toolId === 'ia_raster_math' || toolId === 'logic_math') { topLbl = "VAR A"; botLbl = "VAR B"; }
+  
+  if (toolId === 'ai_train') singleLbl = "TENSORS";
+  else if (toolId === 'conv_raster_to_polygon') singleLbl = "MASK";
+  else if (toolId.startsWith('wfs_')) singleLbl = "AOI";
+  else if (toolId === 'logic_extract_attr') singleLbl = "VECTOR";
+
   return (
     <div className={`flex flex-col min-w-[170px] max-w-[250px] transition-all duration-200 bg-[#2b2b2b] rounded-lg shadow-[0_4px_15px_rgba(0,0,0,0.5)] border ${data.selected ? 'border-[#ff8c00] shadow-[0_0_15px_rgba(255,140,0,0.3)]' : 'border-[#1a1a1a]'}`}>
       

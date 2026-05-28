@@ -199,7 +199,9 @@ export default function App() {
     const newNode = { 
       id: `node_${Date.now()}`, toolId: tool.id, name: tool.name, icon: tool.id, 
       x: dropX !== null ? dropX : 300 + Math.random() * 50, y: dropY !== null ? dropY : 200 + Math.random() * 50, 
-      color: tool.color, border: tool.border, params: { ...tool.params } 
+      color: tool.color, border: tool.border, params: { ...tool.params },
+      inputs: tool.inputs ? [...tool.inputs] : undefined,
+      outputs: tool.outputs ? [...tool.outputs] : undefined
     };
     setNodes(prev => [...prev, newNode]);
     setSelectedNodeId(newNode.id);
@@ -275,10 +277,13 @@ export default function App() {
 
   const selectedNode = nodes.find(n => n.id === selectedNodeId);
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    const projectName = prompt("Enter project name:", "magpi_project");
+    if (!projectName) return;
+    
     try {
-        saveProject(nodes, connections, crs, globalEnv, "magpi_project");
-        setLogs([{ type: 'success', msg: `Project successfully downloaded to your local device as magpi_project.mpjx` }]);
+        await saveProject(nodes, connections, crs, globalEnv, projectName);
+        setLogs([{ type: 'success', msg: `Project successfully saved to workspace as ${projectName}.mpjx` }]);
         setShowTerminal(true);
     } catch (e) {
         setLogs([{ type: 'error', msg: `Failed to save project: ${e.message}` }]);

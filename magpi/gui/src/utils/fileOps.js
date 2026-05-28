@@ -1,4 +1,4 @@
-export const saveProject = (nodes, connections, crs, globalEnv, defaultName = "magpi_project") => {
+export const saveProject = async (nodes, connections, crs, globalEnv, defaultName = "magpi_project") => {
     const projectData = {
         version: "0.1.3",
         timestamp: new Date().toISOString(),
@@ -8,16 +8,20 @@ export const saveProject = (nodes, connections, crs, globalEnv, defaultName = "m
         connections: connections
     };
 
-    const blob = new Blob([JSON.stringify(projectData, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
+    const response = await fetch('http://localhost:8080/api/save_project', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            project_name: defaultName,
+            project_data: projectData
+        })
+    });
     
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `${defaultName.endsWith('.mpjx') ? defaultName : defaultName + '.mpjx'}`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    if (!response.ok) {
+        throw new Error('Server rejected the save request.');
+    }
     
     return projectData;
 };
