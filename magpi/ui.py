@@ -115,6 +115,8 @@ def LaunchCanvas(port=8080):
                 self.wfile.write(json.dumps(list(JOB_REGISTRY.values())).encode('utf-8'))
             elif parsed_path.path == '/api/geojson':
                 self.handle_geojson(parsed_path.query)
+            elif parsed_path.path == '/api/raster':
+                self.handle_raster(parsed_path.query)
             elif parsed_path.path == '/api/load_project':
                 self.handle_load_project(parsed_path.query)
             elif parsed_path.path == '/api/community_nodes':
@@ -315,6 +317,116 @@ def LaunchCanvas(port=8080):
                 self.wfile.write(geojson_str.encode('utf-8'))
             except Exception as e:
                 logger.error(f"GeoJSON API failed: {e}")
+                self.send_response(500)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": str(e)}).encode('utf-8'))
+
+        def handle_raster(self, query):
+            qs = parse_qs(query)
+            target_file = qs.get('file', [''])[0]
+            cmap_name = qs.get('cmap', ['viridis'])[0]
+            
+            try:
+                import rasterio
+                import numpy as np
+                import matplotlib.pyplot as plt
+                import io
+                import base64
+                from rasterio.warp import calculate_default_transform, reproject, Resampling
+
+                if not os.path.exists(target_file):
+                    raise FileNotFoundError(f"File not found: {target_file}")
+                    
+                with rasterio.open(target_file) as src:
+                    # Calculate transform to WGS84
+                    dst_crs = 'EPSG:4326'
+                    transform, width, height = calculate_default_transform(
+                        src.crs, dst_crs, src.width, src.height, *src.bounds)
+                        
+                    # Limit size for preview
+                    max_dim = 1024
+                    if width > max_dim or height > max_dim:
+                        scale = min(max_dim/width, max_dim/height)
+                        width = int(width * scale)
+                        height = int(height * scale)
+                        transform, _, _ = calculate_default_transform(
+                            src.crs, dst_crs, width, height, *src.bounds)
+
+                    dst_array = np.zeros((src.count, height, width), dtype=np.float32)
+
+                    reproject(
+                        source=rasterio.band(src, list(range(1, src.count + 1))),
+                        destination=dst_array,
+                        src_transform=src.transform,
+                        src_crs=src.crs,
+                        dst_transform=transform,
+                        dst_crs=dst_crs,
+                        resampling=Resampling.nearest)
+                    
+                    from rasterio.transform import array_bounds
+                    bounds = array_bounds(height, width, transform)
+                    wgs84_bounds = [[bounds[1], bounds[0]], [bounds[3], bounds[2]]] # [[ymin, xmin], [ymax, xmax]]
+
+                    if src.count == 1:
+                        data = dst_array[0]
+                        nodata = src.nodatavals[0] if src.nodatavals else None
+                        if nodata is not None:
+                            mask = (data != nodata) & (~np.isnan(data))
+                        else:
+                            mask = ~np.isnan(data)
+                            
+                        valid_data = data[mask]
+                        if len(valid_data) > 0:
+                            vmin, vmax = np.percentile(valid_data, 2), np.percentile(valid_data, 98)
+                            data = np.clip(data, vmin, vmax)
+                            data = (data - vmin) / (vmax - vmin + 1e-6)
+                        else:
+                            data = np.zeros_like(data)
+                            
+                        try:
+                            cmap = plt.get_cmap(cmap_name)
+                        except:
+                            cmap = plt.get_cmap('viridis')
+                            
+                        colored = cmap(data)
+                        colored[~mask, 3] = 0 # Transparent for nodata
+                        img_data = (colored * 255).astype(np.uint8)
+                    else:
+                        img_data = np.zeros((height, width, 4), dtype=np.uint8)
+                        global_mask = np.zeros((height, width), dtype=bool)
+                        for i in range(min(3, src.count)):
+                            d = dst_array[i]
+                            nodata = src.nodatavals[i] if src.nodatavals else None
+                            if nodata is not None:
+                                mask = (d != nodata) & (~np.isnan(d))
+                            else:
+                                mask = ~np.isnan(d)
+                            global_mask |= mask
+                            valid = d[mask]
+                            if len(valid) > 0:
+                                vmin, vmax = np.percentile(valid, 2), np.percentile(valid, 98)
+                                d = np.clip(d, vmin, vmax)
+                                d = (d - vmin) / (vmax - vmin + 1e-6)
+                            img_data[:,:,i] = (d * 255).astype(np.uint8)
+                        img_data[:,:,3][global_mask] = 255 # Alpha channel
+                    
+                    from PIL import Image
+                    img = Image.fromarray(img_data, 'RGBA')
+                    buffered = io.BytesIO()
+                    img.save(buffered, format="PNG")
+                    img_str = base64.b64encode(buffered.getvalue()).decode()
+                    
+                response = {
+                    "image": f"data:image/png;base64,{img_str}",
+                    "bounds": wgs84_bounds
+                }
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps(response).encode('utf-8'))
+            except Exception as e:
+                logger.error(f"Raster API failed: {e}")
                 self.send_response(500)
                 self.send_header('Content-type', 'application/json')
                 self.end_headers()

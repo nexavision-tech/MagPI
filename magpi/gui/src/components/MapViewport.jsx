@@ -4,7 +4,7 @@ import 'leaflet-draw';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet-draw/dist/leaflet.draw.css';
 import 'cesium/Build/Cesium/Widgets/widgets.css';
-import { Map as MapIcon, Satellite, Edit, Globe, Layers, Eye, EyeOff } from 'lucide-react';
+import { Map as MapIcon, Satellite, Edit, Globe, Layers, Eye, EyeOff, XCircle } from 'lucide-react';
 import { Viewer, Entity, ImageryLayer } from 'resium';
 import { Cartesian3, Color, OpenStreetMapImageryProvider } from 'cesium';
 
@@ -36,6 +36,7 @@ const MapViewport = React.memo(({ onAoiDrawn, selectedNode, activeWorkspace, nod
     const [layers, setLayers] = React.useState([
         { id: 'base', name: 'Base Map (OSM)', visible: true, opacity: 100, isBase: true }
     ]);
+    const [selectedFeature, setSelectedFeature] = React.useState(null);
 
     // Keep showLayers synced with workspace mode
     useEffect(() => {
@@ -138,6 +139,15 @@ const MapViewport = React.memo(({ onAoiDrawn, selectedNode, activeWorkspace, nod
             mapInstance.current = null;
         };
     }, [onAoiDrawn]);
+    
+    // Feature selection listener
+    useEffect(() => {
+        const handleFeatureSelect = (e) => {
+            setSelectedFeature(e.detail);
+        };
+        window.addEventListener('magpi-feature-selected', handleFeatureSelect);
+        return () => window.removeEventListener('magpi-feature-selected', handleFeatureSelect);
+    }, []);
 
     // THE OVERLAY ENGINE (Dynamic Sync)
     useEffect(() => {
@@ -149,16 +159,17 @@ const MapViewport = React.memo(({ onAoiDrawn, selectedNode, activeWorkspace, nod
                 .map(n => {
                     const existing = prevLayers.find(l => l.id === n.id);
                     const extent = getAncestralExtent(n.id, nodes, connections);
-                    let vectorPath = null;
-                    if (n.params && (n.params.file_path || n.params.out_shp || n.params.out_feature_class)) {
-                        let raw = n.params.file_path || n.params.out_shp || n.params.out_feature_class;
+                    let filePath = null;
+                    if (n.params && (n.params.file_path || n.params.out_shp || n.params.out_feature_class || n.params.out_raster)) {
+                        let raw = n.params.file_path || n.params.out_shp || n.params.out_feature_class || n.params.out_raster;
                         if (!raw.startsWith('/') && !raw.startsWith('./')) {
-                            // Assumed to be an output file, prefix with globalEnv.output_dir
-                            vectorPath = `${globalEnv ? globalEnv.output_dir : './magpi_output'}/${raw}`;
+                            filePath = `${globalEnv ? globalEnv.output_dir : './magpi_output'}/${raw}`;
                         } else {
-                            vectorPath = raw;
+                            filePath = raw;
                         }
                     }
+                    
+                    const isRaster = filePath && (filePath.endsWith('.tif') || filePath.endsWith('.tiff'));
                     
                     return {
                         id: n.id,
@@ -167,8 +178,13 @@ const MapViewport = React.memo(({ onAoiDrawn, selectedNode, activeWorkspace, nod
                         opacity: existing ? existing.opacity : (n.toolId === 'core_extent' ? 15 : 80),
                         selected: n.selected || (selectedNode && selectedNode.id === n.id),
                         extent: extent,
-                        vectorPath: vectorPath,
-                        geojsonData: existing ? existing.geojsonData : null
+                        filePath: filePath,
+                        isRaster: isRaster,
+                        geojsonData: existing ? existing.geojsonData : null,
+                        rasterData: existing ? existing.rasterData : null,
+                        rasterBounds: existing ? existing.rasterBounds : null,
+                        cmap: existing ? existing.cmap : 'viridis',
+                        vectorColor: existing ? existing.vectorColor : '#32d74b'
                     };
                 })
                 .filter(l => l.extent !== null);
@@ -194,13 +210,13 @@ const MapViewport = React.memo(({ onAoiDrawn, selectedNode, activeWorkspace, nod
                     const bounds = [[y1, x1], [y2, x2]];
                     const isSelected = layer.selected;
                     const isSuccess = nodeStatuses && nodeStatuses[layer.id] === 'success';
-                    const color = isSelected ? '#ff8c00' : (isSuccess ? '#32d74b' : (layer.id.includes('extent') ? '#00ffff' : '#32d74b'));
+                    const color = isSelected ? '#ff8c00' : (layer.id.includes('extent') ? '#00ffff' : layer.vectorColor);
                     const weight = isSelected ? 4 : 2;
                     
                     const rect = L.rectangle(bounds, { 
                         color: color, 
                         weight: weight, 
-                        fillOpacity: layer.id.includes('extent') ? 0.2 : 0, // only fill if it's an extent, GeoJSON will draw on top
+                        fillOpacity: layer.id.includes('extent') ? 0.2 : 0, 
                         dashArray: layer.id.includes('extent') ? '4, 4' : null 
                     });
                     
@@ -212,30 +228,45 @@ const MapViewport = React.memo(({ onAoiDrawn, selectedNode, activeWorkspace, nod
                     
                     highlightGroup.current.addLayer(rect);
                     
-                    // Render GeoJSON if available, OR start fetch
-                    if (layer.vectorPath && !layer.id.includes('extent') && !layer.id.includes('raster')) {
+                    // Render Raster
+                    if (layer.isRaster && layer.filePath) {
+                        if (layer.rasterData && layer.rasterBounds) {
+                            const imgLayer = L.imageOverlay(layer.rasterData, layer.rasterBounds, {
+                                opacity: layer.opacity / 100,
+                                interactive: true
+                            });
+                            imgLayer.bindPopup(`<div class="text-xs font-bold text-slate-800">${layer.name}</div>`);
+                            highlightGroup.current.addLayer(imgLayer);
+                        } else if (!layer.isFetching) {
+                            layer.isFetching = true;
+                            fetch(`http://localhost:8080/api/raster?file=${encodeURIComponent(layer.filePath)}&cmap=${layer.cmap}`)
+                                .then(r => r.ok ? r.json() : null)
+                                .then(data => {
+                                    if (data && data.image) {
+                                        setLayers(current => current.map(l => l.id === layer.id ? { ...l, rasterData: data.image, rasterBounds: data.bounds, isFetching: false } : l));
+                                    }
+                                }).catch(() => { layer.isFetching = false; });
+                        }
+                    }
+                    // Render GeoJSON
+                    else if (layer.filePath && !layer.id.includes('extent')) {
                         if (layer.geojsonData) {
                             const gjLayer = L.geoJSON(layer.geojsonData, {
-                                style: { color: color, weight: weight, fillOpacity: layer.opacity / 100 },
+                                style: { color: layer.vectorColor, weight: 1.5, fillOpacity: layer.opacity / 100 },
                                 onEachFeature: (feature, featureLayer) => {
                                     featureLayer.on('click', (e) => {
-                                        // Stop map click propagation
                                         L.DomEvent.stopPropagation(e);
-                                        let popupContent = '<div class="text-xs max-h-48 overflow-auto"><table class="min-w-full"><tbody class="text-slate-800">';
-                                        if (feature.properties) {
-                                            for (let key in feature.properties) {
-                                                popupContent += `<tr><td class="font-bold pr-2 border-b border-slate-200">${key}:</td><td class="border-b border-slate-200">${feature.properties[key]}</td></tr>`;
-                                            }
-                                        }
-                                        popupContent += '</tbody></table></div>';
-                                        featureLayer.bindPopup(popupContent).openPopup();
+                                        // Dispatch event to Attribute Table instead of popup
+                                        window.dispatchEvent(new CustomEvent('magpi-feature-selected', { 
+                                            detail: { feature: feature, layerName: layer.name }
+                                        }));
                                     });
                                 }
                             });
                             highlightGroup.current.addLayer(gjLayer);
                         } else if (!layer.isFetching) {
                             layer.isFetching = true;
-                            fetch(`http://localhost:8080/api/geojson?file=${encodeURIComponent(layer.vectorPath)}`)
+                            fetch(`http://localhost:8080/api/geojson?file=${encodeURIComponent(layer.filePath)}`)
                                 .then(r => r.ok ? r.json() : null)
                                 .then(data => {
                                     if (data) {
@@ -245,7 +276,7 @@ const MapViewport = React.memo(({ onAoiDrawn, selectedNode, activeWorkspace, nod
                         }
                     }
                     
-                    if (isSelected) {
+                    if (isSelected && !layer.isRaster) {
                         mapInstance.current.flyToBounds(bounds, { duration: 0.8, padding: [30, 30] });
                     }
                 }
@@ -323,6 +354,41 @@ const MapViewport = React.memo(({ onAoiDrawn, selectedNode, activeWorkspace, nod
                                         }}
                                         className="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer"
                                     />
+                                    
+                                    {!l.isBase && !l.id.includes('extent') && (
+                                        <div className="flex items-center space-x-2 mt-1">
+                                            {l.isRaster ? (
+                                                <select 
+                                                    value={l.cmap}
+                                                    onChange={(e) => {
+                                                        const newL = [...layers];
+                                                        newL[i].cmap = e.target.value;
+                                                        newL[i].rasterData = null; // force refetch
+                                                        setLayers(newL);
+                                                    }}
+                                                    className="w-full bg-slate-950 border border-slate-700 text-[9px] font-mono text-slate-400 p-1 rounded"
+                                                >
+                                                    <option value="viridis">Viridis</option>
+                                                    <option value="plasma">Plasma</option>
+                                                    <option value="inferno">Inferno</option>
+                                                    <option value="magma">Magma</option>
+                                                    <option value="gray">Grayscale</option>
+                                                    <option value="turbo">Turbo</option>
+                                                </select>
+                                            ) : (
+                                                <input 
+                                                    type="color" 
+                                                    value={l.vectorColor}
+                                                    onChange={(e) => {
+                                                        const newL = [...layers];
+                                                        newL[i].vectorColor = e.target.value;
+                                                        setLayers(newL);
+                                                    }}
+                                                    className="w-full h-6 bg-transparent border-0 cursor-pointer rounded"
+                                                />
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                             ))}
                         </div>
@@ -374,6 +440,47 @@ const MapViewport = React.memo(({ onAoiDrawn, selectedNode, activeWorkspace, nod
                     ></div>
                 </div>
             </div>
+
+            {/* Attribute Table Panel */}
+            {selectedFeature && (
+                <div className="h-48 bg-slate-900 border-t border-slate-700 shrink-0 flex flex-col z-20 animate-fadeIn">
+                    <div className="flex items-center justify-between px-4 py-2 bg-slate-800 border-b border-slate-700">
+                        <span className="text-xs font-bold text-slate-300 uppercase tracking-widest flex items-center">
+                            <Layers size={14} className="mr-2 text-indigo-400" /> 
+                            Attributes: {selectedFeature.layerName}
+                        </span>
+                        <button 
+                            onClick={() => setSelectedFeature(null)}
+                            className="p-1 hover:bg-slate-700 rounded text-slate-400 hover:text-white"
+                        >
+                            <XCircle size={14} />
+                        </button>
+                    </div>
+                    <div className="flex-1 overflow-auto p-0">
+                        <table className="w-full text-left border-collapse">
+                            <thead className="bg-slate-950 sticky top-0 shadow">
+                                <tr>
+                                    <th className="px-4 py-2 text-[10px] font-bold text-slate-400 uppercase border-b border-slate-700">Field</th>
+                                    <th className="px-4 py-2 text-[10px] font-bold text-slate-400 uppercase border-b border-slate-700">Value</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {Object.entries(selectedFeature.feature.properties || {}).map(([key, value], idx) => (
+                                    <tr key={idx} className="hover:bg-slate-800/50 border-b border-slate-800/50 transition-colors">
+                                        <td className="px-4 py-2 text-xs font-mono text-emerald-400">{key}</td>
+                                        <td className="px-4 py-2 text-xs text-slate-300">{value?.toString() || 'null'}</td>
+                                    </tr>
+                                ))}
+                                {(!selectedFeature.feature.properties || Object.keys(selectedFeature.feature.properties).length === 0) && (
+                                    <tr>
+                                        <td colSpan="2" className="px-4 py-8 text-center text-xs text-slate-500 italic">No attributes found for this feature.</td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
 
             {/* Footer Text (Only show if in compact Builder mode to save space in Globe mode) */}
             {activeWorkspace === 'builder' && (
