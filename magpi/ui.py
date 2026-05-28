@@ -117,6 +117,8 @@ def LaunchCanvas(port=8080):
                 self.handle_geojson(parsed_path.query)
             elif parsed_path.path == '/api/load_project':
                 self.handle_load_project(parsed_path.query)
+            elif parsed_path.path == '/api/community_nodes':
+                self.handle_community_nodes()
             else:
                 super().do_GET()
 
@@ -387,6 +389,23 @@ def LaunchCanvas(port=8080):
                 self.wfile.write(json.dumps({"error": str(e)}).encode('utf-8'))
 
         def log_message(self, format, *args): pass 
+
+        def handle_community_nodes(self):
+            try:
+                from magpi.engine.nodes.registry import load_community_nodes, COMMUNITY_METADATA
+                workspace_dir = os.path.join(os.getcwd(), 'magpi_workspace')
+                load_community_nodes(workspace_dir)
+                
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"status": "success", "nodes": COMMUNITY_METADATA}).encode('utf-8'))
+            except Exception as e:
+                logger.error(f"Community Nodes API failed: {e}")
+                self.send_response(500)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": str(e)}).encode('utf-8'))
 
     load_jobs()
 

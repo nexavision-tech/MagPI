@@ -388,17 +388,35 @@ export default function Toolbox({
   const [stacLoading, setStacLoading] = useState(false);
   const [stacError, setStacError] = useState(null);
 
+  const [communityCategories, setCommunityCategories] = useState([]);
+
+  React.useEffect(() => {
+    fetch('http://localhost:8080/api/community_nodes')
+      .then(r => r.json())
+      .then(data => {
+        if (data.status === 'success' && data.nodes && data.nodes.length > 0) {
+           setCommunityCategories([{
+             name: "Community Plugins", icon: <Sparkles size={18} className="text-amber-400" />,
+             tools: data.nodes
+           }]);
+        }
+      })
+      .catch(e => console.log("Failed to fetch community nodes", e));
+  }, []);
+
   const toggleCategory = (name) => setExpandedCategories(prev => ({ ...prev, [name]: !prev[name] }));
 
   const handleDragStart = (e, tool) => {
-    const dragPayload = { ...tool, _icon_key: tool.icon.type.name || 'Settings' };
+    const dragPayload = { ...tool, _icon_key: tool.icon?.type?.name || 'Settings' };
     e.dataTransfer.setData("application/reactflow", JSON.stringify(dragPayload));
     e.dataTransfer.effectAllowed = 'move';
     window.__draggedMagPITool = dragPayload; // Robust fallback for ReactFlow drop
     setHoveredTool(null);
   };
 
-  const filteredCategories = TOOLBOX_CATEGORIES.map(cat => ({
+  const ALL_CATEGORIES = [...TOOLBOX_CATEGORIES, ...communityCategories];
+
+  const filteredCategories = ALL_CATEGORIES.map(cat => ({
     ...cat, tools: cat.tools.filter(t => t.name.toLowerCase().includes(searchQuery.toLowerCase()) || t.id.toLowerCase().includes(searchQuery.toLowerCase()))
   })).filter(cat => cat.tools.length > 0);
 
