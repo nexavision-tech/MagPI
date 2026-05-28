@@ -85,6 +85,26 @@ export default function App() {
     return () => clearInterval(interval);
   }, [activeJobId, nodes]);
 
+  // --- DAEMON RESYNC (ON BROWSER REFRESH) ---
+  useEffect(() => {
+      const checkActiveJobs = async () => {
+          try {
+              const res = await fetch('http://localhost:8080/api/jobs');
+              if (res.ok) {
+                  const jobs = await res.json();
+                  const activeJob = jobs.find(j => j.status !== 'Finished' && j.status !== 'Failed');
+                  if (activeJob) {
+                      setActiveJobId(activeJob.id);
+                      setIsProcessing(true);
+                      setLogs(prev => [...prev, { type: 'success', msg: `Reconnected to running Daemon Job: ${activeJob.id}` }]);
+                      setShowTerminal(true);
+                  }
+              }
+          } catch (e) {}
+      };
+      checkActiveJobs();
+  }, []);
+
   const [browserConfig, setBrowserConfig] = useState({ isOpen: false, nodeId: null, paramKey: null, initialPath: "." });
 
   // --- UI LAYOUT FIX ---
@@ -256,8 +276,8 @@ export default function App() {
   const selectedNode = nodes.find(n => n.id === selectedNodeId);
 
   const handleSave = () => {
-    const projectName = prompt("Enter project name:", "magpi_project");
-    if (!projectName) return;
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const projectName = `magpi_project_${timestamp}`;
     
     try {
         saveProject(nodes, connections, crs, globalEnv, projectName);
