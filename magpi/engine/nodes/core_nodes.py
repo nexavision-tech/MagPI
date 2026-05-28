@@ -72,3 +72,35 @@ class CreateRasterNode(Node):
             self.output = out_path
         else:
             raise ValueError("CreateRaster requires an input Spatial Extent (AOI) to define bounds.")
+
+@register_node('load_raster')
+class LoadRasterNode(Node):
+    def execute(self):
+        p = self.params
+        file_path = p.get('file_path')
+        if not file_path:
+            raise ValueError("LoadRaster requires a 'file_path' parameter.")
+        logger.info(f"Loading Raster: {file_path}")
+        
+        from magpi.env import env
+        resolved_path = env.resolve_path(file_path, intent="input")
+        if not __import__('os').path.exists(resolved_path):
+            raise FileNotFoundError(f"Input Raster not found: {resolved_path}")
+            
+        self.output = resolved_path
+
+@register_node('load_vector')
+class LoadVectorNode(Node):
+    def execute(self):
+        p = self.params
+        file_path = p.get('file_path')
+        if not file_path:
+            raise ValueError("LoadVector requires a 'file_path' parameter.")
+        logger.info(f"Loading Vector: {file_path}")
+        
+        from magpi.env import env
+        resolved_path = env.resolve_path(file_path, intent="input")
+        if not __import__('os').path.exists(resolved_path):
+            raise FileNotFoundError(f"Input Vector not found: {resolved_path}")
+            
+        self.output = resolved_path

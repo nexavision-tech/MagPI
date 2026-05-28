@@ -37,6 +37,9 @@ class NDVINode(Node):
 class GLCMNode(Node):
     def execute(self):
         in_rasters = self.inputs.get("in")
+        if not in_rasters or (isinstance(in_rasters, list) and all(r is None for r in in_rasters)):
+            raise ValueError("GLCM requires an input raster connected to the 'in' port.")
+            
         if not isinstance(in_rasters, list):
             in_rasters = [in_rasters]
             
