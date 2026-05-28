@@ -36,6 +36,7 @@ class PipelineRunner:
             arcpy.env.outputWorkspace = output
             arcpy.env.horizontalDatum = h_datum
             arcpy.env.verticalDatum = v_datum
+            arcpy.env.overwriteOutput = True
             
             # Ensure directories exist
             os.makedirs(workspace, exist_ok=True)
