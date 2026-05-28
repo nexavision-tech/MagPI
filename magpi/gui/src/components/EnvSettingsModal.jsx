@@ -165,6 +165,59 @@ export default function EnvSettingsModal({ isOpen, onClose, globalEnv, setGlobal
               </div>
             </div>
           </div>
+          {/* Autopilot Schedule Section */}
+          <div className="mt-6 border-t border-slate-700 pt-6 space-y-4">
+            <div className="flex items-center justify-between bg-slate-900/50 border border-slate-700/50 rounded-lg p-4">
+              <div>
+                <label className="text-xs font-bold text-slate-300 uppercase tracking-widest flex items-center">
+                  <Database size={14} className="mr-2 text-fuchsia-400" /> Temporal Autopilot Schedule
+                </label>
+                <span className="text-[10px] text-slate-500 italic block mt-1">If enabled, the pipeline will iterate chronologically, executing WFS nodes for each time slice.</span>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input 
+                  type="checkbox" 
+                  className="sr-only peer" 
+                  checked={globalEnv.autopilot_enabled || false}
+                  onChange={(e) => setGlobalEnv(prev => ({ ...prev, autopilot_enabled: e.target.checked }))}
+                />
+                <div className="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-fuchsia-500"></div>
+              </label>
+            </div>
+
+            {globalEnv.autopilot_enabled && (
+              <div className="grid grid-cols-3 gap-4 bg-slate-900/80 border border-slate-700/80 p-4 rounded-lg animate-fadeIn">
+                <div className="flex flex-col space-y-2">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Start Date</label>
+                  <input 
+                    type="date" 
+                    value={globalEnv.autopilot_start_date || '2023-01-01'} 
+                    onChange={(e) => setGlobalEnv(prev => ({ ...prev, autopilot_start_date: e.target.value }))}
+                    className="bg-slate-950 border border-slate-700 rounded px-3 py-2 text-sm text-slate-300 focus:outline-none focus:border-fuchsia-500 transition-colors font-mono"
+                  />
+                </div>
+                <div className="flex flex-col space-y-2">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">End Date</label>
+                  <input 
+                    type="date" 
+                    value={globalEnv.autopilot_end_date || '2023-12-31'} 
+                    onChange={(e) => setGlobalEnv(prev => ({ ...prev, autopilot_end_date: e.target.value }))}
+                    className="bg-slate-950 border border-slate-700 rounded px-3 py-2 text-sm text-slate-300 focus:outline-none focus:border-fuchsia-500 transition-colors font-mono"
+                  />
+                </div>
+                <div className="flex flex-col space-y-2">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Interval (Days)</label>
+                  <input 
+                    type="number" 
+                    min="1"
+                    value={globalEnv.autopilot_interval || 7} 
+                    onChange={(e) => setGlobalEnv(prev => ({ ...prev, autopilot_interval: Number(e.target.value) }))}
+                    className="bg-slate-950 border border-slate-700 rounded px-3 py-2 text-sm text-slate-300 focus:outline-none focus:border-fuchsia-500 transition-colors font-mono"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Footer */}

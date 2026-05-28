@@ -85,8 +85,8 @@ class PipelineRunner:
                     
         return sorted_nodes, adj_list
 
-    def run(self, progress_callback=None):
-        """Executes the pipeline."""
+    def _execute_single_run(self, progress_callback=None):
+        """Executes the pipeline once."""
         sorted_nodes, adj_list = self.resolve_dependencies()
         logger.info(f"Executing pipeline with {len(sorted_nodes)} nodes...")
         
@@ -135,4 +135,59 @@ class PipelineRunner:
                 if progress_callback: progress_callback(nid, 'error', idx + 1, len(sorted_nodes))
                 return False
                 
+        return True
+        
+    def run(self, progress_callback=None):
+        autopilot_enabled = self.global_env.get('autopilot_enabled', False)
+        
+        if not autopilot_enabled:
+            return self._execute_single_run(progress_callback)
+            
+        start_date_str = self.global_env.get('autopilot_start_date', '2023-01-01')
+        end_date_str = self.global_env.get('autopilot_end_date', '2023-12-31')
+        interval_days = int(self.global_env.get('autopilot_interval', 7))
+        
+        from datetime import datetime, timedelta
+        import os
+        import magpi as arcpy
+        
+        try:
+            start_date = datetime.strptime(start_date_str, "%Y-%m-%d")
+            end_date = datetime.strptime(end_date_str, "%Y-%m-%d")
+        except ValueError:
+            logger.error("Invalid autopilot dates. Must be YYYY-MM-DD.")
+            return False
+            
+        current_date = start_date
+        loop_idx = 1
+        
+        base_workspace = self.global_env.get('workspace_dir', './magpi_workspace')
+        
+        while current_date <= end_date:
+            week_end = current_date + timedelta(days=interval_days)
+            week_str = f"Slice_{loop_idx}_{current_date.strftime('%Y%m%d')}"
+            logger.info(f"--- AUTOPILOT ITERATION {loop_idx}: {current_date.strftime('%Y-%m-%d')} to {week_end.strftime('%Y-%m-%d')} ---")
+            
+            # Update specific nodes to the current temporal slice
+            for nid, node in self.nodes.items():
+                if 'start_date' in node.params:
+                    node.params['start_date'] = current_date.strftime('%Y-%m-%d')
+                if 'end_date' in node.params:
+                    node.params['end_date'] = week_end.strftime('%Y-%m-%d')
+            
+            # Create a specific workspace for this temporal slice
+            slice_workspace = os.path.join(base_workspace, week_str)
+            os.makedirs(slice_workspace, exist_ok=True)
+            arcpy.env.workspace = slice_workspace
+            
+            # Execute
+            success = self._execute_single_run(progress_callback)
+            if not success:
+                logger.error(f"Autopilot slice {loop_idx} failed. Halting schedule.")
+                return False
+                
+            current_date = week_end
+            loop_idx += 1
+            
+        logger.info("Autopilot Schedule completed successfully across all temporal slices.")
         return True
