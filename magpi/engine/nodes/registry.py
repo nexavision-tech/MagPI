@@ -14,6 +14,9 @@ def register_node(tool_id, metadata=None):
     def decorator(cls):
         NODE_REGISTRY[tool_id] = cls
         if metadata:
+            # Prevent duplicates on multiple reloads
+            global COMMUNITY_METADATA
+            COMMUNITY_METADATA = [m for m in COMMUNITY_METADATA if m.get("id") != tool_id]
             COMMUNITY_METADATA.append(metadata)
         return cls
     return decorator
@@ -39,3 +42,5 @@ def load_community_nodes(workspace_dir):
                 logger.info(f"Successfully loaded plugin: {filename}")
             except Exception as e:
                 logger.error(f"Failed to load plugin {filename}: {e}")
+                
+    return COMMUNITY_METADATA

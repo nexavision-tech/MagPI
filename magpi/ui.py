@@ -392,14 +392,14 @@ def LaunchCanvas(port=8080):
 
         def handle_community_nodes(self):
             try:
-                from magpi.engine.nodes.registry import load_community_nodes, COMMUNITY_METADATA
+                import magpi.engine.nodes.registry as registry
                 workspace_dir = os.path.join(os.getcwd(), 'magpi_workspace')
-                load_community_nodes(workspace_dir)
+                nodes = registry.load_community_nodes(workspace_dir)
                 
                 self.send_response(200)
                 self.send_header('Content-type', 'application/json')
                 self.end_headers()
-                self.wfile.write(json.dumps({"status": "success", "nodes": COMMUNITY_METADATA}).encode('utf-8'))
+                self.wfile.write(json.dumps({"status": "success", "nodes": nodes}).encode('utf-8'))
             except Exception as e:
                 logger.error(f"Community Nodes API failed: {e}")
                 self.send_response(500)
