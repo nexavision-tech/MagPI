@@ -70,7 +70,7 @@ class PipelineRunner:
         
         for c in self.connections:
             if c['from'] in adj_list and c['to'] in in_degree:
-                adj_list[c['from']].append((c['to'], c.get('targetHandle')))
+                adj_list[c['from']].append((c['to'], c.get('sourceHandle'), c.get('targetHandle')))
                 in_degree[c['to']] += 1
                 
         queue = [nid for nid in in_degree if in_degree[nid] == 0]
@@ -79,7 +79,7 @@ class PipelineRunner:
         while queue:
             curr = queue.pop(0)
             sorted_nodes.append(curr)
-            for neighbor, handle in adj_list[curr]:
+            for neighbor, src_handle, tgt_handle in adj_list[curr]:
                 in_degree[neighbor] -= 1
                 if in_degree[neighbor] == 0:
                     queue.append(neighbor)
@@ -117,18 +117,24 @@ class PipelineRunner:
                 logger.info(f"Node {node.name} completed successfully.")
                 
                 # Pass output forward to dependent nodes
-                for neighbor_id, handle in adj_list[nid]:
+                for neighbor_id, src_handle, tgt_handle in adj_list[nid]:
                     neighbor = self.nodes[neighbor_id]
+                    
+                    # Extract specific output if node output is a dictionary and sourceHandle is specified
+                    output_val = node.output
+                    if isinstance(output_val, dict) and src_handle and src_handle != 'out':
+                        output_val = output_val.get(src_handle, output_val)
+                    
                     # Map handle to input key. Default to 'in' if no explicit port.
-                    input_key = handle or "in"
+                    input_key = tgt_handle or "in"
                     
                     if input_key in neighbor.inputs:
                         if isinstance(neighbor.inputs[input_key], list):
-                            neighbor.inputs[input_key].append(node.output)
+                            neighbor.inputs[input_key].append(output_val)
                         else:
-                            neighbor.inputs[input_key] = [neighbor.inputs[input_key], node.output]
+                            neighbor.inputs[input_key] = [neighbor.inputs[input_key], output_val]
                     else:
-                        neighbor.inputs[input_key] = node.output
+                        neighbor.inputs[input_key] = output_val
                     
             except Exception as e:
                 logger.error(f"Execution failed for {node.name}: {e}")

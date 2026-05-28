@@ -14,13 +14,17 @@ const TOOLBOX_CATEGORIES = [
     name: "Open Data WFS (Free)", icon: <Cloud size={18} className="text-cyan-400" />,
     tools: [
       {
-        id: 'wfs_sentinel2', name: "Sentinel-2 (AWS 4B)", type: 'input', icon: <Cloud size={14} />, color: 'bg-cyan-700', border: 'border-cyan-500',
+        id: 'wfs_sentinel2', name: "Sentinel-2 (AWS)", type: 'input', icon: <Cloud size={14} />, color: 'bg-cyan-700', border: 'border-cyan-500',
         description: "Streams Cloud Optimized GeoTIFFs (COGs) from AWS Earth Search based on an AOI. Includes temporal filtering.",
+        inputs: [{ id: 'extent', type: 'EXTENT', label: 'AOI' }],
+        outputs: [{ id: 'raster', type: 'RASTER', label: 'RASTER' }],
         params: { max_cloud_cover: 10, start_date: { value: "2023-01-01", type: "date" }, end_date: { value: "2023-12-31", type: "date" }, out_folder: "./sentinel_data", selected_items: "", selected_bands: "B02,B03,B04,B08" }
       },
       {
         id: 'wfs_sentinel1', name: "Sentinel-1 (SAR)", type: 'input', icon: <Satellite size={14} />, color: 'bg-cyan-700', border: 'border-cyan-500',
         description: "Streams Synthetic Aperture Radar (SAR) imagery via Planetary Computer. Perfect for cloud penetration.",
+        inputs: [{ id: 'extent', type: 'EXTENT', label: 'AOI' }],
+        outputs: [{ id: 'raster', type: 'RASTER', label: 'SAR' }],
         params: { start_date: { value: "2023-01-01", type: "date" }, end_date: { value: "2023-12-31", type: "date" }, selected_items: "" }
       },
       {
@@ -102,8 +106,10 @@ const TOOLBOX_CATEGORIES = [
     tools: [
       {
         id: 'core_extent', name: "Spatial Extent (AOI)", type: 'input', icon: <Hexagon size={14} />, color: 'bg-yellow-600', border: 'border-yellow-500',
-        description: "A universal bounding box. Wire this into Cloud Pullers or Clip tools to define an area of interest.",
-        params: { xmin: "-81.450", ymin: "28.450", xmax: "-81.250", ymax: "28.600" }
+        description: "Defines the geographic bounding box for the entire pipeline. Automatically triggers WFS/WCS streaming on connected nodes.",
+        inputs: [],
+        outputs: [{ id: 'extent', type: 'EXTENT', label: 'EXTENT' }],
+        params: { xmin: -122.5, ymin: 37.7, xmax: -122.3, ymax: 37.8 }
       },
       {
         id: 'load_raster', name: "Input Raster", type: 'input', icon: <ImageIcon size={14} />, color: 'bg-blue-600', border: 'border-blue-500',

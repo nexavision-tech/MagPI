@@ -72,19 +72,17 @@ const MagPINode = ({ data }) => {
   if (isPureSource) shapeClass = "rounded-l-[24px] rounded-r-md"; 
   if (isEndpoint) shapeClass = "rounded-r-[24px] rounded-l-md"; 
 
-  // 3. Typographical Labels
-  let topLbl = "IN 1", botLbl = "IN 2", singleLbl = "IN";
+  // 3. Dynamic Typed Ports Logic
+  const hasDynamicPorts = data.inputs || data.outputs;
   
-  if (toolId === 'ia_export_dl') { topLbl = "IMG"; botLbl = "LBL"; }
-  else if (toolId === 'stats_confusion_matrix') { topLbl = "PREDICT"; botLbl = "TRUTH"; }
-  else if (toolId === 'mgt_clip') { topLbl = "TARGET"; botLbl = "EXTENT"; }
-  else if (toolId === 'etl_spatial_join') { topLbl = "TARGET"; botLbl = "JOIN"; }
-  else if (toolId === 'ia_raster_math' || toolId === 'logic_math') { topLbl = "VAR A"; botLbl = "VAR B"; }
-  
-  if (toolId === 'ai_train') singleLbl = "TENSORS";
-  else if (toolId === 'conv_raster_to_polygon') singleLbl = "MASK";
-  else if (toolId.startsWith('wfs_')) singleLbl = "AOI";
-  else if (toolId === 'logic_extract_attr') singleLbl = "VECTOR";
+  const getPortColor = (type, label) => {
+      const t = (type || label || '').toUpperCase();
+      if (['EXTENT', 'AOI', 'BBOX'].includes(t)) return '#ffcc00'; // Yellow
+      if (['VECTOR', 'FOOTPRINTS', 'CENTROIDS', 'DAMAGE', 'GEOJSON'].includes(t)) return '#32d74b'; // Green
+      if (['RASTER', 'IMG', 'PRE DSM', 'POST DSM', 'SAR', 'TIFF'].includes(t)) return '#5ac8fa'; // Blue
+      if (['FILE', 'REPORT', 'STATUS', 'JSON'].includes(t)) return '#bf5af2'; // Purple
+      return '#a3a3a3'; // Grey
+  };
 
   return (
     <div className={`flex flex-col min-w-[170px] max-w-[250px] transition-all duration-200 bg-[#2b2b2b] rounded-lg shadow-[0_4px_15px_rgba(0,0,0,0.5)] border ${data.selected ? 'border-[#ff8c00] shadow-[0_0_15px_rgba(255,140,0,0.3)]' : 'border-[#1a1a1a]'}`}>
@@ -105,32 +103,66 @@ const MagPINode = ({ data }) => {
       </div>
 
       {/* BODY ROW */}
-      <div className="p-3 relative bg-gradient-to-b from-[#3a3a3a] to-[#2b2b2b] min-h-[50px] rounded-b-lg">
+      <div className="p-3 relative bg-gradient-to-b from-[#3a3a3a] to-[#2b2b2b] min-h-[50px] rounded-b-lg flex flex-col justify-between">
         
-        {/* SINGLE INPUT */}
-        {!isPureSource && !isDualInput && (
+        {hasDynamicPorts ? (
+            <div className="flex justify-between w-full h-full min-h-[40px]">
+                {/* DYNAMIC INPUTS */}
+                <div className="flex flex-col justify-around h-full space-y-2">
+                    {(data.inputs || []).map((inp, idx, arr) => {
+                        const topPct = arr.length === 1 ? '50%' : `${(100 / (arr.length + 1)) * (idx + 1)}%`;
+                        const color = getPortColor(inp.type, inp.label);
+                        return (
+                            <div key={inp.id} className="relative h-4 flex items-center">
+                                <Handle type="target" position={Position.Left} id={inp.id} isConnectableStart={false} style={{ backgroundColor: color, top: '50%' }} className="w-3.5 h-3.5 rounded-full border-[2.5px] border-[#1a1a1a] cursor-crosshair hover:bg-white transition-all z-50 !-left-4" />
+                                <span style={{ color: color }} className="text-[9px] font-mono font-bold tracking-widest pointer-events-none drop-shadow-sm ml-1">{inp.label || inp.id.toUpperCase()}</span>
+                            </div>
+                        );
+                    })}
+                </div>
+                {/* DYNAMIC OUTPUTS */}
+                <div className="flex flex-col justify-around h-full items-end space-y-2">
+                    {(data.outputs || []).map((out, idx, arr) => {
+                        const topPct = arr.length === 1 ? '50%' : `${(100 / (arr.length + 1)) * (idx + 1)}%`;
+                        const color = getPortColor(out.type, out.label);
+                        return (
+                            <div key={out.id} className="relative h-4 flex items-center justify-end">
+                                <span style={{ color: color }} className="text-[9px] font-mono font-bold tracking-widest pointer-events-none drop-shadow-sm mr-1">{out.label || out.id.toUpperCase()}</span>
+                                <Handle type="source" position={Position.Right} id={out.id} style={{ backgroundColor: color, top: '50%' }} className="w-3.5 h-3.5 rounded-full border-[2.5px] border-[#1a1a1a] cursor-crosshair hover:bg-white transition-all z-50 !-right-4" />
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+        ) : (
+            /* LEGACY FALLBACK FOR OLD NODES WITHOUT TYPED PORTS */
             <>
-            <Handle type="target" position={Position.Left} id="in" isConnectableStart={false} style={{ backgroundColor: getInHandleColor(singleLbl) }} className="w-3.5 h-3.5 rounded-full border-[2.5px] border-[#1a1a1a] cursor-crosshair hover:bg-white transition-all z-50" />
-            <span style={{ color: getInHandleColor(singleLbl) }} className="absolute left-3 top-1/2 -translate-y-1/2 text-[9px] font-mono font-bold pointer-events-none tracking-widest">{singleLbl}</span>
-            </>
-        )}
+                {/* SINGLE INPUT */}
+                {!isPureSource && !isDualInput && (
+                    <>
+                    <Handle type="target" position={Position.Left} id="in" isConnectableStart={false} style={{ backgroundColor: getInHandleColor(singleLbl) }} className="w-3.5 h-3.5 rounded-full border-[2.5px] border-[#1a1a1a] cursor-crosshair hover:bg-white transition-all z-50" />
+                    <span style={{ color: getInHandleColor(singleLbl) }} className="absolute left-3 top-1/2 -translate-y-1/2 text-[9px] font-mono font-bold pointer-events-none tracking-widest">{singleLbl}</span>
+                    </>
+                )}
 
-        {/* DUAL INPUTS */}
-        {isDualInput && (
-            <>
-            <Handle type="target" position={Position.Left} id="in1" style={{ top: '30%', backgroundColor: getInHandleColor(topLbl) }} isConnectableStart={false} className="w-3.5 h-3.5 rounded-full border-[2.5px] border-[#1a1a1a] cursor-crosshair hover:bg-white transition-all z-50" />
-            <span style={{ color: getInHandleColor(topLbl) }} className="absolute left-3 top-[30%] -translate-y-1/2 text-[9px] font-mono font-bold pointer-events-none tracking-widest">{topLbl}</span>
+                {/* DUAL INPUTS */}
+                {isDualInput && (
+                    <>
+                    <Handle type="target" position={Position.Left} id="in1" style={{ top: '30%', backgroundColor: getInHandleColor(topLbl) }} isConnectableStart={false} className="w-3.5 h-3.5 rounded-full border-[2.5px] border-[#1a1a1a] cursor-crosshair hover:bg-white transition-all z-50" />
+                    <span style={{ color: getInHandleColor(topLbl) }} className="absolute left-3 top-[30%] -translate-y-1/2 text-[9px] font-mono font-bold pointer-events-none tracking-widest">{topLbl}</span>
 
-            <Handle type="target" position={Position.Left} id="in2" style={{ top: '70%', backgroundColor: getInHandleColor(botLbl) }} isConnectableStart={false} className="w-3.5 h-3.5 rounded-full border-[2.5px] border-[#1a1a1a] cursor-crosshair hover:bg-white transition-all z-50" />
-            <span style={{ color: getInHandleColor(botLbl) }} className="absolute left-3 top-[70%] -translate-y-1/2 text-[9px] font-mono font-bold pointer-events-none tracking-widest">{botLbl}</span>
-            </>
-        )}
+                    <Handle type="target" position={Position.Left} id="in2" style={{ top: '70%', backgroundColor: getInHandleColor(botLbl) }} isConnectableStart={false} className="w-3.5 h-3.5 rounded-full border-[2.5px] border-[#1a1a1a] cursor-crosshair hover:bg-white transition-all z-50" />
+                    <span style={{ color: getInHandleColor(botLbl) }} className="absolute left-3 top-[70%] -translate-y-1/2 text-[9px] font-mono font-bold pointer-events-none tracking-widest">{botLbl}</span>
+                    </>
+                )}
 
-        {/* OUTPUT */}
-        {!isEndpoint && (
-            <>
-            <span style={{ color: getOutHandleColor(toolId) }} className="absolute right-3 top-1/2 -translate-y-1/2 text-[9px] font-mono font-bold pointer-events-none tracking-widest">OUT</span>
-            <Handle type="source" position={Position.Right} id="out" style={{ backgroundColor: getOutHandleColor(toolId) }} className="w-3.5 h-3.5 rounded-full border-[2.5px] border-[#1a1a1a] cursor-crosshair hover:bg-white transition-all z-50" />
+                {/* OUTPUT */}
+                {!isEndpoint && (
+                    <>
+                    <span style={{ color: getOutHandleColor(toolId) }} className="absolute right-3 top-1/2 -translate-y-1/2 text-[9px] font-mono font-bold pointer-events-none tracking-widest">OUT</span>
+                    <Handle type="source" position={Position.Right} id="out" style={{ backgroundColor: getOutHandleColor(toolId) }} className="w-3.5 h-3.5 rounded-full border-[2.5px] border-[#1a1a1a] cursor-crosshair hover:bg-white transition-all z-50" />
+                    </>
+                )}
             </>
         )}
       </div>
