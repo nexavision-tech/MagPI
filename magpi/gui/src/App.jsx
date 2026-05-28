@@ -255,13 +255,10 @@ export default function App() {
 
   const selectedNode = nodes.find(n => n.id === selectedNodeId);
 
-  const handleSave = async () => {
-    const projectName = prompt("Enter project name:", "untitled_project");
-    if (!projectName) return;
-    
+  const handleSave = () => {
     try {
-        await saveProject(nodes, connections, crs, globalEnv, projectName);
-        setLogs([{ type: 'success', msg: `Project saved successfully to magpi_workspace/projects/${projectName}.mpjx` }]);
+        saveProject(nodes, connections, crs, globalEnv, "magpi_project");
+        setLogs([{ type: 'success', msg: `Project successfully downloaded to your local device as magpi_project.mpjx` }]);
         setShowTerminal(true);
     } catch (e) {
         setLogs([{ type: 'error', msg: `Failed to save project: ${e.message}` }]);
@@ -270,7 +267,18 @@ export default function App() {
   };
 
   const handleLoad = () => {
-    openFileBrowser("LOAD_PROJECT", "file", "./magpi_workspace/projects");
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.mpjx,.json';
+    input.onchange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        loadProject(file, setNodes, setConnections, setCrs, setGlobalEnv, (log) => {
+            setLogs([log]);
+            setShowTerminal(true);
+        });
+    };
+    input.click();
   };
 
   const handleAutoLayout = () => {

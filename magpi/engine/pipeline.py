@@ -16,6 +16,7 @@ class PipelineRunner:
             
         # 1. Apply Global Environment Context
         global_env = json_data.get('globalEnv', {})
+        self.global_env = global_env
         if global_env:
             import os
             import magpi as arcpy
