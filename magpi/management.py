@@ -20,6 +20,12 @@ def _resolve_features(features):
         polygon = shapely.geometry.box(features.XMin, features.YMin, features.XMax, features.YMax)
         crs = getattr(features, 'spatialReference', "EPSG:4326") or "EPSG:4326"
         return gpd.GeoDataFrame(geometry=[polygon], crs=crs)
+        
+    if isinstance(features, tuple) and len(features) == 2:
+        file_path, layer_name = features
+        logger.info(f"[_resolve_features] Calling gpd.read_file on {file_path} with layer={layer_name}")
+        return gpd.read_file(file_path, layer=layer_name)
+        
     logger.info("[_resolve_features] Calling gpd.read_file.")
     return gpd.read_file(features)
 

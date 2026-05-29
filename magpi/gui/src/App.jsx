@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { GitBranch, XCircle, AlertTriangle, Bell, TerminalSquare, Save, Map as MapIcon, Edit3, Wrench, Layers, Activity } from 'lucide-react';
+import { GitBranch, XCircle, AlertTriangle, Bell, TerminalSquare, Save, Map as MapIcon, Edit3, Wrench, Layers, Activity, Database } from 'lucide-react';
 import TopRibbon from './components/TopRibbon';
 import Terminal from './components/Terminal';
 import Toolbox from './components/Toolbox';
@@ -10,6 +10,7 @@ import JobManager from './components/JobManager';
 import ScriptModal from './components/ScriptModal';
 import FileBrowserModal from './components/FileBrowserModal';
 import EnvSettingsModal from './components/EnvSettingsModal';
+import DataStudio from './components/DataStudio';
 import { generatePythonScript } from './utils/scriptGen';
 import { generateAirflowDAG } from './utils/airflowGen';
 import { saveProject, loadProject } from './utils/fileOps';
@@ -540,6 +541,7 @@ export default function App() {
             <button onClick={() => setActiveWorkspace('planar')} className={`px-6 py-2 text-xs font-bold uppercase tracking-widest rounded-t-lg transition-colors flex items-center border border-b-0 ${activeWorkspace === 'planar' ? 'bg-slate-800 text-purple-400 border-slate-600' : 'bg-transparent text-slate-500 border-transparent hover:bg-slate-800/50 hover:text-slate-300'}`}><Edit3 size={14} className="mr-2" /> Planar Train Env</button>
             <button onClick={() => setActiveWorkspace('builder')} className={`px-6 py-2 text-xs font-bold uppercase tracking-widest rounded-t-lg transition-colors flex items-center border border-b-0 ml-1 ${activeWorkspace === 'builder' ? 'bg-slate-800 text-emerald-400 border-slate-600' : 'bg-transparent text-slate-500 border-transparent hover:bg-slate-800/50 hover:text-slate-300'}`}><Wrench size={14} className="mr-2" /> Model Builder</button>
             <button onClick={() => setActiveWorkspace('globe')} className={`px-6 py-2 text-xs font-bold uppercase tracking-widest rounded-t-lg transition-colors flex items-center border border-b-0 ml-1 ${activeWorkspace === 'globe' ? 'bg-slate-800 text-cyan-400 border-slate-600' : 'bg-transparent text-slate-500 border-transparent hover:bg-slate-800/50 hover:text-slate-300'}`}><MapIcon size={14} className="mr-2" /> Globe Nexus</button>
+            <button onClick={() => setActiveWorkspace('dbstudio')} className={`px-6 py-2 text-xs font-bold uppercase tracking-widest rounded-t-lg transition-colors flex items-center border border-b-0 ml-1 ${activeWorkspace === 'dbstudio' ? 'bg-slate-800 text-purple-400 border-slate-600' : 'bg-transparent text-slate-500 border-transparent hover:bg-slate-800/50 hover:text-slate-300'}`}><Database size={14} className="mr-2" /> DB Studio</button>
             <button onClick={() => setActiveWorkspace('tensor_brew')} className={`px-6 py-2 text-xs font-bold uppercase tracking-widest rounded-t-lg transition-colors flex items-center border border-b-0 ml-1 ${activeWorkspace === 'tensor_brew' ? 'bg-slate-800 text-indigo-400 border-slate-600' : 'bg-transparent text-slate-500 border-transparent hover:bg-slate-800/50 hover:text-slate-300'}`}><Layers size={14} className="mr-2" /> Tensor Brew</button>
             <button onClick={() => setActiveWorkspace('jobs')} className={`px-6 py-2 text-xs font-bold uppercase tracking-widest rounded-t-lg transition-colors flex items-center border border-b-0 ml-1 ${activeWorkspace === 'jobs' ? 'bg-slate-800 text-rose-400 border-slate-600' : 'bg-transparent text-slate-500 border-transparent hover:bg-slate-800/50 hover:text-slate-300'}`}><Activity size={14} className="mr-2" /> Job Manager</button>
         </div>
@@ -578,6 +580,11 @@ export default function App() {
         {/* Render Job Manager Fullscreen when Active */}
         <div className={`absolute inset-0 z-50 ${activeWorkspace === 'jobs' ? 'block' : 'hidden'}`}>
             <JobManager activeWorkspace={activeWorkspace} />
+        </div>
+        
+        {/* Render DB Studio Fullscreen when Active */}
+        <div className={`absolute inset-0 z-50 ${activeWorkspace === 'dbstudio' ? 'block' : 'hidden'}`}>
+            <DataStudio />
         </div>
       </div>
 

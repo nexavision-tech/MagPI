@@ -103,7 +103,11 @@ class LoadVectorNode(Node):
         if not __import__('os').path.exists(resolved_path):
             raise FileNotFoundError(f"Input Vector not found: {resolved_path}")
             
-        self.output = resolved_path
+        layer_name = p.get('layer_name')
+        if layer_name:
+            self.output = (resolved_path, layer_name)
+        else:
+            self.output = resolved_path
 
 @register_node('core_date_variable')
 class DateVariableNode(Node):

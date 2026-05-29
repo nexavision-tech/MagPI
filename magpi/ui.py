@@ -125,6 +125,8 @@ def LaunchCanvas(port=8080):
                 self.handle_references()
             elif parsed_path.path == '/api/gis_servers':
                 self.handle_gis_servers()
+            elif parsed_path.path == '/api/databases':
+                self.handle_databases()
             else:
                 super().do_GET()
 
@@ -271,6 +273,19 @@ def LaunchCanvas(port=8080):
                     self.wfile.write(json.dumps(response).encode('utf-8'))
                 except Exception as e:
                     logger.error(f"Project Save API failed: {e}")
+                    self.send_response(500)
+                    self.send_header('Content-type', 'application/json')
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"error": str(e)}).encode('utf-8'))
+                    
+            elif parsed_path.path == '/api/query':
+                content_length = int(self.headers['Content-Length'])
+                post_data = self.rfile.read(content_length)
+                try:
+                    payload = json.loads(post_data.decode('utf-8'))
+                    self.handle_query(payload)
+                except Exception as e:
+                    logger.error(f"Query API failed: {e}")
                     self.send_response(500)
                     self.send_header('Content-type', 'application/json')
                     self.end_headers()
@@ -557,6 +572,79 @@ def LaunchCanvas(port=8080):
             except Exception as e:
                 logger.error(f"GIS Servers API failed: {e}")
                 self.send_response(500)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": str(e)}).encode('utf-8'))
+
+        def handle_databases(self):
+            try:
+                import fiona
+                output_dir = os.environ.get('MAGPI_OUTPUT', os.path.join(os.getcwd(), 'magpi_output'))
+                databases = []
+                if os.path.exists(output_dir):
+                    for f in os.listdir(output_dir):
+                        path = os.path.join(output_dir, f)
+                        if f.endswith('.sqlite') or f.endswith('.db') or f.endswith('.gpkg') or f.endswith('.gdb'):
+                            try:
+                                layers = fiona.listlayers(path)
+                                databases.append({
+                                    "name": f,
+                                    "path": path,
+                                    "type": "gdb" if f.endswith(".gdb") else ("gpkg" if f.endswith(".gpkg") else "sqlite"),
+                                    "layers": layers
+                                })
+                            except Exception as e:
+                                logger.warning(f"Failed to list layers for {f}: {e}")
+                
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"status": "success", "databases": databases}).encode('utf-8'))
+            except Exception as e:
+                logger.error(f"Databases API failed: {e}")
+                self.send_response(500)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": str(e)}).encode('utf-8'))
+
+        def handle_query(self, payload):
+            try:
+                import sqlite3
+                import pandas as pd
+                import geopandas as gpd
+                
+                db_path = payload.get('db_path')
+                query = payload.get('query')
+                
+                if not db_path or not query:
+                    raise ValueError("Both db_path and query must be provided.")
+                if not os.path.exists(db_path):
+                    raise FileNotFoundError("Database not found.")
+                
+                if db_path.endswith('.sqlite') or db_path.endswith('.db') or db_path.endswith('.gpkg'):
+                    conn = sqlite3.connect(db_path)
+                    df = pd.read_sql_query(query, conn)
+                    conn.close()
+                    
+                    # Truncate large strings or geometries for display
+                    for col in df.columns:
+                        if df[col].dtype == object or str(df[col].dtype) == 'geometry':
+                            df[col] = df[col].astype(str).str.slice(0, 100)
+                    
+                    results = df.to_dict(orient='records')
+                    columns = df.columns.tolist()
+                elif db_path.endswith('.gdb'):
+                    raise NotImplementedError("Direct SQL querying of .gdb is not supported yet. Use GeoPandas in Python.")
+                else:
+                    raise ValueError("Unsupported database type for direct SQL querying.")
+                    
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"status": "success", "columns": columns, "results": results[:100]}).encode('utf-8'))
+            except Exception as e:
+                logger.error(f"Query execution failed: {e}")
+                self.send_response(400)
                 self.send_header('Content-type', 'application/json')
                 self.end_headers()
                 self.wfile.write(json.dumps({"error": str(e)}).encode('utf-8'))
