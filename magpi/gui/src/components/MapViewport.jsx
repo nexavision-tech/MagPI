@@ -1,8 +1,8 @@
 import React, { useEffect, useRef } from 'react';
-import L from 'leaflet';
-import 'leaflet-draw';
-import 'leaflet/dist/leaflet.css';
-import 'leaflet-draw/dist/leaflet.draw.css';
+import maplibregl from 'maplibre-gl';
+import MapboxDraw from '@mapbox/mapbox-gl-draw';
+import 'maplibre-gl/dist/maplibre-gl.css';
+import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css';
 import 'cesium/Build/Cesium/Widgets/widgets.css';
 import { Map as MapIcon, Satellite, Edit, Globe, Layers, Eye, EyeOff, XCircle } from 'lucide-react';
 import { Viewer, Entity, ImageryLayer } from 'resium';
@@ -29,8 +29,7 @@ const getAncestralExtent = (nodeId, nodes, connections) => {
 const MapViewport = React.memo(({ onAoiDrawn, selectedNode, activeWorkspace, nodes = [], nodeStatuses = {}, connections = [] }) => {
     const mapRef = useRef(null);
     const mapInstance = useRef(null); 
-    const highlightGroup = useRef(null);
-    const osmLayerRef = useRef(null);
+    const drawRef = useRef(null);
     const osmImageryProvider = React.useMemo(() => new OpenStreetMapImageryProvider({ url: 'https://a.tile.openstreetmap.org/' }), []);
     const [showLayers, setShowLayers] = React.useState(activeWorkspace !== 'builder');
     const [layers, setLayers] = React.useState([
@@ -81,54 +80,88 @@ const MapViewport = React.memo(({ onAoiDrawn, selectedNode, activeWorkspace, nod
         if (!mapRef.current) return;
         if (mapInstance.current) return; 
 
-        // Zeroized global extent [0, 0] zoom 2
-        const map = L.map(mapRef.current, { zoomControl: false }).setView([0, 0], 2);
+        // Initialize MapLibre
+        const map = new maplibregl.Map({
+            container: mapRef.current,
+            style: {
+                version: 8,
+                sources: {
+                    'osm': {
+                        type: 'raster',
+                        tiles: ['https://a.tile.openstreetmap.org/{z}/{x}/{y}.png'],
+                        tileSize: 256,
+                        attribution: '© OpenStreetMap Contributors'
+                    }
+                },
+                layers: [{
+                    id: 'osm',
+                    type: 'raster',
+                    source: 'osm',
+                    minzoom: 0,
+                    maxzoom: 22
+                }]
+            },
+            center: [0, 0],
+            zoom: 2,
+            pitch: 0,
+            bearing: 0
+        });
         mapInstance.current = map;
 
-        osmLayerRef.current = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OSM'
-        }).addTo(map);
+        map.addControl(new maplibregl.NavigationControl({ showCompass: true }), 'top-right');
 
-        L.control.zoom({ position: 'topright' }).addTo(map);
-
-        highlightGroup.current = new L.FeatureGroup();
-        map.addLayer(highlightGroup.current);
-
-        const drawControl = new L.Control.Draw({
-            draw: {
-                polyline: true, polygon: true, circle: false, marker: true, circlemarker: false,
-                rectangle: { shapeOptions: { color: '#00ffff', weight: 2, fillOpacity: 0.15 } } 
-            },
-            edit: false 
-        });
-        map.addControl(drawControl);
-
-        const style = document.createElement('style');
-        style.innerHTML = '.leaflet-draw-toolbar { display: none !important; }';
-        document.head.appendChild(style);
-
-        map.on(L.Draw.Event.CREATED, function (e) {
-            let bounds;
-            if (e.layerType === 'marker') {
-                const latlng = e.layer.getLatLng();
-                bounds = L.latLngBounds(latlng, latlng); // Zero-size bounds for a point
-            } else {
-                bounds = e.layer.getBounds();
+        // Setup Draw Control
+        const draw = new MapboxDraw({
+            displayControlsDefault: false,
+            controls: {
+                polygon: false,
+                trash: false
             }
-            
-            if (onAoiDrawn) {
-                onAoiDrawn({
-                    xmin: bounds.getWest().toFixed(5),
-                    ymin: bounds.getSouth().toFixed(5),
-                    xmax: bounds.getEast().toFixed(5),
-                    ymax: bounds.getNorth().toFixed(5)
+        });
+        drawRef.current = draw;
+        map.addControl(draw);
+
+        map.on('draw.create', function (e) {
+            const data = e.features[0];
+            if (data.geometry.type === 'Polygon') {
+                const coordinates = data.geometry.coordinates[0];
+                let xmin = 180, ymin = 90, xmax = -180, ymax = -90;
+                coordinates.forEach(coord => {
+                    xmin = Math.min(xmin, coord[0]);
+                    xmax = Math.max(xmax, coord[0]);
+                    ymin = Math.min(ymin, coord[1]);
+                    ymax = Math.max(ymax, coord[1]);
                 });
+                
+                if (onAoiDrawn) {
+                    onAoiDrawn({
+                        xmin: xmin.toFixed(5),
+                        ymin: ymin.toFixed(5),
+                        xmax: xmax.toFixed(5),
+                        ymax: ymax.toFixed(5)
+                    });
+                }
+                draw.deleteAll();
+            }
+        });
+
+        // Feature Click Event for Attribute Table
+        map.on('click', (e) => {
+            const features = map.queryRenderedFeatures(e.point);
+            if (features.length > 0) {
+                // Find first non-base feature
+                const feature = features.find(f => f.layer.id !== 'osm' && !f.layer.id.includes('extent'));
+                if (feature) {
+                    window.dispatchEvent(new CustomEvent('magpi-feature-selected', { 
+                        detail: { feature: feature, layerName: feature.layer.id.split('-')[0] }
+                    }));
+                }
             }
         });
 
         const resizeObserver = new ResizeObserver(() => {
             if (mapInstance.current) {
-                mapInstance.current.invalidateSize();
+                mapInstance.current.resize();
             }
         });
         resizeObserver.observe(mapRef.current);
@@ -163,7 +196,7 @@ const MapViewport = React.memo(({ onAoiDrawn, selectedNode, activeWorkspace, nod
                     if (n.params && (n.params.file_path || n.params.out_shp || n.params.out_feature_class || n.params.out_raster)) {
                         let raw = n.params.file_path || n.params.out_shp || n.params.out_feature_class || n.params.out_raster;
                         if (!raw.startsWith('/') && !raw.startsWith('./')) {
-                            filePath = `${globalEnv ? globalEnv.output_dir : './magpi_output'}/${raw}`;
+                            filePath = `./magpi_output/${raw}`;
                         } else {
                             filePath = raw;
                         }
@@ -194,101 +227,151 @@ const MapViewport = React.memo(({ onAoiDrawn, selectedNode, activeWorkspace, nod
     }, [nodes, nodeStatuses, connections, selectedNode]);
 
     useEffect(() => {
-        if (!mapInstance.current || !highlightGroup.current) return;
-        highlightGroup.current.clearLayers();
-
-        const baseLayer = layers.find(l => l.isBase);
-        if (osmLayerRef.current && baseLayer) {
-            osmLayerRef.current.setOpacity(baseLayer.visible ? baseLayer.opacity / 100 : 0);
+        if (!mapInstance.current) return;
+        const map = mapInstance.current;
+        
+        // Wait until map style is fully loaded before trying to add/update layers
+        if (!map.isStyleLoaded()) {
+            map.once('styledata', updateMapLayers);
+            return;
         }
 
-        layers.forEach(layer => {
-            if (!layer.isBase && layer.visible && layer.extent) {
-                const { xmin, ymin, xmax, ymax } = layer.extent;
-                const y1 = parseFloat(ymin), x1 = parseFloat(xmin), y2 = parseFloat(ymax), x2 = parseFloat(xmax);
-                if (!isNaN(y1) && !isNaN(x1) && !isNaN(y2) && !isNaN(x2)) {
-                    const bounds = [[y1, x1], [y2, x2]];
-                    const isSelected = layer.selected;
-                    const isSuccess = nodeStatuses && nodeStatuses[layer.id] === 'success';
-                    const color = isSelected ? '#ff8c00' : (layer.id.includes('extent') ? '#00ffff' : layer.vectorColor);
-                    const weight = isSelected ? 4 : 2;
+        updateMapLayers();
+
+        function updateMapLayers() {
+            const baseLayer = layers.find(l => l.isBase);
+            if (baseLayer && map.getLayer('osm')) {
+                map.setPaintProperty('osm', 'raster-opacity', baseLayer.visible ? baseLayer.opacity / 100 : 0);
+            }
+
+            layers.forEach(layer => {
+                if (!layer.isBase && layer.visible && layer.extent) {
+                    const { xmin, ymin, xmax, ymax } = layer.extent;
+                    const y1 = parseFloat(ymin), x1 = parseFloat(xmin), y2 = parseFloat(ymax), x2 = parseFloat(xmax);
                     
-                    const rect = L.rectangle(bounds, { 
-                        color: color, 
-                        weight: weight, 
-                        fillOpacity: layer.id.includes('extent') ? 0.2 : 0, 
-                        dashArray: layer.id.includes('extent') ? '4, 4' : null 
-                    });
-                    
-                    rect.bindTooltip(layer.name, { 
-                        permanent: isSelected, 
-                        direction: "center", 
-                        className: "bg-slate-900 text-white font-bold text-[10px] border-none shadow-lg" 
-                    });
-                    
-                    highlightGroup.current.addLayer(rect);
-                    
-                    // Render Raster
-                    if (layer.isRaster && layer.filePath) {
-                        if (layer.rasterData && layer.rasterBounds) {
-                            const imgLayer = L.imageOverlay(layer.rasterData, layer.rasterBounds, {
-                                opacity: layer.opacity / 100,
-                                interactive: true
-                            });
-                            imgLayer.bindPopup(`<div class="text-xs font-bold text-slate-800">${layer.name}</div>`);
-                            highlightGroup.current.addLayer(imgLayer);
-                        } else if (!layer.isFetching) {
-                            layer.isFetching = true;
-                            fetch(`http://localhost:8080/api/raster?file=${encodeURIComponent(layer.filePath)}&cmap=${layer.cmap}`)
-                                .then(r => r.ok ? r.json() : null)
-                                .then(data => {
-                                    if (data && data.image) {
-                                        setLayers(current => current.map(l => l.id === layer.id ? { ...l, rasterData: data.image, rasterBounds: data.bounds, isFetching: false } : l));
-                                    }
-                                }).catch(() => { layer.isFetching = false; });
-                        }
-                    }
-                    // Render GeoJSON
-                    else if (layer.filePath && !layer.id.includes('extent')) {
-                        if (layer.geojsonData) {
-                            const gjLayer = L.geoJSON(layer.geojsonData, {
-                                style: { color: layer.vectorColor, weight: 1.5, fillOpacity: layer.opacity / 100 },
-                                onEachFeature: (feature, featureLayer) => {
-                                    featureLayer.on('click', (e) => {
-                                        L.DomEvent.stopPropagation(e);
-                                        // Dispatch event to Attribute Table instead of popup
-                                        window.dispatchEvent(new CustomEvent('magpi-feature-selected', { 
-                                            detail: { feature: feature, layerName: layer.name }
-                                        }));
-                                    });
+                    if (!isNaN(y1) && !isNaN(x1) && !isNaN(y2) && !isNaN(x2)) {
+                        const isSelected = layer.selected;
+                        const color = isSelected ? '#ff8c00' : (layer.id.includes('extent') ? '#00ffff' : layer.vectorColor);
+                        
+                        // Render Extent Box
+                        const extentId = `${layer.id}-extent`;
+                        const extentGeoJson = {
+                            type: 'Feature',
+                            geometry: {
+                                type: 'Polygon',
+                                coordinates: [[[x1, y1], [x2, y1], [x2, y2], [x1, y2], [x1, y1]]]
+                            }
+                        };
+                        
+                        if (!map.getSource(extentId)) {
+                            map.addSource(extentId, { type: 'geojson', data: extentGeoJson });
+                            map.addLayer({
+                                id: `${extentId}-fill`,
+                                type: 'fill',
+                                source: extentId,
+                                paint: {
+                                    'fill-color': color,
+                                    'fill-opacity': layer.id.includes('extent') ? 0.2 : 0
                                 }
                             });
-                            highlightGroup.current.addLayer(gjLayer);
-                        } else if (!layer.isFetching) {
-                            layer.isFetching = true;
-                            fetch(`http://localhost:8080/api/geojson?file=${encodeURIComponent(layer.filePath)}`)
-                                .then(r => r.ok ? r.json() : null)
-                                .then(data => {
-                                    if (data) {
-                                        setLayers(current => current.map(l => l.id === layer.id ? { ...l, geojsonData: data, isFetching: false } : l));
+                            map.addLayer({
+                                id: `${extentId}-line`,
+                                type: 'line',
+                                source: extentId,
+                                paint: {
+                                    'line-color': color,
+                                    'line-width': isSelected ? 4 : 2,
+                                    'line-dasharray': layer.id.includes('extent') ? [4, 4] : [1]
+                                }
+                            });
+                        } else {
+                            map.getSource(extentId).setData(extentGeoJson);
+                            if (map.getLayer(`${extentId}-fill`)) {
+                                map.setPaintProperty(`${extentId}-fill`, 'fill-color', color);
+                                map.setPaintProperty(`${extentId}-line`, 'line-color', color);
+                                map.setPaintProperty(`${extentId}-line`, 'line-width', isSelected ? 4 : 2);
+                            }
+                        }
+
+                        // Render GeoJSON
+                        if (layer.filePath && !layer.id.includes('extent') && !layer.isRaster) {
+                            if (layer.geojsonData) {
+                                if (!map.getSource(layer.id)) {
+                                    map.addSource(layer.id, { type: 'geojson', data: layer.geojsonData });
+                                    map.addLayer({
+                                        id: `${layer.id}-poly`,
+                                        type: 'fill',
+                                        source: layer.id,
+                                        paint: {
+                                            'fill-color': layer.vectorColor,
+                                            'fill-opacity': layer.opacity / 100
+                                        },
+                                        filter: ['==', '$type', 'Polygon']
+                                    });
+                                    map.addLayer({
+                                        id: `${layer.id}-line`,
+                                        type: 'line',
+                                        source: layer.id,
+                                        paint: {
+                                            'line-color': layer.vectorColor,
+                                            'line-width': 1.5
+                                        },
+                                        filter: ['==', '$type', 'LineString']
+                                    });
+                                    map.addLayer({
+                                        id: `${layer.id}-point`,
+                                        type: 'circle',
+                                        source: layer.id,
+                                        paint: {
+                                            'circle-color': layer.vectorColor,
+                                            'circle-radius': 4
+                                        },
+                                        filter: ['==', '$type', 'Point']
+                                    });
+                                } else {
+                                    map.getSource(layer.id).setData(layer.geojsonData);
+                                    if (map.getLayer(`${layer.id}-poly`)) {
+                                        map.setPaintProperty(`${layer.id}-poly`, 'fill-color', layer.vectorColor);
+                                        map.setPaintProperty(`${layer.id}-poly`, 'fill-opacity', layer.opacity / 100);
+                                        map.setPaintProperty(`${layer.id}-line`, 'line-color', layer.vectorColor);
+                                        map.setPaintProperty(`${layer.id}-point`, 'circle-color', layer.vectorColor);
                                     }
-                                }).catch(() => { layer.isFetching = false; });
+                                }
+                            } else if (!layer.isFetching) {
+                                layer.isFetching = true;
+                                fetch(`http://localhost:8080/api/geojson?file=${encodeURIComponent(layer.filePath)}`)
+                                    .then(r => r.ok ? r.json() : null)
+                                    .then(data => {
+                                        if (data) {
+                                            setLayers(current => current.map(l => l.id === layer.id ? { ...l, geojsonData: data, isFetching: false } : l));
+                                        }
+                                    }).catch(() => { layer.isFetching = false; });
+                            }
+                        }
+                        
+                        if (isSelected && !layer.isRaster) {
+                            map.fitBounds([[x1, y1], [x2, y2]], { padding: 30, duration: 800 });
                         }
                     }
-                    
-                    if (isSelected && !layer.isRaster) {
-                        mapInstance.current.flyToBounds(bounds, { duration: 0.8, padding: [30, 30] });
+                } else if (!layer.isBase && !layer.visible) {
+                    // Hide layers by setting opacity to 0
+                    if (map.getLayer(`${layer.id}-extent-fill`)) {
+                        map.setPaintProperty(`${layer.id}-extent-fill`, 'fill-opacity', 0);
+                        map.setPaintProperty(`${layer.id}-extent-line`, 'line-opacity', 0);
+                    }
+                    if (map.getLayer(`${layer.id}-poly`)) {
+                        map.setPaintProperty(`${layer.id}-poly`, 'fill-opacity', 0);
+                        map.setPaintProperty(`${layer.id}-line`, 'line-opacity', 0);
+                        map.setPaintProperty(`${layer.id}-point`, 'circle-opacity', 0);
                     }
                 }
-            }
-        });
+            });
+        }
     }, [layers]);
 
     const activateDrawTool = () => {
-        if (mapInstance.current) {
-            new L.Draw.Rectangle(mapInstance.current, { 
-                shapeOptions: { color: '#00ffff', weight: 2, fillOpacity: 0.15 } 
-            }).enable();
+        if (drawRef.current) {
+            drawRef.current.changeMode('draw_polygon');
         }
     };
 
@@ -319,7 +402,7 @@ const MapViewport = React.memo(({ onAoiDrawn, selectedNode, activeWorkspace, nod
             </div>
             
             {/* Map Container */}
-            <div className="flex-1 relative overflow-hidden z-0 leaflet-dark-mode-container flex">
+            <div className="flex-1 relative overflow-hidden z-0 maplibre-dark-mode-container flex">
                 
                 {/* Docked Layer Manager */}
                 {showLayers && (
@@ -432,7 +515,7 @@ const MapViewport = React.memo(({ onAoiDrawn, selectedNode, activeWorkspace, nod
                         </Viewer>
                     </div>
                     
-                    {/* Leaflet 2D Map (Hidden when in globe mode) */}
+                    {/* MapLibre 2D/3D Map (Hidden when in globe mode) */}
                     <div 
                         ref={mapRef} 
                         className={`${activeWorkspace !== 'globe' ? 'block' : 'hidden'}`}
@@ -488,7 +571,7 @@ const MapViewport = React.memo(({ onAoiDrawn, selectedNode, activeWorkspace, nod
                     <p className="text-emerald-400 font-bold mb-2 flex items-center">
                     <Satellite size={14} className="mr-2" /> OSM Connected
                     </p>
-                    <p className="opacity-80">Click <strong className="text-cyan-400">DRAW</strong> to drag a bounding box. It will spawn a universal <strong className="text-yellow-500">Spatial Extent</strong> node on the canvas.</p>
+                    <p className="opacity-80">Click <strong className="text-cyan-400">DRAW</strong> to draw a polygon. It will spawn a universal <strong className="text-yellow-500">Spatial Extent</strong> node on the canvas.</p>
                 </div>
             )}
         </div>
