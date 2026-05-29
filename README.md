@@ -58,22 +58,26 @@ graph TD
     classDef daemon fill:#1e293b,stroke:#3b82f6,stroke-width:2px,color:#f1f5f9
     classDef engine fill:#334155,stroke:#8b5cf6,stroke-width:2px,color:#f1f5f9
     classDef disk fill:#020617,stroke:#64748b,stroke-width:2px,color:#94a3b8
+    classDef airflow fill:#4338ca,stroke:#818cf8,stroke-width:2px,color:#f1f5f9
 
     %% Nodes
     subgraph UI["Web Browser (React/Vite)"]
         Canvas[Node Canvas IDE]:::ui
         Script[Code Generator]:::ui
+        AirflowExport[Airflow DAG Generator]:::ui
     end
 
     subgraph DAEMON["Local Python Server (Port 8080)"]
         API[MagPI HTTP POST/GET]:::daemon
         Interpreter[Conda Python Environment]:::daemon
+        Registry[Academic Registry API]:::daemon
     end
 
     subgraph ENGINE["MagPI Translation Matrix"]
         ArcpyBridge[import magpi as arcpy]:::engine
         GeoPandas[Vector Engine: geopandas/shapely]:::engine
         Rasterio[Raster Engine: rasterio/scipy]:::engine
+        Community[Community Plugins]:::engine
     end
 
     subgraph OS["Linux File System"]
@@ -83,10 +87,14 @@ graph TD
 
     %% Connections
     Canvas -->|Compiles Pipeline| Script
+    Canvas -->|Exports Pipeline| AirflowExport
+    AirflowExport -->|Deploys to| Airflow[Apache Airflow Orchestration]:::airflow
     Script -->|POST /api/run| API
+    Canvas -->|Fetches Citations| Registry
     
     API -->|Executes Payload| Interpreter
     Interpreter --> ArcpyBridge
+    Interpreter --> Community
     ArcpyBridge --> GeoPandas
     ArcpyBridge --> Rasterio
     
@@ -117,6 +125,13 @@ The translation of an entire proprietary ecosystem is a massive undertaking. We 
 - [x] `arcpy.geoai` (HuggingFace Object Detection / Classification) - Active
 
 - [x] `arcpy.ml` (Tensor Brew Deep Learning Engine via PyTorch) - Active
+- [x] **Community Plugin Engine** (Dynamically loads 3rd party nodes) - Active
+- [x] **Apache Airflow Export** (Enterprise Pipeline Generation) - Active
+- [x] **Academic Registry** (Decoupled Scientific Validation) - Active
+
+# 📖 **The MagPI Doctrine**
+Before contributing or building complex pipelines, please review our official operating semantics:
+👉 **[Read the MAGPI DOCTRINE](./MAGPI_DOCTRINE.md)**
 
 # 🤝 Contributing
 MagPI is an initiative of The NexaVision and the Tech Union. We welcome pull requests from data scientists, GIS developers, and open-source advocates who want to help translate specific modules.
