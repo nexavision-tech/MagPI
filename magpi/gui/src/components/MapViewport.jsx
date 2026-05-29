@@ -31,6 +31,7 @@ const MapViewport = React.memo(({ onAoiDrawn, selectedNode, activeWorkspace, nod
     const mapInstance = useRef(null); 
     const highlightGroup = useRef(null);
     const osmLayerRef = useRef(null);
+    const cesiumRef = useRef(null);
     const osmImageryProvider = React.useMemo(() => new OpenStreetMapImageryProvider({ url: 'https://a.tile.openstreetmap.org/' }), []);
     const [showLayers, setShowLayers] = React.useState(activeWorkspace !== 'builder');
     const [layers, setLayers] = React.useState([
@@ -140,9 +141,20 @@ const MapViewport = React.memo(({ onAoiDrawn, selectedNode, activeWorkspace, nod
         };
     }, [onAoiDrawn]);
     
-    // Fix Leaflet tile loading when switching views
+    // Fix Leaflet tile loading when switching views AND Sync Cesium Camera
     useEffect(() => {
-        if (mapInstance.current && activeWorkspace !== 'globe') {
+        if (activeWorkspace === 'globe' && mapInstance.current && cesiumRef.current && cesiumRef.current.cesiumElement) {
+            const center = mapInstance.current.getCenter();
+            const zoom = mapInstance.current.getZoom();
+            // Calculate approximate height based on Leaflet zoom level
+            const height = 20000000 / Math.pow(2, zoom); 
+            
+            const viewer = cesiumRef.current.cesiumElement;
+            viewer.camera.flyTo({
+                destination: Cartesian3.fromDegrees(center.lng, center.lat, height),
+                duration: 1.0
+            });
+        } else if (activeWorkspace !== 'globe' && mapInstance.current) {
             setTimeout(() => {
                 mapInstance.current.invalidateSize(true);
             }, 100);
@@ -457,6 +469,7 @@ const MapViewport = React.memo(({ onAoiDrawn, selectedNode, activeWorkspace, nod
                     {/* Cesium Globe (Hidden when not in globe mode) */}
                     <div className={`w-full h-full bg-[#111827] ${activeWorkspace === 'globe' ? 'block' : 'hidden'}`}>
                         <Viewer 
+                            ref={cesiumRef}
                             full 
                             timeline={false} 
                             animation={false} 
