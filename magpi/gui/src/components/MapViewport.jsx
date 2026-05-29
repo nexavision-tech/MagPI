@@ -140,6 +140,15 @@ const MapViewport = React.memo(({ onAoiDrawn, selectedNode, activeWorkspace, nod
         };
     }, [onAoiDrawn]);
     
+    // Fix Leaflet tile loading when switching views
+    useEffect(() => {
+        if (mapInstance.current && activeWorkspace !== 'globe') {
+            setTimeout(() => {
+                mapInstance.current.invalidateSize(true);
+            }, 100);
+        }
+    }, [activeWorkspace]);
+    
     // Feature selection listener
     useEffect(() => {
         const handleFeatureSelect = (e) => {
