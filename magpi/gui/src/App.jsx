@@ -201,7 +201,8 @@ export default function App() {
       x: dropX !== null ? dropX : 300 + Math.random() * 50, y: dropY !== null ? dropY : 200 + Math.random() * 50, 
       color: tool.color, border: tool.border, params: { ...tool.params },
       inputs: tool.inputs ? [...tool.inputs] : undefined,
-      outputs: tool.outputs ? [...tool.outputs] : undefined
+      outputs: tool.outputs ? [...tool.outputs] : undefined,
+      references: tool.references ? [...tool.references] : undefined
     };
     setNodes(prev => [...prev, newNode]);
     setSelectedNodeId(newNode.id);
