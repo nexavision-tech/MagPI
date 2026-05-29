@@ -4,7 +4,7 @@ import 'leaflet-draw';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet-draw/dist/leaflet.draw.css';
 import 'cesium/Build/Cesium/Widgets/widgets.css';
-import { Map as MapIcon, Satellite, Edit, Globe, Layers, Eye, EyeOff, XCircle } from 'lucide-react';
+import { Map as MapIcon, Satellite, Edit, Globe, Layers, Eye, EyeOff, XCircle, Upload } from 'lucide-react';
 import { Viewer, Entity, ImageryLayer, GeoJsonDataSource } from 'resium';
 import { Cartesian3, Color, OpenStreetMapImageryProvider } from 'cesium';
 
@@ -276,8 +276,12 @@ const MapViewport = React.memo(({ onAoiDrawn, selectedNode, activeWorkspace, nod
                         }
                     }
                     
-                    if (isSelected && !layer.isRaster) {
-                        mapInstance.current.flyToBounds(bounds, { duration: 0.8, padding: [30, 30] });
+                    if (isSelected && !layer.isRaster && activeWorkspace !== 'globe') {
+                        try {
+                            mapInstance.current.flyToBounds(bounds, { duration: 0.8, padding: [30, 30] });
+                        } catch (e) {
+                            console.warn("Could not fly to bounds:", e);
+                        }
                     }
                 }
             }
@@ -324,24 +328,67 @@ const MapViewport = React.memo(({ onAoiDrawn, selectedNode, activeWorkspace, nod
                 {/* Docked Layer Manager */}
                 {showLayers && (
                     <div className="w-64 bg-slate-900 border-r border-slate-700 z-10 flex flex-col shrink-0 overflow-y-auto animate-fadeIn">
-                        <div className="flex items-center text-xs font-bold text-slate-300 uppercase tracking-widest border-b border-slate-700 p-3 bg-slate-800/50 sticky top-0 z-20">
-                            <Layers size={14} className="mr-2 text-indigo-400" /> Active Layers
+                        <div className="flex items-center justify-between text-xs font-bold text-slate-300 uppercase tracking-widest border-b border-slate-700 p-3 bg-slate-800/50 sticky top-0 z-20">
+                            <span className="flex items-center"><Layers size={14} className="mr-2 text-indigo-400" /> Active Layers</span>
+                            <button 
+                                onClick={() => document.getElementById('import-geojson').click()}
+                                className="text-cyan-400 hover:text-cyan-300 cursor-pointer" title="Import GeoJSON">
+                                <Upload size={14} />
+                            </button>
+                            <input 
+                                id="import-geojson" type="file" accept=".geojson,.json" className="hidden" 
+                                onChange={(e) => {
+                                    const file = e.target.files[0];
+                                    if (file) {
+                                        const reader = new FileReader();
+                                        reader.onload = (ev) => {
+                                            try {
+                                                const json = JSON.parse(ev.target.result);
+                                                const newLayer = {
+                                                    id: `imported_${Date.now()}`,
+                                                    name: file.name,
+                                                    isBase: false,
+                                                    visible: true,
+                                                    opacity: 100,
+                                                    vectorColor: '#f43f5e',
+                                                    isRaster: false,
+                                                    filePath: null,
+                                                    geojsonData: json,
+                                                    extent: { xmin: -180, ymin: -90, xmax: 180, ymax: 90 }, // Dummy extent to ensure it renders
+                                                    selected: true
+                                                };
+                                                setLayers(prev => [...prev, newLayer]);
+                                            } catch (err) { alert("Invalid GeoJSON file"); }
+                                        };
+                                        reader.readAsText(file);
+                                    }
+                                }}
+                            />
                         </div>
                         <div className="p-3 flex flex-col space-y-4">
                             {layers.map((l, i) => (
                                 <div key={l.id} className="flex flex-col space-y-2 pb-3 border-b border-slate-800/50 last:border-0">
                                     <div className="flex items-center justify-between">
                                         <span className={`text-xs font-medium ${l.selected ? 'text-[#ff8c00]' : 'text-slate-300'}`}>{l.name}</span>
-                                        <button 
-                                            onClick={() => {
-                                                const newL = [...layers];
-                                                newL[i].visible = !newL[i].visible;
-                                                setLayers(newL);
-                                            }}
-                                            className={`${l.selected ? 'text-[#ff8c00]' : 'text-slate-500 hover:text-slate-300'}`}
-                                        >
-                                            {l.visible ? <Eye size={14} /> : <EyeOff size={14} />}
-                                        </button>
+                                        <div className="flex items-center space-x-2">
+                                            <button 
+                                                onClick={() => {
+                                                    const newL = [...layers];
+                                                    newL[i].visible = !newL[i].visible;
+                                                    setLayers(newL);
+                                                }}
+                                                className={`${l.selected ? 'text-[#ff8c00]' : 'text-slate-500 hover:text-slate-300'}`}
+                                            >
+                                                {l.visible ? <Eye size={14} /> : <EyeOff size={14} />}
+                                            </button>
+                                            <button 
+                                                onClick={() => setLayers(prev => prev.filter(layer => layer.id !== l.id))}
+                                                className="text-red-900 hover:text-red-500"
+                                                title="Remove Layer"
+                                            >
+                                                <XCircle size={14} />
+                                            </button>
+                                        </div>
                                     </div>
                                     <input 
                                         type="range" 
@@ -376,9 +423,10 @@ const MapViewport = React.memo(({ onAoiDrawn, selectedNode, activeWorkspace, nod
                                                     <option value="turbo">Turbo</option>
                                                 </select>
                                             ) : (
+                                                l.vectorColor !== undefined && (
                                                 <input 
                                                     type="color" 
-                                                    value={l.vectorColor}
+                                                    value={l.vectorColor || "#22d3ee"}
                                                     onChange={(e) => {
                                                         const newL = [...layers];
                                                         newL[i].vectorColor = e.target.value;
@@ -386,7 +434,7 @@ const MapViewport = React.memo(({ onAoiDrawn, selectedNode, activeWorkspace, nod
                                                     }}
                                                     className="w-full h-6 bg-transparent border-0 cursor-pointer rounded"
                                                 />
-                                            )}
+                                            ))}
                                         </div>
                                     )}
                                 </div>
@@ -430,10 +478,10 @@ const MapViewport = React.memo(({ onAoiDrawn, selectedNode, activeWorkspace, nod
                                 />
                             )}
                             
-                            {layers.filter(l => l.visible !== false && l.data).map(layer => (
+                            {layers.filter(l => l.visible !== false && l.geojsonData).map(layer => (
                                 <GeoJsonDataSource 
                                     key={`globe-${layer.id}`}
-                                    data={layer.data}
+                                    data={layer.geojsonData}
                                     stroke={Color.fromCssColorString(layer.vectorColor || '#22d3ee')}
                                     fill={Color.fromCssColorString(layer.vectorColor || '#22d3ee').withAlpha(0.3)}
                                     markerColor={Color.fromCssColorString(layer.vectorColor || '#22d3ee')}
@@ -446,8 +494,8 @@ const MapViewport = React.memo(({ onAoiDrawn, selectedNode, activeWorkspace, nod
                     {/* Leaflet 2D Map (Hidden when in globe mode) */}
                     <div 
                         ref={mapRef} 
-                        className={`${activeWorkspace !== 'globe' ? 'block' : 'hidden'}`}
-                        style={{ width: '100%', height: '100%', backgroundColor: '#1f2937', touchAction: 'none' }}
+                        className={`w-full h-full ${activeWorkspace === 'globe' ? 'opacity-0 pointer-events-none absolute inset-0 z-[-1]' : 'relative z-10'}`}
+                        style={{ backgroundColor: '#1f2937', touchAction: 'none' }}
                     ></div>
                 </div>
             </div>
