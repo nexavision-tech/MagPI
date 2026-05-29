@@ -324,6 +324,22 @@ export const generatePythonScript = (nodes, connections, crs, processingScope, g
             const outFileName = p.out_raster || `prediction_${n.id.split('_')[1]}.tif`;
             funcCall = `${outVar} = arcpy.ml.PyTorchInference(in_raster=${primaryInVar}, model_script_path="${p.model_script_path}", out_raster="${outFileName}", tile_size=${p.tile_size}, batch_size=${p.batch_size}, device="${p.device}")`;
         }
+        else if (n.toolId === 'community_structural_damage_volume') {
+            let preDsmVar = 'None', postDsmVar = 'None', preOptVar = 'None', footVar = 'None';
+            incomingCxs.forEach(c => {
+                if (c.targetHandle === 'pre_dsm') preDsmVar = varMap[c.from];
+                else if (c.targetHandle === 'post_dsm') postDsmVar = varMap[c.from];
+                else if (c.targetHandle === 'pre_optical') preOptVar = varMap[c.from];
+                else if (c.targetHandle === 'footprints') footVar = varMap[c.from];
+            });
+            
+            funcCall = `import sys\nsys.path.append("./magpi_workspace/community_nodes")\nimport bda_volume\nfrom magpi.engine.nodes.registry import NODE_REGISTRY\n\n`;
+            funcCall += `damage_node = NODE_REGISTRY["community_structural_damage_volume"]()\n`;
+            funcCall += `damage_node.inputs = {"in_pre": ${preDsmVar}, "in_pre_optical": ${preOptVar}, "in_post": ${postDsmVar}, "in_vector": ${footVar}}\n`;
+            funcCall += `damage_node.params = {"collapse_threshold_meters": ${p.collapse_threshold_m || -2.5}, "solar_elevation_deg": ${p.solar_elevation_deg || 45.0}}\n`;
+            funcCall += `damage_node.execute()\n`;
+            funcCall += `${outVar} = damage_node.output.get("classified_vector")`;
+        }
         else {
             funcCall = `# Execute ${n.name}`;
         }
