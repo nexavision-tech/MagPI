@@ -31,5 +31,5 @@ env/
 # Ignore massive modules
 node_modules/
 
-# Ref Docs
-/Docs
+# Ref docs
+/docs
