@@ -361,13 +361,7 @@ const TOOLBOX_CATEGORIES = [
         id: 'ia_glcm', name: "GLCM Textural Features", type: 'process', icon: <Grid size={14} />, color: 'bg-pink-600', border: 'border-pink-500',
         description: "Computes Gray-Level Co-occurrence Matrix textural features (Contrast, Correlation, Entropy, etc.).",
         params: { window_size: { value: "3x3", type: "select", options: ["3x3", "5x5", "7x7", "9x9", "11x11", "15x15"] }, shift_x: 1, shift_y: 1 },
-        references: [
-          {
-            title: "Textural Features for Image Classification",
-            authors: "R.M. Haralick, K. Shanmugam, I. Dinstein (1973)",
-            url: "https://ieeexplore.ieee.org/document/4309314"
-          }
-        ]
+        reference_keys: ["haralick_1973"]
       }
     ]
   },
@@ -397,7 +391,7 @@ const TOOLBOX_CATEGORIES = [
 export default function Toolbox({
   activeRightTab, setActiveRightTab,
   selectedNode, updateNodeParam, updateNodeName, deleteNode, addNode, duplicateNode,
-  openFileBrowser, nodes, connections, handleRunUpToNode
+  openFileBrowser, nodes, connections, handleRunUpToNode, masterReferences
 }) {
   const [expandedCategories, setExpandedCategories] = useState({});
   const [searchQuery, setSearchQuery] = useState('');
@@ -770,20 +764,24 @@ export default function Toolbox({
                   </div>
                 )}
 
-                {selectedNode.references && selectedNode.references.length > 0 && (
+                {selectedNode.reference_keys && selectedNode.reference_keys.length > 0 && (
                   <div className="bg-slate-900 p-4 rounded-lg border border-purple-500/30 shadow-[0_0_15px_rgba(168,85,247,0.1)] mt-4 animate-fadeIn">
                     <h4 className="text-[10px] uppercase tracking-widest text-purple-400 font-bold mb-3 flex items-center">
                       <BookOpen size={12} className="mr-2" /> Academic References
                     </h4>
                     <div className="space-y-3">
-                      {selectedNode.references.map((ref, idx) => (
-                        <div key={idx} className="bg-black/50 p-3 rounded border border-purple-900/50 hover:border-purple-500/50 transition-colors">
-                          <a href={ref.url} target="_blank" rel="noopener noreferrer" className="block group">
-                            <h5 className="text-xs font-bold text-slate-200 group-hover:text-purple-300 transition-colors mb-1">{ref.title}</h5>
-                            <p className="text-[10px] text-slate-400 italic font-mono flex items-center"><ExternalLink size={10} className="mr-1" /> {ref.authors}</p>
-                          </a>
-                        </div>
-                      ))}
+                      {selectedNode.reference_keys.map((refKey, idx) => {
+                        const ref = masterReferences && masterReferences[refKey];
+                        if (!ref) return null;
+                        return (
+                          <div key={idx} className="bg-black/50 p-3 rounded border border-purple-900/50 hover:border-purple-500/50 transition-colors">
+                            <a href={ref.url} target="_blank" rel="noopener noreferrer" className="block group">
+                              <h5 className="text-xs font-bold text-slate-200 group-hover:text-purple-300 transition-colors mb-1">{ref.title}</h5>
+                              <p className="text-[10px] text-slate-400 italic font-mono flex items-center"><ExternalLink size={10} className="mr-1" /> {ref.authors}</p>
+                            </a>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 )}

@@ -41,6 +41,18 @@ export default function App() {
   const [logs, setLogs] = useState([]);
   const [nodeStatuses, setNodeStatuses] = useState({});
   const [activeJobId, setActiveJobId] = useState(null);
+  const [masterReferences, setMasterReferences] = useState({});
+
+  useEffect(() => {
+    fetch('http://localhost:8080/api/references')
+      .then(res => res.json())
+      .then(data => {
+        if (data.status === 'success' && data.references) {
+          setMasterReferences(data.references);
+        }
+      })
+      .catch(err => console.error("Failed to load academic references", err));
+  }, []);
 
   // --- JOB POLLING ENGINE ---
   useEffect(() => {
@@ -202,7 +214,7 @@ export default function App() {
       color: tool.color, border: tool.border, params: { ...tool.params },
       inputs: tool.inputs ? [...tool.inputs] : undefined,
       outputs: tool.outputs ? [...tool.outputs] : undefined,
-      references: tool.references ? [...tool.references] : undefined
+      reference_keys: tool.reference_keys ? [...tool.reference_keys] : undefined
     };
     setNodes(prev => [...prev, newNode]);
     setSelectedNodeId(newNode.id);
@@ -519,7 +531,20 @@ export default function App() {
             <MapViewport onAoiDrawn={handleAoiDrawn} selectedNode={selectedNode} activeWorkspace={activeWorkspace} nodes={nodes} nodeStatuses={nodeStatuses} connections={connections} globalEnv={globalEnv} />
         </div>
         <div className={`w-[320px] relative ${activeWorkspace === 'builder' ? 'flex' : 'hidden'} flex-col z-20`}>
-            <Toolbox activeRightTab={activeRightTab} setActiveRightTab={setActiveRightTab} selectedNode={selectedNode} updateNodeParam={updateNodeParam} updateNodeName={updateNodeName} deleteNode={deleteNode} addNode={addNode} duplicateNode={duplicateNode} openFileBrowser={openFileBrowser} nodes={nodes} connections={connections} handleRunUpToNode={handleRunUpToNode} />
+            <Toolbox 
+            addNode={addNode} 
+            activeRightTab={activeRightTab} 
+            setActiveRightTab={setActiveRightTab} 
+            selectedNode={selectedNode}
+            updateNodeParam={updateNodeParam}
+            updateNodeName={updateNodeName}
+            duplicateNode={duplicateNode}
+            deleteNode={deleteNode}
+            openFileBrowser={openFileBrowser}
+            handleRunUpToNode={handleRunUpToNode}
+            connections={connections}
+            masterReferences={masterReferences}
+          />
         </div>
         
         {/* Render Tensor Brew Fullscreen when Active */}
