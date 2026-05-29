@@ -43,6 +43,7 @@ export default function App() {
   const [logs, setLogs] = useState([]);
   const [nodeStatuses, setNodeStatuses] = useState({});
   const [activeJobId, setActiveJobId] = useState(null);
+  const [isDaemonAlive, setIsDaemonAlive] = useState(false);
   const [masterReferences, setMasterReferences] = useState({});
   const [masterGisServers, setMasterGisServers] = useState([]);
   const [mapLayers, setMapLayers] = useState([
@@ -154,6 +155,7 @@ export default function App() {
           try {
               const res = await fetch('http://localhost:8080/api/jobs');
               if (res.ok) {
+                  setIsDaemonAlive(true);
                   const jobs = await res.json();
                   const activeJob = jobs.find(j => j.status !== 'Finished' && j.status !== 'Failed');
                   if (activeJob) {
@@ -162,10 +164,16 @@ export default function App() {
                       setLogs(prev => [...prev, { type: 'success', msg: `Reconnected to running Daemon Job: ${activeJob.id}` }]);
                       setShowTerminal(true);
                   }
+              } else {
+                  setIsDaemonAlive(false);
               }
-          } catch (e) {}
+          } catch (e) {
+              setIsDaemonAlive(false);
+          }
       };
       checkActiveJobs();
+      const heartbeat = setInterval(checkActiveJobs, 3000);
+      return () => clearInterval(heartbeat);
   }, []);
 
   const [browserConfig, setBrowserConfig] = useState({ isOpen: false, nodeId: null, paramKey: null, initialPath: "." });
@@ -360,7 +368,6 @@ export default function App() {
     try {
         await saveProject(nodes, connections, crs, globalEnv, projectName);
         setLogs([{ type: 'success', msg: `Project successfully saved to workspace as ${projectName}.mpjx` }]);
-        setShowTerminal(true);
     } catch (e) {
         setLogs([{ type: 'error', msg: `Failed to save project: ${e.message}` }]);
         setShowTerminal(true);
@@ -376,7 +383,6 @@ export default function App() {
         if (!file) return;
         loadProject(file, setNodes, setConnections, setCrs, setGlobalEnv, (log) => {
             setLogs([log]);
-            setShowTerminal(true);
         });
     };
     input.click();
@@ -414,7 +420,6 @@ export default function App() {
             }));
             
             setLogs([{ type: 'success', msg: 'Auto-Layout successfully optimized via Dagre.' }]);
-            setShowTerminal(true);
             return; // Exit if successful
         } catch (e) {
             console.error("Dagre layout failed, likely due to a cycle:", e);
@@ -462,7 +467,6 @@ export default function App() {
             };
         }));
         setLogs([{ type: 'success', msg: 'Homebrew Auto-Layout successfully executed.' }]);
-    setShowTerminal(true);
   };
 
   const handleGenerate = () => {
@@ -576,7 +580,7 @@ export default function App() {
   return (
     <div className="absolute inset-0 w-full h-full flex flex-col bg-slate-900 text-slate-200 font-sans overflow-hidden select-none">
       <div className="flex-none z-40 shadow-md">
-        <TopRibbon crs={crs} setCrs={setCrs} processingScope={processingScope} setProcessingScope={setProcessingScope} onGenerate={handleGenerate} onSave={handleSave} onLoad={handleLoad} onClear={handleClear} onAutoLayout={handleAutoLayout} onOpenEnvSettings={() => setShowEnvSettings(true)} onImportENVI={handleImportENVI} />
+        <TopRibbon globalEnv={globalEnv} setGlobalEnv={setGlobalEnv} crs={crs} setCrs={setCrs} processingScope={processingScope} setProcessingScope={setProcessingScope} onGenerate={handleGenerate} onSave={handleSave} onLoad={handleLoad} onClear={handleClear} onAutoLayout={handleAutoLayout} onOpenEnvSettings={() => setShowEnvSettings(true)} onImportENVI={handleImportENVI} isDaemonAlive={isDaemonAlive} />
         <div className="flex bg-slate-900 border-b border-slate-700 px-4 pt-2">
             <button onClick={() => setActiveWorkspace('planar')} className={`px-6 py-2 text-xs font-bold uppercase tracking-widest rounded-t-lg transition-colors flex items-center border border-b-0 ${activeWorkspace === 'planar' ? 'bg-slate-800 text-purple-400 border-slate-600' : 'bg-transparent text-slate-500 border-transparent hover:bg-slate-800/50 hover:text-slate-300'}`}><Edit3 size={14} className="mr-2" /> Planar View</button>
             <button onClick={() => setActiveWorkspace('builder')} className={`px-6 py-2 text-xs font-bold uppercase tracking-widest rounded-t-lg transition-colors flex items-center border border-b-0 ml-1 ${activeWorkspace === 'builder' ? 'bg-slate-800 text-emerald-400 border-slate-600' : 'bg-transparent text-slate-500 border-transparent hover:bg-slate-800/50 hover:text-slate-300'}`}><Wrench size={14} className="mr-2" /> Model Builder</button>
@@ -589,18 +593,18 @@ export default function App() {
       
       <div className="flex-1 flex overflow-hidden min-h-0 relative z-0 bg-slate-800">
         
-        {/* Render Catalog Pane when in Builder */}
-        <div className={`relative ${activeWorkspace === 'builder' ? 'flex' : 'hidden'} flex-col z-20`}>
+        {/* Render Catalog Pane when in Builder or Planar */}
+        <div className={`relative ${['builder', 'planar'].includes(activeWorkspace) ? 'flex' : 'hidden'} flex-col z-20`}>
           <CatalogPane mapLayers={mapLayers} setMapLayers={setMapLayers} />
         </div>
 
         <div className={activeWorkspace === 'builder' ? 'flex-1 relative opacity-100 z-10' : 'absolute inset-0 opacity-0 pointer-events-none -z-10'}>
             <NodeCanvas nodes={nodes} setNodes={setNodes} connections={connections} setConnections={setConnections} selectedNodeId={selectedNodeId} setSelectedNodeId={setSelectedNodeId} setActiveRightTab={setActiveRightTab} nodeStatuses={nodeStatuses} removeConnection={removeConnection} addNode={addNode} />
         </div>
-        <div className={`relative ${['globe', 'planar'].includes(activeWorkspace) ? 'flex-1 w-full' : 'hidden'} flex-col shadow-[-10px_0_20px_rgba(0,0,0,0.3)] z-10 border-l border-r border-slate-800`}>
+        <div className={`relative ${['globe', 'planar'].includes(activeWorkspace) ? 'flex-1 w-full min-w-0' : 'hidden'} flex-col shadow-[-10px_0_20px_rgba(0,0,0,0.3)] z-10 border-l border-r border-slate-800`}>
             <MapViewport onAoiDrawn={handleAoiDrawn} onAoiImported={handleAoiImported} selectedNode={nodes.find(n => n.id === selectedNodeId)} activeWorkspace={activeWorkspace} nodes={nodes} nodeStatuses={nodeStatuses} connections={connections} globalEnv={globalEnv} mapLayers={mapLayers} />
         </div>
-        <div className={`w-[320px] relative ${activeWorkspace === 'builder' ? 'flex' : 'hidden'} flex-col z-20`}>
+        <div className={`w-[320px] shrink-0 relative ${['builder', 'planar'].includes(activeWorkspace) ? 'flex' : 'hidden'} flex-col z-20`}>
             <Toolbox 
             addNode={addNode} 
             activeRightTab={activeRightTab} 

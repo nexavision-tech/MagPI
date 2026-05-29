@@ -1,17 +1,18 @@
 import React from 'react';
-import { Compass, Server, Code, Save, Globe, Cpu, FolderUp, Trash2, Rss, Map as MapIcon, Layers } from 'lucide-react';
+import { Compass, Server, Code, Save, Globe, Cpu, FolderUp, Trash2, Rss, Map as MapIcon, Layers, XCircle } from 'lucide-react';
 
 export default function TopRibbon({ 
-  crs, setCrs, 
+  globalEnv, setGlobalEnv, crs, setCrs, 
   processingScope, setProcessingScope, 
-  onGenerate, onSave, onLoad, onClear, onAutoLayout, onOpenEnvSettings, onImportENVI
+  onGenerate, onSave, onLoad, onClear, onAutoLayout, onOpenEnvSettings, onImportENVI,
+  isDaemonAlive
 }) {
   const hiddenFileInput = React.useRef(null);
   return (
     <div className="flex flex-col bg-slate-800 border-b border-slate-700 shadow-md z-20 shrink-0">
       
       {/* Top Thin Status Bar */}
-      <div className="flex items-center justify-between px-4 py-1.5 bg-slate-950 text-xs text-slate-400">
+      <div className="flex items-center justify-between px-4 py-1 bg-slate-950 text-xs text-slate-400">
         <div className="flex items-center space-x-4">
           <span className="font-black text-emerald-500 tracking-widest text-sm flex items-center">
             <Compass size={16} className="mr-2" /> MAGPI
@@ -27,16 +28,20 @@ export default function TopRibbon({
             <span className="flex items-center text-sky-400 font-bold bg-sky-900/30 px-2 py-0.5 rounded border border-sky-800">
               <Server size={14} className="mr-2 animate-pulse" /> AIRFLOW (PORT: 8080)
             </span>
-          ) : (
+          ) : isDaemonAlive ? (
             <span className="flex items-center text-emerald-500 font-bold bg-emerald-900/30 px-2 py-0.5 rounded border border-emerald-800">
               <Server size={14} className="mr-2 animate-pulse" /> LOCAL DAEMON (PORT: 8080)
+            </span>
+          ) : (
+            <span className="flex items-center text-red-500 font-bold bg-red-900/30 px-2 py-0.5 rounded border border-red-800">
+              <XCircle size={14} className="mr-2 animate-pulse" /> DAEMON OFFLINE
             </span>
           )}
         </div>
       </div>
 
       {/* Main Control Ribbon */}
-      <div className="flex items-center px-4 py-2.5 space-x-6">
+      <div className="flex items-center px-4 py-1.5 space-x-6">
         
         {/* Action Group */}
         <div className="flex items-center space-x-2 border-r border-slate-700 pr-6">
@@ -87,6 +92,19 @@ export default function TopRibbon({
                 <option value="EPSG:4326">WGS 84 (EPSG:4326)</option>
                 <option value="EPSG:6438">FL State Plane E (EPSG:6438)</option>
                 <option value="EPSG:3857">Web Mercator (EPSG:3857)</option>
+              </select>
+            </div>
+
+            <div className="flex items-center space-x-2 bg-slate-900 px-3 py-1.5 rounded text-sm border border-slate-700 shadow-inner hover:border-slate-500 transition-colors">
+              <Globe size={14} className="text-teal-400" />
+              <span className="text-xs text-slate-500 uppercase font-bold mr-1">V-Datum:</span>
+              <select 
+                className="bg-transparent outline-none cursor-pointer text-slate-200 font-medium w-36"
+                value={globalEnv?.vertical_datum || 'EPSG:3855'} onChange={(e) => setGlobalEnv({...globalEnv, vertical_datum: e.target.value})}
+              >
+                <option value="EPSG:3855">EGM2008</option>
+                <option value="EPSG:5703">NAVD88</option>
+                <option value="EPSG:4326">WGS 84 Ellipsoid</option>
               </select>
             </div>
 
