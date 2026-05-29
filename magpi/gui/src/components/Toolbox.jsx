@@ -455,7 +455,22 @@ const TOOLBOX_CATEGORIES = [
     ]
   },
   {
-    name: "Human Geography", icon: <Users size={18} className="text-cyan-400" />,
+    name: "Photogrammetry & Metrology", icon: <Compass size={18} className="text-fuchsia-400" />,
+    tools: [
+      {
+        id: 'photo_shadow_mask', name: "Shadow Parallax Mask", type: 'process', icon: <Box size={14} />, color: 'bg-fuchsia-600', border: 'border-fuchsia-500',
+        description: "Projects building footprints using solar azimuth/elevation to mask out moving shadows that cause false-positives in Change Detection.",
+        params: { solar_azimuth: 135.5, solar_elevation: 45.0, in_buildings: "buildings.shp", out_mask: "shadow_mask.tif" }
+      },
+      {
+        id: 'photo_tie_points', name: "Auto Tie-Point Generation", type: 'process', icon: <Crosshair size={14} />, color: 'bg-fuchsia-600', border: 'border-fuchsia-500',
+        description: "Exploits building corners and shadow parallax to automatically generate Ground Control Points (GCPs) for co-registering unaligned imagery.",
+        params: { method: { value: "SHADOW_CORNERS", type: "select", options: ["SHADOW_CORNERS", "SIFT", "SURF"] }, out_points: "tie_points.shp" }
+      },
+    ]
+  },
+  {
+    name: "Web Services & Scraping", icon: <Globe size={18} className="text-cyan-400" />,
     tools: [
       {
         id: 'humangeo_osm_extract', name: "OSM Overpass Scraper", type: 'process', icon: <MapIcon size={14} />, color: 'bg-cyan-600', border: 'border-cyan-500',
