@@ -26,57 +26,15 @@ const getAncestralExtent = (nodeId, nodes, connections) => {
     return null;
 };
 
-const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activeWorkspace, nodes = [], nodeStatuses = {}, connections = [] }) => {
+const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activeWorkspace, nodes = [], nodeStatuses = {}, connections = [], globalEnv, mapLayers = [] }) => {
     const mapRef = useRef(null);
     const mapInstance = useRef(null); 
     const highlightGroup = useRef(null);
     const osmLayerRef = useRef(null);
     const cesiumRef = useRef(null);
     const osmImageryProvider = React.useMemo(() => new OpenStreetMapImageryProvider({ url: 'https://a.tile.openstreetmap.org/' }), []);
-    const [showLayers, setShowLayers] = React.useState(activeWorkspace !== 'builder');
-    const [layers, setLayers] = React.useState([
-        { id: 'base', name: 'Base Map (OSM)', visible: true, opacity: 100, isBase: true }
-    ]);
     const [selectedFeature, setSelectedFeature] = React.useState(null);
-
-    // Keep showLayers synced with workspace mode
-    useEffect(() => {
-        if (activeWorkspace !== 'builder') {
-            setShowLayers(true);
-        } else {
-            setShowLayers(false);
-        }
-    }, [activeWorkspace]);
-
-    // Dynamically update layers list based on node outputs
-    useEffect(() => {
-        const baseLayer = { id: 'base', name: 'Base Map (OSM)', visible: true, opacity: 100, isBase: true };
-        const newLayers = [baseLayer];
-        
-        nodes.forEach(node => {
-            const status = nodeStatuses[node.id];
-            if (status === 'success' || node.toolId.startsWith('load_') || node.toolId === 'core_extent' || node.toolId.startsWith('wfs_')) {
-                // Determine a good display name
-                let layerName = node.name || node.toolId;
-                if (node.params && node.params.out_raster) {
-                    layerName = `${node.name} (${node.params.out_raster})`;
-                } else if (node.params && node.params.file_path) {
-                    layerName = `${node.name} (${node.params.file_path.split('/').pop()})`;
-                }
-                
-                newLayers.push({
-                    id: node.id,
-                    name: layerName,
-                    visible: true,
-                    opacity: 100,
-                    isBase: false,
-                    selected: selectedNode && selectedNode.id === node.id
-                });
-            }
-        });
-        
-        setLayers(newLayers);
-    }, [nodes, nodeStatuses, selectedNode]);
+    const [loadedData, setLoadedData] = React.useState({}); // Cache for raster/geojson data
 
     useEffect(() => {
         if (!mapRef.current) return;
@@ -170,144 +128,128 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
         return () => window.removeEventListener('magpi-feature-selected', handleFeatureSelect);
     }, []);
 
-    // THE OVERLAY ENGINE (Dynamic Sync)
-    useEffect(() => {
-        setLayers(prevLayers => {
-            const baseLayer = prevLayers.find(l => l.isBase) || { id: 'base', name: 'Base Map (OSM)', visible: true, opacity: 100, isBase: true };
+    // Compute extents and file paths purely for rendering
+    const computedLayers = React.useMemo(() => {
+        return mapLayers.map(layer => {
+            if (layer.isBase) return layer;
+            const node = nodes.find(n => n.id === layer.id);
+            if (!node) return layer;
             
-            const dynamicLayers = nodes
-                .filter(n => n.toolId === 'core_extent' || nodeStatuses[n.id] === 'success')
-                .map(n => {
-                    const existing = prevLayers.find(l => l.id === n.id);
-                    const extent = getAncestralExtent(n.id, nodes, connections);
-                    let filePath = null;
-                    if (n.params && (n.params.file_path || n.params.out_shp || n.params.out_feature_class || n.params.out_raster)) {
-                        let raw = n.params.file_path || n.params.out_shp || n.params.out_feature_class || n.params.out_raster;
-                        if (!raw.startsWith('/') && !raw.startsWith('./')) {
-                            filePath = `./magpi_output/${raw}`;
-                        } else {
-                            filePath = raw;
-                        }
-                    }
-                    
-                    const isRaster = filePath && (filePath.endsWith('.tif') || filePath.endsWith('.tiff'));
-                    
-                    return {
-                        id: n.id,
-                        name: n.name || n.toolId,
-                        visible: existing ? existing.visible : true,
-                        opacity: existing ? existing.opacity : (n.toolId === 'core_extent' ? 15 : 80),
-                        selected: n.selected || (selectedNode && selectedNode.id === n.id),
-                        extent: extent,
-                        filePath: filePath,
-                        isRaster: isRaster,
-                        geojsonData: existing ? existing.geojsonData : null,
-                        rasterData: existing ? existing.rasterData : null,
-                        rasterBounds: existing ? existing.rasterBounds : null,
-                        cmap: existing ? existing.cmap : 'viridis',
-                        vectorColor: existing ? existing.vectorColor : '#32d74b'
-                    };
-                })
-                .filter(l => l.extent !== null);
-                
-            return [baseLayer, ...dynamicLayers];
+            const extent = getAncestralExtent(node.id, nodes, connections);
+            let filePath = null;
+            if (node.params && (node.params.file_path || node.params.out_shp || node.params.out_feature_class || node.params.out_raster)) {
+                let raw = node.params.file_path || node.params.out_shp || node.params.out_feature_class || node.params.out_raster;
+                if (!raw.startsWith('/') && !raw.startsWith('./')) {
+                    filePath = `./magpi_output/${raw}`;
+                } else {
+                    filePath = raw;
+                }
+            }
+            const isRaster = filePath && (filePath.endsWith('.tif') || filePath.endsWith('.tiff'));
+            
+            return {
+                ...layer,
+                extent,
+                filePath,
+                isRaster,
+                cmap: layer.cmap || 'viridis',
+                vectorColor: layer.vectorColor || '#32d74b'
+            };
         });
-    }, [nodes, nodeStatuses, connections, selectedNode]);
-
+    }, [mapLayers, nodes, connections]);
     useEffect(() => {
-        if (!mapInstance.current || !highlightGroup.current) return;
-        highlightGroup.current.clearLayers();
-
-        const baseLayer = layers.find(l => l.isBase);
-        if (osmLayerRef.current && baseLayer) {
-            osmLayerRef.current.setOpacity(baseLayer.visible ? baseLayer.opacity / 100 : 0);
-        }
-
-        layers.forEach(layer => {
-            if (!layer.isBase && layer.visible && layer.extent) {
-                const { xmin, ymin, xmax, ymax } = layer.extent;
-                const y1 = parseFloat(ymin), x1 = parseFloat(xmin), y2 = parseFloat(ymax), x2 = parseFloat(xmax);
-                if (!isNaN(y1) && !isNaN(x1) && !isNaN(y2) && !isNaN(x2)) {
-                    const bounds = [[y1, x1], [y2, x2]];
-                    const isSelected = layer.selected;
-                    const isSuccess = nodeStatuses && nodeStatuses[layer.id] === 'success';
-                    const color = isSelected ? '#ff8c00' : (layer.id.includes('extent') ? '#00ffff' : layer.vectorColor);
-                    const weight = isSelected ? 4 : 2;
-                    
-                    const rect = L.rectangle(bounds, { 
-                        color: color, 
-                        weight: weight, 
-                        fillOpacity: layer.id.includes('extent') ? 0.2 : 0, 
-                        dashArray: layer.id.includes('extent') ? '4, 4' : null 
-                    });
-                    
-                    rect.bindTooltip(layer.name, { 
-                        permanent: isSelected, 
-                        direction: "center", 
-                        className: "bg-slate-900 text-white font-bold text-[10px] border-none shadow-lg" 
-                    });
-                    
-                    highlightGroup.current.addLayer(rect);
-                    
-                    // Render Raster
-                    if (layer.isRaster && layer.filePath) {
-                        if (layer.rasterData && layer.rasterBounds) {
-                            const imgLayer = L.imageOverlay(layer.rasterData, layer.rasterBounds, {
-                                opacity: layer.opacity / 100,
-                                interactive: true
-                            });
-                            imgLayer.bindPopup(`<div class="text-xs font-bold text-slate-800">${layer.name}</div>`);
-                            highlightGroup.current.addLayer(imgLayer);
-                        } else if (!layer.isFetching) {
-                            layer.isFetching = true;
-                            fetch(`http://localhost:8080/api/raster?file=${encodeURIComponent(layer.filePath)}&cmap=${layer.cmap}`)
-                                .then(r => r.ok ? r.json() : null)
-                                .then(data => {
-                                    if (data && data.image) {
-                                        setLayers(current => current.map(l => l.id === layer.id ? { ...l, rasterData: data.image, rasterBounds: data.bounds, isFetching: false } : l));
-                                    }
-                                }).catch(() => { layer.isFetching = false; });
-                        }
+        if (activeWorkspace === 'planar' && mapInstance.current) {
+            const map = mapInstance.current;
+            highlightGroup.current.clearLayers();
+            
+            computedLayers.forEach(layer => {
+                if (!layer.visible) return;
+                
+                if (layer.isBase) {
+                    if (!map.hasLayer(osmLayerRef.current)) {
+                        map.addLayer(osmLayerRef.current);
                     }
-                    // Render GeoJSON
-                    else if (layer.filePath && !layer.id.includes('extent')) {
-                        if (layer.geojsonData) {
-                            const gjLayer = L.geoJSON(layer.geojsonData, {
-                                style: { color: layer.vectorColor, weight: 1.5, fillOpacity: layer.opacity / 100 },
-                                onEachFeature: (feature, featureLayer) => {
-                                    featureLayer.on('click', (e) => {
-                                        L.DomEvent.stopPropagation(e);
-                                        // Dispatch event to Attribute Table instead of popup
-                                        window.dispatchEvent(new CustomEvent('magpi-feature-selected', { 
-                                            detail: { feature: feature, layerName: layer.name }
-                                        }));
-                                    });
-                                }
-                            });
-                            highlightGroup.current.addLayer(gjLayer);
-                        } else if (!layer.isFetching) {
-                            layer.isFetching = true;
-                            fetch(`http://localhost:8080/api/geojson?file=${encodeURIComponent(layer.filePath)}`)
-                                .then(r => r.ok ? r.json() : null)
-                                .then(data => {
-                                    if (data) {
-                                        setLayers(current => current.map(l => l.id === layer.id ? { ...l, geojsonData: data, isFetching: false } : l));
-                                    }
-                                }).catch(() => { layer.isFetching = false; });
+                    osmLayerRef.current.setOpacity(layer.opacity / 100);
+                } else if (layer.extent) {
+                    const { xmin, ymin, xmax, ymax } = layer.extent;
+                    const y1 = parseFloat(ymin), x1 = parseFloat(xmin), y2 = parseFloat(ymax), x2 = parseFloat(xmax);
+                    if (!isNaN(y1) && !isNaN(x1) && !isNaN(y2) && !isNaN(x2)) {
+                        const bounds = [[y1, x1], [y2, x2]];
+                        const isSelected = layer.selected;
+                        const rect = L.rectangle(bounds, { 
+                            color: isSelected ? '#ff8c00' : (layer.id.includes('extent') ? '#00ffff' : layer.vectorColor), 
+                            weight: isSelected ? 4 : 2, 
+                            fillOpacity: layer.id.includes('extent') ? 0.2 : 0, 
+                            dashArray: layer.id.includes('extent') ? '4, 4' : null 
+                        });
+                        
+                        rect.bindTooltip(layer.name, { 
+                            permanent: isSelected, 
+                            direction: "center", 
+                            className: "bg-slate-900 text-white font-bold text-[10px] border-none shadow-lg" 
+                        });
+                        
+                        highlightGroup.current.addLayer(rect);
+
+                        // Render Raster
+                        if (layer.isRaster && layer.filePath) {
+                            const cached = loadedData[layer.id];
+                            if (cached && cached.type === 'raster') {
+                                const imgLayer = L.imageOverlay(cached.image, cached.bounds, {
+                                    opacity: layer.opacity / 100,
+                                    interactive: true
+                                });
+                                imgLayer.bindPopup(`<div class="text-xs font-bold text-slate-800">${layer.name}</div>`);
+                                highlightGroup.current.addLayer(imgLayer);
+                            } else if (!cached || !cached.isFetching) {
+                                setLoadedData(prev => ({ ...prev, [layer.id]: { isFetching: true } }));
+                                fetch(`http://localhost:8080/api/raster?file=${encodeURIComponent(layer.filePath)}&cmap=${layer.cmap}`)
+                                    .then(r => r.ok ? r.json() : null)
+                                    .then(data => {
+                                        if (data && data.image) {
+                                            setLoadedData(prev => ({ ...prev, [layer.id]: { type: 'raster', image: data.image, bounds: data.bounds, isFetching: false } }));
+                                        }
+                                    }).catch(() => { setLoadedData(prev => ({ ...prev, [layer.id]: { isFetching: false } })); });
+                            }
                         }
-                    }
-                    
-                    if (isSelected && !layer.isRaster && activeWorkspace !== 'globe') {
-                        try {
-                            mapInstance.current.fitBounds(bounds, { animate: false, padding: [30, 30] });
-                        } catch (e) {
-                            console.warn("Could not fit bounds:", e);
+                        // Render GeoJSON
+                        else if (layer.filePath && !layer.id.includes('extent')) {
+                            const cached = loadedData[layer.id];
+                            if (cached && cached.type === 'geojson') {
+                                const gjLayer = L.geoJSON(cached.data, {
+                                    style: { color: layer.vectorColor, weight: 1.5, fillOpacity: layer.opacity / 100 },
+                                    onEachFeature: (feature, featureLayer) => {
+                                        featureLayer.on('click', (e) => {
+                                            L.DomEvent.stopPropagation(e);
+                                            window.dispatchEvent(new CustomEvent('magpi-feature-selected', { detail: { feature: feature, layerName: layer.name } }));
+                                        });
+                                    }
+                                });
+                                highlightGroup.current.addLayer(gjLayer);
+                            } else if (!cached || !cached.isFetching) {
+                                setLoadedData(prev => ({ ...prev, [layer.id]: { isFetching: true } }));
+                                fetch(`http://localhost:8080/api/geojson?file=${encodeURIComponent(layer.filePath)}`)
+                                    .then(r => r.ok ? r.json() : null)
+                                    .then(data => {
+                                        if (data) {
+                                            setLoadedData(prev => ({ ...prev, [layer.id]: { type: 'geojson', data: data, isFetching: false } }));
+                                        }
+                                    }).catch(() => { setLoadedData(prev => ({ ...prev, [layer.id]: { isFetching: false } })); });
+                            }
+                        }
+
+                        if (isSelected && !layer.isRaster && activeWorkspace !== 'globe') {
+                            try { mapInstance.current.fitBounds(bounds, { animate: false, padding: [30, 30] }); } catch (e) {}
                         }
                     }
                 }
+            });
+            
+            if (!computedLayers.find(l => l.isBase)?.visible && map.hasLayer(osmLayerRef.current)) {
+                map.removeLayer(osmLayerRef.current);
             }
-        });
-    }, [layers]);
+        }
+    }, [computedLayers, activeWorkspace, loadedData]);
 
     const activateDrawTool = () => {
         if (mapInstance.current) {
@@ -345,137 +287,6 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
             
             {/* Map Container */}
             <div className="flex-1 relative overflow-hidden z-0 leaflet-dark-mode-container flex">
-                
-                {/* Docked Layer Manager */}
-                {showLayers && (
-                    <div className="w-64 bg-slate-900 border-r border-slate-700 z-10 flex flex-col shrink-0 overflow-y-auto animate-fadeIn">
-                        <div className="flex items-center justify-between text-xs font-bold text-slate-300 uppercase tracking-widest border-b border-slate-700 p-3 bg-slate-800/50 sticky top-0 z-20">
-                            <span className="flex items-center"><Layers size={14} className="mr-2 text-indigo-400" /> Active Layers</span>
-                            <button 
-                                onClick={() => document.getElementById('import-geojson').click()}
-                                className="text-cyan-400 hover:text-cyan-300 cursor-pointer" title="Import GeoJSON">
-                                <Upload size={14} />
-                            </button>
-                            <input 
-                                id="import-geojson" type="file" accept=".geojson,.json" className="hidden" 
-                                onChange={(e) => {
-                                    const file = e.target.files[0];
-                                    if (file) {
-                                        const reader = new FileReader();
-                                        reader.onload = (ev) => {
-                                            try {
-                                                const json = JSON.parse(ev.target.result);
-                                                const geoJsonLayer = L.geoJSON(json);
-                                                const bounds = geoJsonLayer.getBounds();
-                                                const extent = {
-                                                    xmin: bounds.getWest(),
-                                                    ymin: bounds.getSouth(),
-                                                    xmax: bounds.getEast(),
-                                                    ymax: bounds.getNorth()
-                                                };
-                                                
-                                                const newLayer = {
-                                                    id: `imported_${Date.now()}`,
-                                                    name: file.name,
-                                                    isBase: false,
-                                                    visible: true,
-                                                    opacity: 100,
-                                                    vectorColor: '#f43f5e',
-                                                    isRaster: false,
-                                                    filePath: null,
-                                                    geojsonData: json,
-                                                    extent: extent,
-                                                    selected: true
-                                                };
-                                                setLayers(prev => [...prev, newLayer]);
-                                                
-                                                if (onAoiImported) {
-                                                    onAoiImported(extent, file.name);
-                                                }
-                                            } catch (err) { alert("Invalid GeoJSON file"); }
-                                        };
-                                        reader.readAsText(file);
-                                    }
-                                }}
-                            />
-                        </div>
-                        <div className="p-3 flex flex-col space-y-4">
-                            {layers.map((l, i) => (
-                                <div key={l.id} className="flex flex-col space-y-2 pb-3 border-b border-slate-800/50 last:border-0">
-                                    <div className="flex items-center justify-between">
-                                        <span className={`text-xs font-medium ${l.selected ? 'text-[#ff8c00]' : 'text-slate-300'}`}>{l.name}</span>
-                                        <div className="flex items-center space-x-2">
-                                            <button 
-                                                onClick={() => {
-                                                    const newL = [...layers];
-                                                    newL[i].visible = !newL[i].visible;
-                                                    setLayers(newL);
-                                                }}
-                                                className={`${l.selected ? 'text-[#ff8c00]' : 'text-slate-500 hover:text-slate-300'}`}
-                                            >
-                                                {l.visible ? <Eye size={14} /> : <EyeOff size={14} />}
-                                            </button>
-                                            <button 
-                                                onClick={() => setLayers(prev => prev.filter(layer => layer.id !== l.id))}
-                                                className="text-red-900 hover:text-red-500"
-                                                title="Remove Layer"
-                                            >
-                                                <XCircle size={14} />
-                                            </button>
-                                        </div>
-                                    </div>
-                                    <input 
-                                        type="range" 
-                                        min="0" max="100" 
-                                        value={l.opacity} 
-                                        onChange={(e) => {
-                                            const newL = [...layers];
-                                            newL[i].opacity = e.target.value;
-                                            setLayers(newL);
-                                        }}
-                                        className="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer"
-                                    />
-                                    
-                                    {!l.isBase && !l.id.includes('extent') && (
-                                        <div className="flex items-center space-x-2 mt-1">
-                                            {l.isRaster ? (
-                                                <select 
-                                                    value={l.cmap}
-                                                    onChange={(e) => {
-                                                        const newL = [...layers];
-                                                        newL[i].cmap = e.target.value;
-                                                        newL[i].rasterData = null; // force refetch
-                                                        setLayers(newL);
-                                                    }}
-                                                    className="w-full bg-slate-950 border border-slate-700 text-[9px] font-mono text-slate-400 p-1 rounded"
-                                                >
-                                                    <option value="viridis">Viridis</option>
-                                                    <option value="plasma">Plasma</option>
-                                                    <option value="inferno">Inferno</option>
-                                                    <option value="magma">Magma</option>
-                                                    <option value="gray">Grayscale</option>
-                                                    <option value="turbo">Turbo</option>
-                                                </select>
-                                            ) : (
-                                                l.vectorColor !== undefined && (
-                                                <input 
-                                                    type="color" 
-                                                    value={l.vectorColor || "#22d3ee"}
-                                                    onChange={(e) => {
-                                                        const newL = [...layers];
-                                                        newL[i].vectorColor = e.target.value;
-                                                        setLayers(newL);
-                                                    }}
-                                                    className="w-full h-6 bg-transparent border-0 cursor-pointer rounded"
-                                                />
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                )}
                 
                 {/* Maps Container (Flex-1) */}
                 <div className="flex-1 relative overflow-hidden">
@@ -520,10 +331,10 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                                 />
                             )}
                             
-                            {layers.filter(l => l.visible !== false && l.geojsonData).map(layer => (
+                            {computedLayers.filter(l => l.visible !== false && loadedData[l.id]?.type === 'geojson').map(layer => (
                                 <GeoJsonDataSource 
                                     key={`globe-${layer.id}`}
-                                    data={layer.geojsonData}
+                                    data={loadedData[layer.id].data}
                                     stroke={Color.fromCssColorString(layer.vectorColor || '#22d3ee')}
                                     fill={Color.fromCssColorString(layer.vectorColor || '#22d3ee').withAlpha(0.3)}
                                     markerColor={Color.fromCssColorString(layer.vectorColor || '#22d3ee')}

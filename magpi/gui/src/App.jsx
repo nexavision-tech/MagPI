@@ -45,6 +45,43 @@ export default function App() {
   const [activeJobId, setActiveJobId] = useState(null);
   const [masterReferences, setMasterReferences] = useState({});
   const [masterGisServers, setMasterGisServers] = useState([]);
+  const [mapLayers, setMapLayers] = useState([
+    { id: 'base', name: 'Base Map (OSM)', visible: true, opacity: 100, isBase: true }
+  ]);
+
+  // Keep mapLayers synced with node outputs
+  useEffect(() => {
+    setMapLayers(prev => {
+        const baseLayer = prev.find(l => l.id === 'base') || { id: 'base', name: 'Base Map (OSM)', visible: true, opacity: 100, isBase: true };
+        const newLayers = [baseLayer];
+        
+        nodes.forEach(node => {
+            const status = nodeStatuses[node.id];
+            if (status === 'success' || node.toolId.startsWith('load_') || node.toolId === 'core_extent' || node.toolId.startsWith('wfs_')) {
+                let layerName = node.name || node.toolId;
+                if (node.params && node.params.out_raster) {
+                    layerName = `${node.name} (${node.params.out_raster})`;
+                } else if (node.params && node.params.file_path) {
+                    layerName = `${node.name} (${node.params.file_path.split('/').pop()})`;
+                }
+                
+                const existingLayer = prev.find(l => l.id === node.id);
+                newLayers.push({
+                    id: node.id,
+                    name: layerName,
+                    visible: existingLayer ? existingLayer.visible : true,
+                    opacity: existingLayer ? existingLayer.opacity : 100,
+                    isBase: false,
+                    selected: selectedNodeId === node.id
+                });
+            }
+        });
+        
+        // Deep compare to avoid unnecessary re-renders
+        const isDifferent = JSON.stringify(prev) !== JSON.stringify(newLayers);
+        return isDifferent ? newLayers : prev;
+    });
+  }, [nodes, nodeStatuses, selectedNodeId]);
 
   useEffect(() => {
     fetch('http://localhost:8080/api/references')
@@ -552,14 +589,14 @@ export default function App() {
         
         {/* Render Catalog Pane when in Builder */}
         <div className={`relative ${activeWorkspace === 'builder' ? 'flex' : 'hidden'} flex-col z-20`}>
-          <CatalogPane />
+          <CatalogPane mapLayers={mapLayers} setMapLayers={setMapLayers} />
         </div>
 
         <div className={activeWorkspace === 'builder' ? 'flex-1 relative opacity-100 z-10' : 'absolute inset-0 opacity-0 pointer-events-none -z-10'}>
             <NodeCanvas nodes={nodes} setNodes={setNodes} connections={connections} setConnections={setConnections} selectedNodeId={selectedNodeId} setSelectedNodeId={setSelectedNodeId} setActiveRightTab={setActiveRightTab} nodeStatuses={nodeStatuses} removeConnection={removeConnection} addNode={addNode} />
         </div>
         <div className={`relative ${['builder', 'globe', 'planar'].includes(activeWorkspace) ? (activeWorkspace === 'builder' ? 'w-[320px] hidden lg:flex' : 'flex-1 w-full') : 'hidden'} flex-col shadow-[-10px_0_20px_rgba(0,0,0,0.3)] z-10 border-l border-r border-slate-800`}>
-            <MapViewport onAoiDrawn={handleAoiDrawn} onAoiImported={handleAoiImported} selectedNode={selectedNode} activeWorkspace={activeWorkspace} nodes={nodes} nodeStatuses={nodeStatuses} connections={connections} globalEnv={globalEnv} />
+            <MapViewport onAoiDrawn={handleAoiDrawn} onAoiImported={handleAoiImported} selectedNode={nodes.find(n => n.id === selectedNodeId)} activeWorkspace={activeWorkspace} nodes={nodes} nodeStatuses={nodeStatuses} connections={connections} globalEnv={globalEnv} mapLayers={mapLayers} />
         </div>
         <div className={`w-[320px] relative ${activeWorkspace === 'builder' ? 'flex' : 'hidden'} flex-col z-20`}>
             <Toolbox 

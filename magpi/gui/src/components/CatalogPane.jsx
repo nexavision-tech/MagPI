@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Folder, Database, File, ChevronRight, ChevronDown, RefreshCw, Box, Map, Image as ImageIcon } from 'lucide-react';
+import { Folder, Database, File, ChevronRight, ChevronDown, RefreshCw, Box, Map, Image as ImageIcon, Layers, Eye, EyeOff } from 'lucide-react';
 
 const FileNode = ({ node, level }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -28,7 +28,20 @@ const FileNode = ({ node, level }) => {
   };
 
   const handleDragStart = (e, dragData) => {
-    e.dataTransfer.setData('application/magpi-dataset', JSON.stringify(dragData));
+    const isVector = ['shp', 'geojson', 'gdb', 'gpkg', 'sqlite', 'db'].includes(dragData.type);
+    const toolData = {
+        id: isVector ? 'load_vector' : 'load_raster',
+        name: isVector ? "Input Vector" : "Input Raster",
+        type: 'input',
+        color: 'bg-blue-600',
+        border: 'border-blue-500',
+        params: {
+            file_path: dragData.path,
+            ...(isVector ? { layer_name: dragData.layer_name || "" } : {})
+        }
+    };
+    window.__draggedMagPITool = toolData;
+    e.dataTransfer.setData('application/reactflow', JSON.stringify(toolData));
     e.dataTransfer.effectAllowed = 'copy';
   };
 
@@ -93,7 +106,7 @@ const FileNode = ({ node, level }) => {
   );
 };
 
-export default function CatalogPane() {
+export default function CatalogPane({ mapLayers = [], setMapLayers }) {
   const [catalog, setCatalog] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -117,25 +130,78 @@ export default function CatalogPane() {
   }, []);
 
   return (
-    <div className="w-64 border-r border-[#333333] flex flex-col bg-[#252526] h-full shrink-0 relative z-20 shadow-[2px_0_10px_rgba(0,0,0,0.5)]">
-      <div className="p-3 border-b border-[#333333] flex justify-between items-center bg-[#2d2d2d]">
-        <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center">
-          <Database size={14} className="mr-2" />
-          Catalog
-        </h2>
-        <button onClick={fetchCatalog} className="p-1 hover:bg-[#444] rounded transition-colors text-slate-400 hover:text-emerald-400" title="Refresh Catalog">
-          <RefreshCw size={12} className={isLoading ? "animate-spin" : ""} />
-        </button>
+    <div className="w-72 border-r border-[#333333] flex flex-col bg-[#252526] h-full shrink-0 relative z-20 shadow-[2px_0_10px_rgba(0,0,0,0.5)]">
+      {/* Top Half: Browser */}
+      <div className="flex-1 flex flex-col min-h-0 bg-gradient-to-b from-[#252526] to-[#1e1e1e]">
+        <div className="p-3 border-b border-[#333333] flex justify-between items-center bg-[#2d2d2d] shadow-md z-10">
+          <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center">
+            <Database size={14} className="mr-2" />
+            Catalog Browser
+          </h2>
+          <button onClick={fetchCatalog} className="p-1 hover:bg-[#444] rounded transition-colors text-slate-400 hover:text-emerald-400" title="Refresh Catalog">
+            <RefreshCw size={12} className={isLoading ? "animate-spin" : ""} />
+          </button>
+        </div>
+        
+        <div className="p-2 border-b border-[#333] text-[10px] text-slate-400 uppercase tracking-widest text-center bg-[#1e1e1e] shadow-inner font-semibold">
+          Drag files to Canvas
+        </div>
+        
+        <div className="flex-1 overflow-y-auto p-1 custom-scrollbar">
+          {catalog.map((node, i) => (
+            <FileNode key={i} node={node} level={0} />
+          ))}
+        </div>
       </div>
-      
-      <div className="p-2 border-b border-[#333] text-[10px] text-slate-500 uppercase tracking-widest text-center bg-[#1e1e1e]/50">
-        Drag files to Canvas
-      </div>
-      
-      <div className="flex-1 overflow-y-auto p-1 custom-scrollbar">
-        {catalog.map((node, i) => (
-          <FileNode key={i} node={node} level={0} />
-        ))}
+
+      {/* Bottom Half: Map Layers */}
+      <div className="h-[40%] min-h-[250px] border-t-2 border-[#111] flex flex-col bg-[#1a1a1a] shadow-[0_-5px_15px_rgba(0,0,0,0.2)]">
+        <div className="p-3 border-b border-[#333333] flex justify-between items-center bg-[#2d2d2d] shadow-md z-10">
+          <h2 className="text-xs font-bold uppercase tracking-wider text-cyan-400 flex items-center">
+            <Layers size={14} className="mr-2" />
+            Map Layers
+          </h2>
+        </div>
+        <div className="flex-1 overflow-y-auto p-2 custom-scrollbar space-y-1">
+          {mapLayers.map(layer => (
+              <div key={layer.id} className={`p-2 rounded-md ${layer.selected ? 'bg-cyan-900/40 border border-cyan-700/50' : 'bg-slate-800/60 border border-transparent'} hover:bg-slate-700/60 transition-colors flex flex-col`}>
+                  <div className="flex items-center justify-between mb-1">
+                      <span className="text-[11px] font-medium text-slate-200 truncate flex-1" title={layer.name}>
+                          {layer.name}
+                      </span>
+                      <button 
+                          onClick={() => {
+                              if (setMapLayers) {
+                                  setMapLayers(prev => prev.map(l => l.id === layer.id ? { ...l, visible: !l.visible } : l));
+                              }
+                          }}
+                          className="ml-2 text-slate-400 hover:text-white"
+                      >
+                          {layer.visible ? <Eye size={12} className="text-emerald-400" /> : <EyeOff size={12} className="text-slate-600" />}
+                      </button>
+                  </div>
+                  
+                  {layer.visible && (
+                      <div className="flex items-center space-x-2">
+                          <span className="text-[9px] text-slate-500">Opacity</span>
+                          <input 
+                              type="range" 
+                              min="0" max="100" 
+                              value={layer.opacity}
+                              onChange={(e) => {
+                                  const newOpacity = parseInt(e.target.value);
+                                  if (setMapLayers) {
+                                      setMapLayers(prev => prev.map(l => l.id === layer.id ? { ...l, opacity: newOpacity } : l));
+                                  }
+                              }}
+                              className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer" 
+                          />
+                          <span className="text-[9px] text-slate-400 w-6 text-right">{layer.opacity}%</span>
+                      </div>
+                  )}
+              </div>
+          ))}
+        </div>
       </div>
     </div>
   );
