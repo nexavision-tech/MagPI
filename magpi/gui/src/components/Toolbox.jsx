@@ -317,6 +317,11 @@ const TOOLBOX_CATEGORIES = [
         params: { join_operation: { value: "JOIN_ONE_TO_ONE", type: "select", options: ["JOIN_ONE_TO_ONE", "JOIN_ONE_TO_MANY"] } }
       },
       {
+        id: 'etl_vector_converter', name: "Vector Converter", type: 'process', icon: <Layers size={14} />, color: 'bg-indigo-600', border: 'border-indigo-500',
+        description: "Converts vector inputs between Shapefile, GeoJSON, and GPKG on-the-fly.",
+        params: { target_format: { value: ".geojson", type: "select", options: [".geojson", ".shp", ".gpkg"] } }
+      },
+      {
         id: 'etl_field_calc', name: "Field Calculator", type: 'process', icon: <Wrench size={14} />, color: 'bg-indigo-600', border: 'border-indigo-500',
         description: "Calculates the values of a field for a feature class.",
         params: { field_name: "NEW_AREA", expression: "!shape.area@squaremeters!" }
