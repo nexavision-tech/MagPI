@@ -282,7 +282,7 @@ export default function App() {
     const newNode = { 
       id: `node_${Date.now()}`, toolId: tool.id, name: tool.name, icon: tool.id, 
       x: dropX !== null ? dropX : 300 + Math.random() * 50, y: dropY !== null ? dropY : 200 + Math.random() * 50, 
-      color: tool.color, border: tool.border, params: { ...tool.params },
+      color: tool.color, border: tool.border, params: { export_to_map: false, ...tool.params },
       inputs: tool.inputs ? [...tool.inputs] : undefined,
       outputs: tool.outputs ? [...tool.outputs] : undefined,
       reference_keys: tool.reference_keys ? [...tool.reference_keys] : undefined

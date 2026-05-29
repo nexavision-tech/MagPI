@@ -68,7 +68,7 @@ const FileNode = ({ node, level }) => {
           <span className="w-3.5 mr-1 inline-block" />
         )}
         {renderIcon()}
-        <span className="truncate flex-1" title={node.name}>{node.name}</span>
+        <span className="break-all flex-1 pr-2" title={node.name}>{node.name}</span>
         {node.type && node.type !== 'folder' && (
           <span className="opacity-0 group-hover:opacity-100 text-[9px] bg-[#2d2d2d] px-1 rounded text-slate-500 uppercase ml-2 transition-opacity">
             {node.type}
