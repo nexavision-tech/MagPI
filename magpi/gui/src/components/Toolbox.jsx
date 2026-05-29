@@ -119,8 +119,8 @@ const TOOLBOX_CATEGORIES = [
       },
       {
         id: 'load_vector', name: "Input Vector", type: 'input', icon: <Hexagon size={14} />, color: 'bg-blue-600', border: 'border-blue-500',
-        description: "Loads a vector feature class or shapefile containing points, lines, or polygons.",
-        params: { file_path: "./test_data/Orange_County_Tracts.shp" }
+        description: "Loads an existing vector feature class or GeoJSON from the filesystem. Can read single layers or specific layers from a Geodatabase.",
+        params: { file_path: "/home/gda/MagPI/test_data/input_labels.geojson", layer_name: "" }
       },
       {
         id: 'core_create_vector', name: "Create Feature Class", type: 'process', icon: <Hexagon size={14} />, color: 'bg-blue-600', border: 'border-blue-500',
@@ -365,7 +365,6 @@ const TOOLBOX_CATEGORIES = [
       }
     ]
   },
-  // NEW: Spatial Statistics Subsystem (Chris's Academic Verification Module)
   {
     name: "Spatial Statistics", icon: <LineChart size={18} className="text-rose-400" />,
     tools: [
@@ -391,7 +390,7 @@ const TOOLBOX_CATEGORIES = [
 export default function Toolbox({
   activeRightTab, setActiveRightTab,
   selectedNode, updateNodeParam, updateNodeName, deleteNode, addNode, duplicateNode,
-  openFileBrowser, nodes, connections, handleRunUpToNode, masterReferences
+  openFileBrowser, nodes, connections, handleRunUpToNode, masterReferences, masterGisServers
 }) {
   const [expandedCategories, setExpandedCategories] = useState({});
   const [searchQuery, setSearchQuery] = useState('');
@@ -636,6 +635,19 @@ export default function Toolbox({
                             <input type="text" value={displayVal} onChange={(e) => updateNodeParam(selectedNode.id, key, e.target.value)} className="flex-1 bg-slate-800 border border-slate-600 rounded-md px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all font-mono" />
                             <button onClick={() => openFileBrowser(selectedNode.id, key, displayVal)} className="p-2 bg-slate-700 hover:bg-slate-600 rounded border border-slate-600 transition-colors text-emerald-400" title="Browse OS Files"><FolderOpen size={16} /></button>
                           </div>
+                        ) : key === 'service_url' && selectedNode.toolId === 'wfs_arcgis_rest' && masterGisServers && masterGisServers.length > 0 ? (
+                          <select
+                            value={displayVal}
+                            onChange={(e) => updateNodeParam(selectedNode.id, key, e.target.value)}
+                            className="w-full bg-slate-800 border border-slate-600 rounded-md px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all font-mono"
+                          >
+                            <option value={displayVal}>{displayVal}</option>
+                            <optgroup label="Centralized Registry">
+                              {masterGisServers.map((server, idx) => (
+                                <option key={idx} value={server.url}>{server.name}</option>
+                              ))}
+                            </optgroup>
+                          </select>
                         ) : (
                           <input type="text" value={displayVal} onChange={(e) => updateNodeParam(selectedNode.id, key, e.target.value)} className="w-full bg-slate-800 border border-slate-600 rounded-md px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all font-mono" />
                         )}

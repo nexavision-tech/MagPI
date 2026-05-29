@@ -123,6 +123,8 @@ def LaunchCanvas(port=8080):
                 self.handle_community_nodes()
             elif parsed_path.path == '/api/references':
                 self.handle_references()
+            elif parsed_path.path == '/api/gis_servers':
+                self.handle_gis_servers()
             else:
                 super().do_GET()
 
@@ -535,6 +537,25 @@ def LaunchCanvas(port=8080):
                 self.wfile.write(json.dumps({"status": "success", "references": data}).encode('utf-8'))
             except Exception as e:
                 logger.error(f"Academic References API failed: {e}")
+                self.send_response(500)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": str(e)}).encode('utf-8'))
+
+        def handle_gis_servers(self):
+            try:
+                registry_path = os.path.join(os.getcwd(), 'magpi_workspace', 'gis_servers.json')
+                if os.path.exists(registry_path):
+                    with open(registry_path, 'r') as f:
+                        data = json.load(f)
+                else:
+                    data = {"servers": []}
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"status": "success", "servers": data.get("servers", [])}).encode('utf-8'))
+            except Exception as e:
+                logger.error(f"GIS Servers API failed: {e}")
                 self.send_response(500)
                 self.send_header('Content-type', 'application/json')
                 self.end_headers()

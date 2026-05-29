@@ -42,6 +42,7 @@ export default function App() {
   const [nodeStatuses, setNodeStatuses] = useState({});
   const [activeJobId, setActiveJobId] = useState(null);
   const [masterReferences, setMasterReferences] = useState({});
+  const [masterGisServers, setMasterGisServers] = useState([]);
 
   useEffect(() => {
     fetch('http://localhost:8080/api/references')
@@ -52,6 +53,15 @@ export default function App() {
         }
       })
       .catch(err => console.error("Failed to load academic references", err));
+      
+    fetch('http://localhost:8080/api/gis_servers')
+      .then(res => res.json())
+      .then(data => {
+        if (data.status === 'success' && data.servers) {
+          setMasterGisServers(data.servers);
+        }
+      })
+      .catch(err => console.error("Failed to load GIS servers", err));
   }, []);
 
   // --- JOB POLLING ENGINE ---
@@ -556,6 +566,7 @@ export default function App() {
             handleRunUpToNode={handleRunUpToNode}
             connections={connections}
             masterReferences={masterReferences}
+            masterGisServers={masterGisServers}
           />
         </div>
         

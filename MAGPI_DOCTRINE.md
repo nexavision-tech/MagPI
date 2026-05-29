@@ -57,3 +57,13 @@ MagPI supports two primary methods for establishing a geographical area of analy
     *   Developers must define a `reference_keys` array in their node metadata and map the keys to the master `/magpi_workspace/academic_references.json` registry. This serves as MagPI's centralized bibliography.
 3.  **Vectorized First:** MagPI is an escape pod from legacy loop-based GIS (like old `arcpy.da.SearchCursor` scripts). All translation implementations **must** prioritize vectorized array operations via `numpy`, `scipy`, or `pandas`. Iterating row-by-row over a dataset is considered a failure of implementation.
 4.  **Airflow Compatibility:** All node execution logic must be self-contained so that the `airflowGen.js` compiler can safely wrap the node instantiation within an isolated Airflow `@task` decorator for enterprise execution.
+
+---
+
+## ⚖️ 4. Disclaimers & Analyst Responsibility
+
+MagPI is designed to rapidly ingest massive quantities of open-source and sovereign data (e.g., UNOSAT Damage Assessments, MRLC NLCD, USGS 3DEP). However, **speed does not replace rigor**.
+
+*   **Accuracy Verification:** The MagPI execution engine assumes that incoming datasets are accurate. Users are strictly responsible for verifying the accuracy, spatial resolution, and temporal currency of the data they ingest.
+*   **Volumetric Errors:** When performing operations like `Structural Damage (Volume)`, be aware that utilizing low-resolution optical shadows instead of high-res LiDAR will introduce significant margins of error in height estimations.
+*   **Coordinate Thrashing:** While the internal UI enforces EPSG:4326 for rendering, analysts must verify that their input files (.shp, .gdb, .geojson) are projecting properly in the translation matrix, especially when fusing disparate sovereign datasets.
