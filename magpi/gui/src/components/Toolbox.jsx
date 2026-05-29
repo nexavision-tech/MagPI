@@ -668,9 +668,17 @@ export default function Toolbox({
                   </div>
                 </div>
 
+                <div className="bg-slate-900 p-4 rounded-lg border border-slate-700 shadow-inner mb-4">
+                  <h4 className="text-[10px] uppercase tracking-widest text-cyan-500 font-bold mb-4 flex items-center"><MapIcon size={12} className="mr-2" /> Visualization Settings</h4>
+                  <div className="flex items-center bg-slate-800 px-3 py-2 rounded-md border border-slate-700 cursor-pointer" onClick={() => updateNodeParam(selectedNode.id, 'export_to_map', selectedNode.params?.export_to_map === false ? true : false)}>
+                      <div className={`w-4 h-4 rounded-sm flex items-center justify-center mr-3 transition-colors ${(selectedNode.params?.export_to_map !== false) ? 'bg-cyan-500' : 'bg-slate-700 border border-slate-600'}`}>{(selectedNode.params?.export_to_map !== false) && <Check size={10} className="text-white" />}</div>
+                      <span className={`text-sm font-medium ${(selectedNode.params?.export_to_map !== false) ? 'text-white' : 'text-slate-400'}`}>{(selectedNode.params?.export_to_map !== false) ? "Export to Maps (Active)" : "Export to Maps (Disabled)"}</span>
+                  </div>
+                </div>
+
                 <div className="bg-slate-900 p-4 rounded-lg border border-slate-700 shadow-inner">
                   <h4 className="text-[10px] uppercase tracking-widest text-emerald-500 font-bold mb-4 flex items-center"><SlidersHorizontal size={12} className="mr-2" /> Parameters</h4>
-                  {Object.entries(selectedNode.params || {}).map(([key, val]) => {
+                  {Object.entries(selectedNode.params || {}).filter(([key]) => key !== 'export_to_map').map(([key, val]) => {
                     const isComplexObj = val && typeof val === 'object' && val.type === 'select';
                     const isDateObj = val && typeof val === 'object' && val.type === 'date';
                     const isDateTimeObj = val && typeof val === 'object' && val.type === 'datetime-local';
