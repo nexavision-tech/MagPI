@@ -30,8 +30,8 @@ class SpatialJoinNode(Node):
 @register_node('etl_vector_converter')
 class VectorConverterNode(Node):
     def validate(self):
-        if "in1" not in self.inputs and not self.params.get("input_file"):
-            logger.error("Vector Converter requires an input vector (in1 or input_file).")
+        if "in" not in self.inputs and "in1" not in self.inputs and not self.params.get("input_file"):
+            logger.error("Vector Converter requires an input vector (in or input_file).")
             return False
         return True
         
@@ -40,7 +40,7 @@ class VectorConverterNode(Node):
         import os
         from magpi import env
         
-        input_data = self.inputs.get("in1") or self.params.get("input_file")
+        input_data = self.inputs.get("in", self.inputs.get("in1")) or self.params.get("input_file")
         target_format = self.params.get("target_format", ".geojson")
         
         # Determine output filename
@@ -75,8 +75,8 @@ class VectorConverterNode(Node):
 @register_node('etl_db_writer')
 class PostGISWriterNode(Node):
     def validate(self):
-        if "in1" not in self.inputs:
-            logger.error("PostGIS Writer requires an input vector (in1).")
+        if "in" not in self.inputs and "in1" not in self.inputs:
+            logger.error("PostGIS Writer requires an input vector (in).")
             return False
         return True
         
@@ -84,7 +84,7 @@ class PostGISWriterNode(Node):
         import geopandas as gpd
         from sqlalchemy import create_engine
         
-        input_data = self.inputs.get("in1")
+        input_data = self.inputs.get("in", self.inputs.get("in1"))
         conn_string = self.params.get("connection_string", "")
         table_name = self.params.get("table_name", "output_table")
         
