@@ -465,9 +465,15 @@ const MapViewport = React.memo(({ onAoiDrawn, selectedNode, activeWorkspace, nod
                 )}
                 
                 {/* Maps Container (Flex-1) */}
-                <div className="flex-1 relative">
+                <div className="flex-1 relative overflow-hidden">
                     {/* Cesium Globe (Hidden when not in globe mode) */}
-                    <div className={`w-full h-full bg-[#111827] ${activeWorkspace === 'globe' ? 'block' : 'hidden'}`}>
+                    <div 
+                        className="absolute inset-0 w-full h-full bg-[#111827]" 
+                        style={{ 
+                            visibility: activeWorkspace === 'globe' ? 'visible' : 'hidden', 
+                            zIndex: activeWorkspace === 'globe' ? 10 : 1 
+                        }}
+                    >
                         <Viewer 
                             ref={cesiumRef}
                             full 
@@ -518,8 +524,13 @@ const MapViewport = React.memo(({ onAoiDrawn, selectedNode, activeWorkspace, nod
                     {/* Leaflet 2D Map (Hidden when in globe mode) */}
                     <div 
                         ref={mapRef} 
-                        className={`w-full h-full ${activeWorkspace === 'globe' ? 'hidden' : 'relative z-10'}`}
-                        style={{ backgroundColor: '#1f2937', touchAction: 'none' }}
+                        className="absolute inset-0 w-full h-full"
+                        style={{ 
+                            visibility: activeWorkspace === 'globe' ? 'hidden' : 'visible',
+                            zIndex: activeWorkspace === 'globe' ? 1 : 10,
+                            backgroundColor: '#1f2937', 
+                            touchAction: 'none' 
+                        }}
                     ></div>
                 </div>
             </div>
