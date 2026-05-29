@@ -518,7 +518,7 @@ const MapViewport = React.memo(({ onAoiDrawn, selectedNode, activeWorkspace, nod
                     {/* Leaflet 2D Map (Hidden when in globe mode) */}
                     <div 
                         ref={mapRef} 
-                        className={`w-full h-full ${activeWorkspace === 'globe' ? 'opacity-0 pointer-events-none absolute inset-0 z-[-1]' : 'relative z-10'}`}
+                        className={`w-full h-full ${activeWorkspace === 'globe' ? 'hidden' : 'relative z-10'}`}
                         style={{ backgroundColor: '#1f2937', touchAction: 'none' }}
                     ></div>
                 </div>
