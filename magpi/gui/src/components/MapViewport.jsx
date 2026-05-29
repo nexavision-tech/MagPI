@@ -170,6 +170,7 @@ const MapViewport = React.memo(({ onAoiDrawn, selectedNode, activeWorkspace, nod
             resizeObserver.disconnect();
             map.remove();
             mapInstance.current = null;
+            drawRef.current = null;
         };
     }, [onAoiDrawn]);
     
