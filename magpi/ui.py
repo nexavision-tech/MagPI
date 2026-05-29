@@ -725,17 +725,13 @@ def LaunchCanvas(port=8080):
                 else:
                     raise ValueError("Unsupported database type for direct SQL querying.")
                     
-                    # Truncate large strings or geometries for display
-                    for col in df.columns:
-                        if df[col].dtype == object or str(df[col].dtype) == 'geometry':
-                            df[col] = df[col].astype(str).str.slice(0, 100)
-                    
-                    results = df.to_dict(orient='records')
-                    columns = df.columns.tolist()
-                elif db_path.endswith('.gdb'):
-                    raise NotImplementedError("Direct SQL querying of .gdb is not supported yet. Use GeoPandas in Python.")
-                else:
-                    raise ValueError("Unsupported database type for direct SQL querying.")
+                # Truncate large strings or geometries for display
+                for col in df.columns:
+                    if df[col].dtype == object or str(df[col].dtype) == 'geometry':
+                        df[col] = df[col].astype(str).str.slice(0, 100)
+                
+                results = df.to_dict(orient='records')
+                columns = df.columns.tolist()
                     
                 self.send_response(200)
                 self.send_header('Content-type', 'application/json')
