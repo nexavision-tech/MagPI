@@ -42,7 +42,7 @@ const FileNode = ({ node, level }) => {
     };
     window.__draggedMagPITool = toolData;
     e.dataTransfer.setData('application/reactflow', JSON.stringify(toolData));
-    e.dataTransfer.effectAllowed = 'copy';
+    e.dataTransfer.effectAllowed = 'move';
   };
 
   const renderIcon = () => {

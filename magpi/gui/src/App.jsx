@@ -595,7 +595,7 @@ export default function App() {
         <div className={activeWorkspace === 'builder' ? 'flex-1 relative opacity-100 z-10' : 'absolute inset-0 opacity-0 pointer-events-none -z-10'}>
             <NodeCanvas nodes={nodes} setNodes={setNodes} connections={connections} setConnections={setConnections} selectedNodeId={selectedNodeId} setSelectedNodeId={setSelectedNodeId} setActiveRightTab={setActiveRightTab} nodeStatuses={nodeStatuses} removeConnection={removeConnection} addNode={addNode} />
         </div>
-        <div className={`relative ${['builder', 'globe', 'planar'].includes(activeWorkspace) ? (activeWorkspace === 'builder' ? 'w-[320px] hidden lg:flex' : 'flex-1 w-full') : 'hidden'} flex-col shadow-[-10px_0_20px_rgba(0,0,0,0.3)] z-10 border-l border-r border-slate-800`}>
+        <div className={`relative ${['globe', 'planar'].includes(activeWorkspace) ? 'flex-1 w-full' : 'hidden'} flex-col shadow-[-10px_0_20px_rgba(0,0,0,0.3)] z-10 border-l border-r border-slate-800`}>
             <MapViewport onAoiDrawn={handleAoiDrawn} onAoiImported={handleAoiImported} selectedNode={nodes.find(n => n.id === selectedNodeId)} activeWorkspace={activeWorkspace} nodes={nodes} nodeStatuses={nodeStatuses} connections={connections} globalEnv={globalEnv} mapLayers={mapLayers} />
         </div>
         <div className={`w-[320px] relative ${activeWorkspace === 'builder' ? 'flex' : 'hidden'} flex-col z-20`}>
