@@ -6,7 +6,7 @@ import {
   SlidersHorizontal, Wrench, Check, FolderOpen, ListFilter,
   Search, Copy, Info, Fingerprint, Loader2, AlertCircle,
   Cloud, Map as MapIcon, Satellite, Box, Globe, DownloadCloud, PaintBucket,
-  FileOutput, LineChart, Brain, Sparkles, RefreshCcw, Activity, BrainCircuit, Play, Compass
+  FileOutput, LineChart, Brain, Sparkles, RefreshCcw, Activity, BrainCircuit, Play, Compass, Calendar
 } from 'lucide-react';
 
 const TOOLBOX_CATEGORIES = [
@@ -285,6 +285,11 @@ const TOOLBOX_CATEGORIES = [
         id: 'logic_constant', name: "Constant Value", type: 'input', icon: <Box size={14} />, color: 'bg-yellow-600', border: 'border-yellow-500',
         description: "Defines a static number or string to pass into downstream math or geoprocessing operations.",
         params: { value: "0", type: { value: "float", type: "select", options: ["float", "integer", "string"] } }
+      },
+      {
+        id: 'core_date_variable', name: "Date Variable", type: 'input', icon: <Calendar size={14} />, color: 'bg-yellow-600', border: 'border-yellow-500',
+        description: "Defines a chronological date string (YYYY-MM-DD). Translates to {{ ds }} in Airflow for Temporal Iteration.",
+        params: { date: "2024-01-01" }
       },
       {
         id: 'logic_math', name: "Math Operator", type: 'process', icon: <Cpu size={14} />, color: 'bg-yellow-600', border: 'border-yellow-500',

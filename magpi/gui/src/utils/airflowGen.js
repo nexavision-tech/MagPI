@@ -93,6 +93,9 @@ export const generateAirflowDAG = (nodes, connections, crs, globalEnv) => {
         if (n.toolId === 'core_extent') {
             funcCall = `        extent = arcpy.Extent(${p.xmin}, ${p.ymin}, ${p.xmax}, ${p.ymax})\n        return extent.to_json()`;
         }
+        else if (n.toolId === 'core_date_variable') {
+            funcCall = `        # Airflow injects {{ ds }} (Execution Date) into kwargs dynamically\n        # Fallback to visual canvas date if run manually outside Airflow scheduler\n        return kwargs.get('ds', "${p.date}")`;
+        }
         else if (n.toolId === 'wfs_sentinel2') {
             funcCall = `        out_path = os.path.join(SCRATCH_DIR, "s2_cloud_extract_${n.id.split('_')[1]}.tif")\n        result = arcpy.wfs.PullSentinel2(${primaryInVar}, out_path, max_cloud_cover=${p.max_cloud_cover}, date_range="${p.start_date}/${p.end_date}")\n        return result.path`;
         }

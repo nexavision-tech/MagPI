@@ -104,3 +104,11 @@ class LoadVectorNode(Node):
             raise FileNotFoundError(f"Input Vector not found: {resolved_path}")
             
         self.output = resolved_path
+
+@register_node('core_date_variable')
+class DateVariableNode(Node):
+    def execute(self):
+        # Simply outputs the date parameter so it can be wired downstream
+        date_str = self.params.get("date", "2024-01-01")
+        self.output = date_str
+        logger.info(f"Date Variable Node evaluated to: {date_str}")
