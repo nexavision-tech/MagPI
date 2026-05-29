@@ -483,6 +483,26 @@ const TOOLBOX_CATEGORIES = [
         params: { iso3_country: "HTI", year: "2020", out_raster: "worldpop.tif" }
       },
     ]
+  },
+  {
+    name: "Plenum View & Space Weather", icon: <Satellite size={18} className="text-blue-500" />,
+    tools: [
+      {
+        id: 'plenum_fits_ingest', name: "FITS Ingestor", type: 'input', icon: <Box size={14} />, color: 'bg-blue-700', border: 'border-blue-600',
+        description: "Ingests NASA Flexible Image Transport System (FITS) astronomical data into the processing matrix.",
+        params: { file_path: "input_telescope.fits", out_raster: "fits_converted.tif" }
+      },
+      {
+        id: 'plenum_space_weather', name: "Live Space Weather", type: 'endpoint', icon: <Activity size={14} />, color: 'bg-blue-700', border: 'border-blue-600',
+        description: "Streams live Geomagnetic Storm (Kp index) and Solar Flare data from the NOAA SWPC API.",
+        params: { out_json: "space_weather.json" }
+      },
+      {
+        id: 'plenum_starlink', name: "EM Mesh Tracker", type: 'process', icon: <Satellite size={14} />, color: 'bg-blue-700', border: 'border-blue-600',
+        description: "Maps live Orbital Elements (TLEs) to track the active Starlink constellation in the Plenum View.",
+        params: { out_vector: "starlink_mesh.geojson" }
+      },
+    ]
   }
 ];
 
