@@ -5,7 +5,7 @@ import 'leaflet/dist/leaflet.css';
 import 'leaflet-draw/dist/leaflet.draw.css';
 import 'cesium/Build/Cesium/Widgets/widgets.css';
 import { Map as MapIcon, Satellite, Edit, Globe, Layers, Eye, EyeOff, XCircle } from 'lucide-react';
-import { Viewer, Entity, ImageryLayer } from 'resium';
+import { Viewer, Entity, ImageryLayer, GeoJsonDataSource } from 'resium';
 import { Cartesian3, Color, OpenStreetMapImageryProvider } from 'cesium';
 
 window.type = ''; 
@@ -429,6 +429,17 @@ const MapViewport = React.memo(({ onAoiDrawn, selectedNode, activeWorkspace, nod
                                     }}
                                 />
                             )}
+                            
+                            {layers.filter(l => l.visible !== false && l.data).map(layer => (
+                                <GeoJsonDataSource 
+                                    key={`globe-${layer.id}`}
+                                    data={layer.data}
+                                    stroke={Color.fromCssColorString(layer.vectorColor || '#22d3ee')}
+                                    fill={Color.fromCssColorString(layer.vectorColor || '#22d3ee').withAlpha(0.3)}
+                                    markerColor={Color.fromCssColorString(layer.vectorColor || '#22d3ee')}
+                                    markerSize={5}
+                                />
+                            ))}
                         </Viewer>
                     </div>
                     
