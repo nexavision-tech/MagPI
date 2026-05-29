@@ -7,7 +7,7 @@ import {
   Search, Copy, Info, Fingerprint, Loader2, AlertCircle,
   Cloud, Map as MapIcon, Satellite, Box, Globe, DownloadCloud, PaintBucket,
   FileOutput, LineChart, Brain, Sparkles, RefreshCcw, Activity, BrainCircuit, Play, Compass, Calendar,
-  BookOpen, ExternalLink, AlertTriangle
+  BookOpen, ExternalLink, AlertTriangle, Users
 } from 'lucide-react';
 
 const GdbLayerSelector = ({ selectedNode, updateNodeParam }) => {
@@ -436,6 +436,36 @@ const TOOLBOX_CATEGORIES = [
         id: 'ml_pytorch_inference', name: "PyTorch Inference", type: 'process', icon: <Brain size={14} />, color: 'bg-violet-600', border: 'border-violet-500',
         description: "Executes a custom compiled PyTorch neural network against a raster. Automatically tiles and batches the imagery.",
         params: { model_script_path: "./magpi_scratch/model.py", out_raster: "prediction.tif", tile_size: 256, batch_size: 4, device: { value: "cuda", type: "select", options: ["cuda", "cpu"] } }
+      },
+    ]
+  },
+  {
+    name: "Optical Sensor Analytics", icon: <Globe size={18} className="text-amber-400" />,
+    tools: [
+      {
+        id: 'optical_atm_corr', name: "Atmospheric Correction", type: 'process', icon: <Cloud size={14} />, color: 'bg-amber-600', border: 'border-amber-500',
+        description: "Applies Dark Object Subtraction (DOS) or Top of Atmosphere (TOA) reflectance correction using satellite XML metadata.",
+        params: { method: { value: "DOS", type: "select", options: ["DOS", "TOA Reflectance"] }, out_raster: "atm_corrected.tif" }
+      },
+      {
+        id: 'optical_rpc_ortho', name: "RPC Orthorectification", type: 'process', icon: <Grid size={14} />, color: 'bg-amber-600', border: 'border-amber-500',
+        description: "Orthorectifies raw satellite imagery (e.g. WorldView) using Rational Polynomial Coefficients (RPCs) and a DEM.",
+        params: { out_raster: "ortho_imagery.tif" }
+      },
+    ]
+  },
+  {
+    name: "Human Geography", icon: <Users size={18} className="text-cyan-400" />,
+    tools: [
+      {
+        id: 'humangeo_osm_extract', name: "OSM Overpass Scraper", type: 'process', icon: <MapIcon size={14} />, color: 'bg-cyan-600', border: 'border-cyan-500',
+        description: "Scrapes global vector features (buildings, roads, amenities) directly from OpenStreetMap within the specified extent.",
+        params: { feature_type: { value: "buildings", type: "select", options: ["buildings", "roads", "water", "amenities", "landuse"] }, out_vector: "osm_extract.geojson" }
+      },
+      {
+        id: 'humangeo_worldpop', name: "WorldPop Ingestor", type: 'process', icon: <Users size={14} />, color: 'bg-cyan-600', border: 'border-cyan-500',
+        description: "Downloads high-resolution unconstrained global population density rasters directly from the WorldPop API.",
+        params: { iso3_country: "HTI", year: "2020", out_raster: "worldpop.tif" }
       },
     ]
   }

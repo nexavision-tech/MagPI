@@ -7,3 +7,5 @@ from .mgt_nodes import *
 from .geoai_nodes import *
 from .ml_nodes import *
 from .math_nodes import *
+from .optical_nodes import *
+from .humangeo_nodes import *
