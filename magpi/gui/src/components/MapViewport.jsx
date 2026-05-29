@@ -26,7 +26,7 @@ const getAncestralExtent = (nodeId, nodes, connections) => {
     return null;
 };
 
-const MapViewport = React.memo(({ onAoiDrawn, selectedNode, activeWorkspace, nodes = [], nodeStatuses = {}, connections = [] }) => {
+const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activeWorkspace, nodes = [], nodeStatuses = {}, connections = [] }) => {
     const mapRef = useRef(null);
     const mapInstance = useRef(null); 
     const highlightGroup = useRef(null);
@@ -365,6 +365,15 @@ const MapViewport = React.memo(({ onAoiDrawn, selectedNode, activeWorkspace, nod
                                         reader.onload = (ev) => {
                                             try {
                                                 const json = JSON.parse(ev.target.result);
+                                                const geoJsonLayer = L.geoJSON(json);
+                                                const bounds = geoJsonLayer.getBounds();
+                                                const extent = {
+                                                    xmin: bounds.getWest(),
+                                                    ymin: bounds.getSouth(),
+                                                    xmax: bounds.getEast(),
+                                                    ymax: bounds.getNorth()
+                                                };
+                                                
                                                 const newLayer = {
                                                     id: `imported_${Date.now()}`,
                                                     name: file.name,
@@ -375,10 +384,14 @@ const MapViewport = React.memo(({ onAoiDrawn, selectedNode, activeWorkspace, nod
                                                     isRaster: false,
                                                     filePath: null,
                                                     geojsonData: json,
-                                                    extent: { xmin: -180, ymin: -90, xmax: 180, ymax: 90 }, // Dummy extent to ensure it renders
+                                                    extent: extent,
                                                     selected: true
                                                 };
                                                 setLayers(prev => [...prev, newLayer]);
+                                                
+                                                if (onAoiImported) {
+                                                    onAoiImported(extent, file.name);
+                                                }
                                             } catch (err) { alert("Invalid GeoJSON file"); }
                                         };
                                         reader.readAsText(file);

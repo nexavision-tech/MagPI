@@ -165,6 +165,18 @@ export default function App() {
     setActiveWorkspace('builder');
   }, []);
 
+  const handleAoiImported = useCallback((bounds, filename) => {
+    const newNode = { 
+      id: `node_${Date.now()}`, toolId: 'core_extent', name: `AOI: ${filename}`, icon: 'core_extent', 
+      x: 400 + Math.random() * 50, y: 200 + Math.random() * 50, color: 'bg-yellow-600', border: 'border-yellow-500', 
+      params: { xmin: bounds.xmin, ymin: bounds.ymin, xmax: bounds.xmax, ymax: bounds.ymax } 
+    };
+    setNodes(prev => [...prev, newNode]);
+    setSelectedNodeId(newNode.id);
+    setActiveRightTab('inspector');
+    setActiveWorkspace('builder');
+  }, []);
+
   const handleImportENVI = (file) => {
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -528,7 +540,7 @@ export default function App() {
             <NodeCanvas nodes={nodes} setNodes={setNodes} connections={connections} setConnections={setConnections} selectedNodeId={selectedNodeId} setSelectedNodeId={setSelectedNodeId} setActiveRightTab={setActiveRightTab} nodeStatuses={nodeStatuses} removeConnection={removeConnection} addNode={addNode} />
         </div>
         <div className={`relative ${['builder', 'globe', 'planar'].includes(activeWorkspace) ? (activeWorkspace === 'builder' ? 'w-[320px] hidden lg:flex' : 'flex-1 w-full') : 'hidden'} flex-col shadow-[-10px_0_20px_rgba(0,0,0,0.3)] z-10 border-l border-r border-slate-800`}>
-            <MapViewport onAoiDrawn={handleAoiDrawn} selectedNode={selectedNode} activeWorkspace={activeWorkspace} nodes={nodes} nodeStatuses={nodeStatuses} connections={connections} globalEnv={globalEnv} />
+            <MapViewport onAoiDrawn={handleAoiDrawn} onAoiImported={handleAoiImported} selectedNode={selectedNode} activeWorkspace={activeWorkspace} nodes={nodes} nodeStatuses={nodeStatuses} connections={connections} globalEnv={globalEnv} />
         </div>
         <div className={`w-[320px] relative ${activeWorkspace === 'builder' ? 'flex' : 'hidden'} flex-col z-20`}>
             <Toolbox 
