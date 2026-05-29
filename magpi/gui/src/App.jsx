@@ -11,6 +11,7 @@ import ScriptModal from './components/ScriptModal';
 import FileBrowserModal from './components/FileBrowserModal';
 import EnvSettingsModal from './components/EnvSettingsModal';
 import DataStudio from './components/DataStudio';
+import CatalogPane from './components/CatalogPane';
 import { generatePythonScript } from './utils/scriptGen';
 import { generateAirflowDAG } from './utils/airflowGen';
 import { saveProject, loadProject } from './utils/fileOps';
@@ -548,6 +549,12 @@ export default function App() {
       </div>
       
       <div className="flex-1 flex overflow-hidden min-h-0 relative z-0 bg-slate-800">
+        
+        {/* Render Catalog Pane when in Builder */}
+        <div className={`relative ${activeWorkspace === 'builder' ? 'flex' : 'hidden'} flex-col z-20`}>
+          <CatalogPane />
+        </div>
+
         <div className={activeWorkspace === 'builder' ? 'flex-1 relative opacity-100 z-10' : 'absolute inset-0 opacity-0 pointer-events-none -z-10'}>
             <NodeCanvas nodes={nodes} setNodes={setNodes} connections={connections} setConnections={setConnections} selectedNodeId={selectedNodeId} setSelectedNodeId={setSelectedNodeId} setActiveRightTab={setActiveRightTab} nodeStatuses={nodeStatuses} removeConnection={removeConnection} addNode={addNode} />
         </div>

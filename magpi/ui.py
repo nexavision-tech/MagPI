@@ -129,6 +129,10 @@ def LaunchCanvas(port=8080):
                 self.handle_databases()
             elif parsed_path.path == '/api/db_connections':
                 self.handle_db_connections_get()
+            elif parsed_path.path == '/api/list_files':
+                self.handle_list_files(parsed_path.query)
+            elif parsed_path.path == '/api/list_layers':
+                self.handle_list_layers(parsed_path.query)
             else:
                 super().do_GET()
 
@@ -635,6 +639,78 @@ def LaunchCanvas(port=8080):
                 self.wfile.write(json.dumps({"status": "success", "connections": data["connections"]}).encode('utf-8'))
             except Exception as e:
                 logger.error(f"DB Connections POST API failed: {e}")
+                self.send_response(500)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": str(e)}).encode('utf-8'))
+                
+        def handle_list_layers(self, query):
+            qs = parse_qs(query)
+            file_path = qs.get('file_path', [''])[0]
+            try:
+                if not file_path or not os.path.exists(file_path):
+                    raise FileNotFoundError("Valid file_path is required.")
+                
+                import fiona
+                layers = fiona.listlayers(file_path)
+                
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"status": "success", "layers": layers}).encode('utf-8'))
+            except Exception as e:
+                logger.error(f"List Layers API failed: {e}")
+                self.send_response(500)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": str(e)}).encode('utf-8'))
+                
+        def handle_list_files(self, query):
+            # Recursively scans magpi_workspace and magpi_output for GIS files
+            try:
+                def build_tree(dir_path):
+                    tree = []
+                    try:
+                        for entry in os.scandir(dir_path):
+                            # Skip hidden directories like .git
+                            if entry.name.startswith('.'): continue
+                            
+                            if entry.is_dir():
+                                # Treat .gdb as a file for our purposes, since it's a Geodatabase
+                                if entry.name.endswith('.gdb'):
+                                    tree.append({"name": entry.name, "path": entry.path, "type": "gdb", "is_dir": False})
+                                else:
+                                    children = build_tree(entry.path)
+                                    if children or entry.path.endswith('magpi_workspace') or entry.path.endswith('magpi_output'):
+                                        tree.append({"name": entry.name, "path": entry.path, "type": "folder", "is_dir": True, "children": children})
+                            else:
+                                ext = os.path.splitext(entry.name)[1].lower()
+                                if ext in ['.shp', '.geojson', '.gpkg', '.sqlite', '.db', '.tif', '.tiff', '.vrt', '.img', '.nc']:
+                                    tree.append({"name": entry.name, "path": entry.path, "type": ext.replace('.', ''), "is_dir": False})
+                    except PermissionError:
+                        pass
+                    return sorted(tree, key=lambda x: (not x.get('is_dir', False), x['name']))
+
+                base_dir = os.getcwd()
+                
+                workspace_path = os.path.join(base_dir, 'magpi_workspace')
+                output_path = os.path.join(base_dir, 'magpi_output')
+                test_data_path = os.path.join(base_dir, 'test_data')
+                
+                catalog = []
+                if os.path.exists(workspace_path):
+                    catalog.append({"name": "magpi_workspace", "path": workspace_path, "type": "folder", "is_dir": True, "children": build_tree(workspace_path)})
+                if os.path.exists(output_path):
+                    catalog.append({"name": "magpi_output", "path": output_path, "type": "folder", "is_dir": True, "children": build_tree(output_path)})
+                if os.path.exists(test_data_path):
+                    catalog.append({"name": "test_data", "path": test_data_path, "type": "folder", "is_dir": True, "children": build_tree(test_data_path)})
+
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"status": "success", "catalog": catalog}).encode('utf-8'))
+            except Exception as e:
+                logger.error(f"List Files API failed: {e}")
                 self.send_response(500)
                 self.send_header('Content-type', 'application/json')
                 self.end_headers()

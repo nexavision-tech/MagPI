@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Database, Layers, Cpu, Settings, Image as ImageIcon,
   Hexagon, Leaf, Grid, Crosshair, Scissors, CircleDashed,
@@ -9,6 +9,55 @@ import {
   FileOutput, LineChart, Brain, Sparkles, RefreshCcw, Activity, BrainCircuit, Play, Compass, Calendar,
   BookOpen, ExternalLink, AlertTriangle
 } from 'lucide-react';
+
+const GdbLayerSelector = ({ selectedNode, updateNodeParam }) => {
+  const [layers, setLayers] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const filePath = selectedNode.params.file_path;
+  
+  useEffect(() => {
+    if (!filePath) return;
+    const fetchLayers = async () => {
+      setLoading(true);
+      try {
+        const res = await fetch(`http://localhost:8080/api/list_layers?file_path=${encodeURIComponent(filePath)}`);
+        const data = await res.json();
+        if (data.status === 'success') {
+          setLayers(data.layers);
+          // Auto-select first layer if none selected
+          if (!selectedNode.params.layer_name && data.layers.length > 0) {
+            updateNodeParam(selectedNode.id, 'layer_name', data.layers[0]);
+          }
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchLayers();
+  }, [filePath]);
+
+  return (
+    <div className="relative">
+      <Layers size={14} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-500" />
+      <select 
+        value={selectedNode.params.layer_name || ""} 
+        onChange={(e) => updateNodeParam(selectedNode.id, 'layer_name', e.target.value)} 
+        className="w-full bg-slate-800 border border-slate-600 rounded-md pl-9 pr-8 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all font-mono appearance-none cursor-pointer"
+        disabled={loading}
+      >
+        <option value="">{loading ? "Scanning Database..." : "Select Layer..."}</option>
+        {layers.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+      </select>
+      {loading ? (
+        <Loader2 size={14} className="absolute right-3 top-1/2 transform -translate-y-1/2 text-emerald-400 animate-spin pointer-events-none" />
+      ) : (
+        <ChevronDown size={14} className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-500 pointer-events-none" />
+      )}
+    </div>
+  );
+};
 
 const TOOLBOX_CATEGORIES = [
   {
@@ -653,6 +702,8 @@ export default function Toolbox({
                               ))}
                             </optgroup>
                           </select>
+                        ) : key === 'layer_name' && selectedNode.params.file_path && (selectedNode.params.file_path.endsWith('.gdb') || selectedNode.params.file_path.endsWith('.gpkg')) ? (
+                          <GdbLayerSelector selectedNode={selectedNode} updateNodeParam={updateNodeParam} />
                         ) : (
                           <input type="text" value={displayVal} onChange={(e) => updateNodeParam(selectedNode.id, key, e.target.value)} className="w-full bg-slate-800 border border-slate-600 rounded-md px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all font-mono" />
                         )}

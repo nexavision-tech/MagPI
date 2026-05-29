@@ -328,7 +328,25 @@ function CanvasInner({
             window.__draggedMagPITool = null;
         } else {
             const rawData = event.dataTransfer.getData('application/reactflow');
-            if (rawData) toolData = JSON.parse(rawData);
+            const datasetData = event.dataTransfer.getData('application/magpi-dataset');
+            
+            if (rawData) {
+                toolData = JSON.parse(rawData);
+            } else if (datasetData) {
+                const dataset = JSON.parse(datasetData);
+                const isVector = ['shp', 'geojson', 'gdb', 'gpkg', 'sqlite', 'db'].includes(dataset.type);
+                toolData = {
+                    id: isVector ? 'load_vector' : 'load_raster',
+                    name: isVector ? "Input Vector" : "Input Raster",
+                    type: 'input',
+                    color: 'bg-blue-600',
+                    border: 'border-blue-500',
+                    params: {
+                        file_path: dataset.path,
+                        ...(isVector ? { layer_name: dataset.layer_name || "" } : {})
+                    }
+                };
+            }
         }
         
         if (!toolData) return;
