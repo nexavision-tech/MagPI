@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Database, Folder, Table2, Play, Terminal, TerminalSquare, AlertCircle, RefreshCw } from 'lucide-react';
+import { Database, Folder, Table2, Play, Terminal, TerminalSquare, AlertCircle, RefreshCw, Plus, X, Server } from 'lucide-react';
 
 export default function DataStudio() {
   const [databases, setDatabases] = useState([]);
@@ -10,6 +10,10 @@ export default function DataStudio() {
   const [isQuerying, setIsQuerying] = useState(false);
   const [error, setError] = useState(null);
   const [terminalLogs, setTerminalLogs] = useState([]);
+  
+  const [showNewConnectionModal, setShowNewConnectionModal] = useState(false);
+  const [newConnName, setNewConnName] = useState("");
+  const [newConnString, setNewConnString] = useState("postgresql://user:password@localhost:5432/dbname");
   
   const bottomPanelRef = useRef(null);
 
@@ -71,8 +75,54 @@ export default function DataStudio() {
     }
   };
 
+  const handleAddConnection = async () => {
+    if (!newConnName || !newConnString) return;
+    try {
+      const res = await fetch('http://localhost:8080/api/db_connections', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newConnName, connection_string: newConnString })
+      });
+      const data = await res.json();
+      if (data.status === 'success') {
+        setShowNewConnectionModal(false);
+        setNewConnName("");
+        fetchDatabases();
+      } else {
+        alert("Error saving connection: " + data.error);
+      }
+    } catch (err) {
+      alert("Network Error: " + err);
+    }
+  };
+
   return (
-    <div className="flex h-full w-full bg-[#1e1e1e] text-slate-300 font-sans">
+    <div className="flex h-full w-full bg-[#1e1e1e] text-slate-300 font-sans relative">
+      
+      {/* NEW CONNECTION MODAL */}
+      {showNewConnectionModal && (
+        <div className="absolute inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center">
+          <div className="bg-[#252526] border border-[#444] rounded-lg shadow-2xl w-[450px] p-6 flex flex-col relative">
+            <button onClick={() => setShowNewConnectionModal(false)} className="absolute top-4 right-4 text-slate-500 hover:text-white transition-colors">
+              <X size={18} />
+            </button>
+            <h2 className="text-lg font-bold text-white mb-4 flex items-center">
+              <Server size={20} className="mr-2 text-emerald-500" /> Add PostGIS Connection
+            </h2>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Connection Name</label>
+                <input type="text" className="w-full bg-[#1e1e1e] border border-[#444] rounded p-2 text-sm text-slate-200 outline-none focus:border-emerald-500" placeholder="e.g. Gaza Master DB" value={newConnName} onChange={e => setNewConnName(e.target.value)} />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Connection String (SQLAlchemy)</label>
+                <input type="text" className="w-full bg-[#1e1e1e] border border-[#444] rounded p-2 text-sm text-slate-200 outline-none focus:border-emerald-500 font-mono" placeholder="postgresql://user:password@localhost:5432/dbname" value={newConnString} onChange={e => setNewConnString(e.target.value)} />
+              </div>
+              <button onClick={handleAddConnection} className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 rounded text-white font-bold transition-colors shadow-lg">Save Connection</button>
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* LEFT PANEL: SCHEMA EXPLORER */}
       <div className="w-64 border-r border-[#333333] flex flex-col bg-[#252526]">
@@ -81,9 +131,14 @@ export default function DataStudio() {
             <Database size={14} className="mr-2" />
             Schema Explorer
           </h2>
-          <button onClick={fetchDatabases} className="p-1 hover:bg-[#444] rounded transition-colors text-slate-400 hover:text-emerald-400">
-            <RefreshCw size={12} />
-          </button>
+          <div className="flex space-x-1">
+            <button onClick={() => setShowNewConnectionModal(true)} className="p-1 hover:bg-[#444] rounded transition-colors text-slate-400 hover:text-emerald-400" title="Add PostGIS Connection">
+              <Plus size={14} />
+            </button>
+            <button onClick={fetchDatabases} className="p-1 hover:bg-[#444] rounded transition-colors text-slate-400 hover:text-emerald-400" title="Refresh Databases">
+              <RefreshCw size={12} />
+            </button>
+          </div>
         </div>
         <div className="flex-1 overflow-y-auto p-2">
           {databases.length === 0 ? (

@@ -116,3 +116,45 @@ class DateVariableNode(Node):
         date_str = self.params.get("date", "2024-01-01")
         self.output = date_str
         logger.info(f"Date Variable Node evaluated to: {date_str}")
+
+@register_node('db_export_postgis')
+class ExportPostGISNode(Node):
+    def execute(self):
+        import geopandas as gpd
+        import sqlalchemy
+        import json
+        import os
+        from magpi.management import _resolve_features
+        
+        in_features = self.inputs.get('in_dataset')
+        if not in_features:
+            raise ValueError("PostGIS Exporter requires an input dataset.")
+            
+        p = self.params
+        conn_name = p.get('connection_name')
+        table_name = p.get('table_name', 'new_table')
+        if_exists = p.get('if_exists', 'replace')
+        
+        # Load registry to find connection string
+        registry_path = os.path.join(os.getcwd(), 'magpi_workspace', 'db_connections.json')
+        conn_string = None
+        if os.path.exists(registry_path):
+            with open(registry_path, 'r') as f:
+                data = json.load(f)
+                for conn in data.get("connections", []):
+                    if conn.get("name") == conn_name:
+                        conn_string = conn.get("connection_string")
+                        break
+                        
+        if not conn_string:
+            raise ValueError(f"PostGIS Connection '{conn_name}' not found in registry.")
+            
+        logger.info(f"Exporting data to PostGIS: {conn_name} -> table: {table_name}")
+        
+        gdf = _resolve_features(in_features)
+        engine = sqlalchemy.create_engine(conn_string)
+        
+        gdf.to_postgis(table_name, engine, if_exists=if_exists)
+        logger.info("Successfully pushed to PostGIS.")
+        
+        self.output = f"postgis://{conn_name}/{table_name}"

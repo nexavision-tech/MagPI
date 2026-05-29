@@ -127,6 +127,8 @@ def LaunchCanvas(port=8080):
                 self.handle_gis_servers()
             elif parsed_path.path == '/api/databases':
                 self.handle_databases()
+            elif parsed_path.path == '/api/db_connections':
+                self.handle_db_connections_get()
             else:
                 super().do_GET()
 
@@ -286,6 +288,19 @@ def LaunchCanvas(port=8080):
                     self.handle_query(payload)
                 except Exception as e:
                     logger.error(f"Query API failed: {e}")
+                    self.send_response(500)
+                    self.send_header('Content-type', 'application/json')
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"error": str(e)}).encode('utf-8'))
+                    
+            elif parsed_path.path == '/api/db_connections':
+                content_length = int(self.headers['Content-Length'])
+                post_data = self.rfile.read(content_length)
+                try:
+                    payload = json.loads(post_data.decode('utf-8'))
+                    self.handle_db_connections_post(payload)
+                except Exception as e:
+                    logger.error(f"DB Connections POST API failed: {e}")
                     self.send_response(500)
                     self.send_header('Content-type', 'application/json')
                     self.end_headers()
@@ -576,11 +591,62 @@ def LaunchCanvas(port=8080):
                 self.end_headers()
                 self.wfile.write(json.dumps({"error": str(e)}).encode('utf-8'))
 
+        def handle_db_connections_get(self):
+            try:
+                registry_path = os.path.join(os.getcwd(), 'magpi_workspace', 'db_connections.json')
+                if os.path.exists(registry_path):
+                    with open(registry_path, 'r') as f:
+                        data = json.load(f)
+                else:
+                    data = {"connections": []}
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"status": "success", "connections": data.get("connections", [])}).encode('utf-8'))
+            except Exception as e:
+                logger.error(f"DB Connections GET API failed: {e}")
+                self.send_response(500)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": str(e)}).encode('utf-8'))
+                
+        def handle_db_connections_post(self, payload):
+            try:
+                registry_path = os.path.join(os.getcwd(), 'magpi_workspace', 'db_connections.json')
+                if os.path.exists(registry_path):
+                    with open(registry_path, 'r') as f:
+                        data = json.load(f)
+                else:
+                    data = {"connections": []}
+                
+                # Verify payload has required fields
+                if "name" not in payload or "connection_string" not in payload:
+                    raise ValueError("Connection must have a name and connection_string.")
+                    
+                # Add to registry
+                data["connections"].append(payload)
+                
+                with open(registry_path, 'w') as f:
+                    json.dump(data, f, indent=2)
+                    
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"status": "success", "connections": data["connections"]}).encode('utf-8'))
+            except Exception as e:
+                logger.error(f"DB Connections POST API failed: {e}")
+                self.send_response(500)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": str(e)}).encode('utf-8'))
+
         def handle_databases(self):
             try:
                 import fiona
                 output_dir = os.environ.get('MAGPI_OUTPUT', os.path.join(os.getcwd(), 'magpi_output'))
                 databases = []
+                
+                # 1. Local Files
                 if os.path.exists(output_dir):
                     for f in os.listdir(output_dir):
                         path = os.path.join(output_dir, f)
@@ -595,6 +661,31 @@ def LaunchCanvas(port=8080):
                                 })
                             except Exception as e:
                                 logger.warning(f"Failed to list layers for {f}: {e}")
+                                
+                # 2. Remote PostGIS Connections
+                registry_path = os.path.join(os.getcwd(), 'magpi_workspace', 'db_connections.json')
+                if os.path.exists(registry_path):
+                    try:
+                        with open(registry_path, 'r') as f:
+                            remote_conns = json.load(f).get("connections", [])
+                        import sqlalchemy
+                        for conn in remote_conns:
+                            db_entry = {
+                                "name": conn["name"],
+                                "path": conn["connection_string"],
+                                "type": "postgis",
+                                "layers": []
+                            }
+                            try:
+                                engine = sqlalchemy.create_engine(conn["connection_string"])
+                                inspector = sqlalchemy.inspect(engine)
+                                db_entry["layers"] = inspector.get_table_names()
+                            except Exception as inner_e:
+                                logger.warning(f"Failed to introspect PostGIS {conn['name']}: {inner_e}")
+                                db_entry["error"] = str(inner_e)
+                            databases.append(db_entry)
+                    except Exception as e:
+                        logger.warning(f"Failed to load remote DB connections: {e}")
                 
                 self.send_response(200)
                 self.send_header('Content-type', 'application/json')
@@ -618,13 +709,21 @@ def LaunchCanvas(port=8080):
                 
                 if not db_path or not query:
                     raise ValueError("Both db_path and query must be provided.")
-                if not os.path.exists(db_path):
-                    raise FileNotFoundError("Database not found.")
                 
-                if db_path.endswith('.sqlite') or db_path.endswith('.db') or db_path.endswith('.gpkg'):
+                if db_path.startswith('postgresql://'):
+                    import sqlalchemy
+                    engine = sqlalchemy.create_engine(db_path)
+                    df = pd.read_sql_query(query, engine)
+                elif not os.path.exists(db_path):
+                    raise FileNotFoundError("Database not found.")
+                elif db_path.endswith('.sqlite') or db_path.endswith('.db') or db_path.endswith('.gpkg'):
                     conn = sqlite3.connect(db_path)
                     df = pd.read_sql_query(query, conn)
                     conn.close()
+                elif db_path.endswith('.gdb'):
+                    raise NotImplementedError("Direct SQL querying of .gdb is not supported yet. Use GeoPandas in Python.")
+                else:
+                    raise ValueError("Unsupported database type for direct SQL querying.")
                     
                     # Truncate large strings or geometries for display
                     for col in df.columns:

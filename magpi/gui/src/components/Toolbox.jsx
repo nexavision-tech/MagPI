@@ -277,6 +277,11 @@ const TOOLBOX_CATEGORIES = [
         description: "Calculates multi-band statistics and builds internal overviews (pyramids) for massive speed boosts when rendering in desktop software.",
         params: { build_pyramids: true, calculate_stats: true }
       },
+      {
+        id: 'db_export_postgis', name: "PostGIS Exporter", type: 'endpoint', icon: <Database size={14} />, color: 'bg-indigo-600', border: 'border-indigo-500',
+        description: "Pushes the incoming vector dataset directly into a remote PostGIS database table.",
+        params: { connection_name: "", table_name: "new_table", if_exists: { value: "replace", type: "select", options: ["fail", "replace", "append"] } }
+      },
     ]
   },
   {
