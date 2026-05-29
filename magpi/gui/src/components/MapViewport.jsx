@@ -110,7 +110,18 @@ const MapViewport = React.memo(({ onAoiDrawn, selectedNode, activeWorkspace, nod
 
         map.addControl(new maplibregl.NavigationControl({ showCompass: true }), 'top-right');
 
-        // Setup Draw Control
+        // MONKEY-PATCH MapLibre's addLayer to fix MapboxDraw's line-dasharray bug
+        const originalAddLayer = map.addLayer.bind(map);
+        map.addLayer = (layer, beforeId) => {
+            if (layer.paint && layer.paint['line-dasharray'] && Array.isArray(layer.paint['line-dasharray'])) {
+                if (typeof layer.paint['line-dasharray'][0] === 'number') {
+                    layer.paint['line-dasharray'] = ['literal', layer.paint['line-dasharray']];
+                }
+            }
+            return originalAddLayer(layer, beforeId);
+        };
+
+        // Setup Draw Control (Default styles now work because of the monkey-patch above)
         const draw = new MapboxDraw({
             displayControlsDefault: false,
             controls: {
