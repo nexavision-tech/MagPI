@@ -269,13 +269,6 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                 </div>
                 <div className="flex items-center space-x-2">
                     <button 
-                        onClick={() => setShowLayers(!showLayers)}
-                        className={`px-2 py-1 rounded transition-colors flex items-center border ${showLayers ? 'bg-indigo-900/50 border-indigo-500/50 text-indigo-300' : 'bg-slate-900/50 border-slate-700 text-slate-400 hover:text-slate-200'}`}
-                        title="Layer Management"
-                    >
-                        <Layers size={14} className="mr-1" /> LAYERS
-                    </button>
-                    <button 
                         onClick={activateDrawTool}
                         className="text-cyan-400 hover:text-cyan-200 bg-cyan-900/30 hover:bg-cyan-800/50 px-2 py-1 rounded transition-colors flex items-center border border-cyan-900/50"
                         title="Draw AOI Rectangle"
