@@ -493,21 +493,32 @@ export default function Toolbox({
 
   const fetchMetadata = async (filePath, nodeId) => {
     setLoadingMeta(true);
+    // Mark as fetching immediately to prevent duplicate calls
+    setMetadata(prev => ({ ...prev, [nodeId]: { ...(prev[nodeId] || {}), fetching: true } }));
     try {
       const response = await fetch(`http://localhost:8080/api/describe?file=${encodeURIComponent(filePath)}`);
       const data = await response.json();
 
       if (response.ok) {
-        setMetadata(prev => ({ ...prev, [nodeId]: { data, error: null } }));
+        setMetadata(prev => ({ ...prev, [nodeId]: { data, error: null, fetching: false } }));
       } else {
-        setMetadata(prev => ({ ...prev, [nodeId]: { data: null, error: data.error } }));
+        setMetadata(prev => ({ ...prev, [nodeId]: { data: null, error: data.error, fetching: false } }));
       }
     } catch (err) {
-      setMetadata(prev => ({ ...prev, [nodeId]: { data: null, error: "Daemon offline or unreachable." } }));
+      setMetadata(prev => ({ ...prev, [nodeId]: { data: null, error: "Daemon offline or unreachable.", fetching: false } }));
     } finally {
       setLoadingMeta(false);
     }
   };
+
+  // Auto-describe feature: When a dataset is dropped/inspected, automatically fetch its metadata
+  React.useEffect(() => {
+    if (activeRightTab === 'inspector' && selectedNode && selectedNode.params && selectedNode.params.file_path) {
+      if (!metadata[selectedNode.id] || metadata[selectedNode.id].error === "Daemon offline or unreachable.") {
+        fetchMetadata(selectedNode.params.file_path, selectedNode.id);
+      }
+    }
+  }, [activeRightTab, selectedNode?.id, selectedNode?.params?.file_path]);
 
   const fetchStacCatalog = async (nodeId, bbox, max_cloud_cover, date_range) => {
     setStacLoading(true);
