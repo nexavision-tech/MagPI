@@ -105,6 +105,22 @@ export const generateAirflowDAG = (nodes, connections, crs, globalEnv) => {
         else if (n.toolId === 'mgt_clip') {
             funcCall = `        out_path = os.path.join(OUTPUT_DIR, "aoi_clip_${n.id.split('_')[1]}.tif")\n        result = arcpy.management.Clip(${primaryInVar}, ${incomingCxs.length > 1 ? varMap[incomingCxs[1].from] : 'extent'}, out_path)\n        return result.path`;
         }
+        else if (n.toolId === 'community_structural_damage_volume') {
+            let preDsmVar = 'None', postDsmVar = 'None', preOptVar = 'None', footVar = 'None';
+            incomingCxs.forEach(c => {
+                if (c.targetHandle === 'pre_dsm') preDsmVar = `kwargs.get('${varMap[c.from]}')`;
+                else if (c.targetHandle === 'post_dsm') postDsmVar = `kwargs.get('${varMap[c.from]}')`;
+                else if (c.targetHandle === 'pre_optical') preOptVar = `kwargs.get('${varMap[c.from]}')`;
+                else if (c.targetHandle === 'footprints') footVar = `kwargs.get('${varMap[c.from]}')`;
+            });
+            
+            funcCall = `        import sys\n        sys.path.append(os.path.join(WORKSPACE_DIR, "community_nodes"))\n        import bda_volume\n        from magpi.engine.nodes.registry import NODE_REGISTRY\n\n`;
+            funcCall += `        damage_node = NODE_REGISTRY["community_structural_damage_volume"]()\n`;
+            funcCall += `        damage_node.inputs = {"in_pre": ${preDsmVar}, "in_pre_optical": ${preOptVar}, "in_post": ${postDsmVar}, "in_vector": ${footVar}}\n`;
+            funcCall += `        damage_node.params = {"collapse_threshold_meters": ${p.collapse_threshold_m || -2.5}, "solar_elevation_deg": ${p.solar_elevation_deg || 45.0}}\n`;
+            funcCall += `        damage_node.execute()\n`;
+            funcCall += `        return damage_node.output.get("classified_vector")`;
+        }
         else {
             const genericFunc = toolToFunc[n.toolId] || `arcpy.${n.toolId}`;
             funcCall = `        print("Executing ${n.name}")\n        return ${genericFunc}(${primaryInVar})\n`;
