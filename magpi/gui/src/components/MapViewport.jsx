@@ -278,9 +278,9 @@ const MapViewport = React.memo(({ onAoiDrawn, selectedNode, activeWorkspace, nod
                     
                     if (isSelected && !layer.isRaster && activeWorkspace !== 'globe') {
                         try {
-                            mapInstance.current.flyToBounds(bounds, { duration: 0.8, padding: [30, 30] });
+                            mapInstance.current.fitBounds(bounds, { animate: false, padding: [30, 30] });
                         } catch (e) {
-                            console.warn("Could not fly to bounds:", e);
+                            console.warn("Could not fit bounds:", e);
                         }
                     }
                 }
@@ -473,7 +473,8 @@ const MapViewport = React.memo(({ onAoiDrawn, selectedNode, activeWorkspace, nod
                                         ]),
                                         material: Color.CYAN.withAlpha(0.2),
                                         outline: true,
-                                        outlineColor: Color.CYAN
+                                        outlineColor: Color.CYAN,
+                                        height: 0
                                     }}
                                 />
                             )}
@@ -486,6 +487,7 @@ const MapViewport = React.memo(({ onAoiDrawn, selectedNode, activeWorkspace, nod
                                     fill={Color.fromCssColorString(layer.vectorColor || '#22d3ee').withAlpha(0.3)}
                                     markerColor={Color.fromCssColorString(layer.vectorColor || '#22d3ee')}
                                     markerSize={5}
+                                    clampToGround={false}
                                 />
                             ))}
                         </Viewer>
