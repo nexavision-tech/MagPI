@@ -334,7 +334,6 @@ def LaunchCanvas(port=8080):
                     
                     self.send_response(200)
                     self.send_header('Content-type', 'application/json')
-                    self.send_header('Access-Control-Allow-Origin', '*')
                     self.end_headers()
                     self.wfile.write(json.dumps({
                         "bands": bands,
@@ -353,7 +352,6 @@ def LaunchCanvas(port=8080):
                     f.write(traceback.format_exc())
                 self.send_response(500)
                 self.send_header('Content-type', 'application/json')
-                self.send_header('Access-Control-Allow-Origin', '*')
                 self.end_headers()
                 self.wfile.write(json.dumps({"error": str(e)}).encode('utf-8'))
 

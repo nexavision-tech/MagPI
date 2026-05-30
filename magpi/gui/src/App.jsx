@@ -280,8 +280,9 @@ export default function App() {
   };
 
   const addNode = useCallback((tool, dropX = null, dropY = null) => {
+    const newNodeId = `node_${Date.now()}`;
     const newNode = { 
-      id: `node_${Date.now()}`, toolId: tool.id, name: tool.name, icon: tool.id, 
+      id: newNodeId, toolId: tool.id, name: tool.name, icon: tool.id, 
       x: dropX !== null ? dropX : 300 + Math.random() * 50, y: dropY !== null ? dropY : 200 + Math.random() * 50, 
       color: tool.color, border: tool.border, params: { export_to_map: false, ...tool.params },
       inputs: tool.inputs ? [...tool.inputs] : undefined,
@@ -291,6 +292,7 @@ export default function App() {
     setNodes(prev => [...prev, newNode]);
     setSelectedNodeId(newNode.id);
     setActiveRightTab('inspector');
+    return newNodeId;
   }, []);
 
   const updateNodeParam = (nodeId, paramKey, value) => {

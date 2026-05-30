@@ -1,4 +1,5 @@
 import React, { useCallback, useRef } from 'react';
+import { TOOLBOX_CATEGORIES } from './Toolbox';
 import { 
   ReactFlow,
   Background, 
@@ -184,12 +185,12 @@ const MagPINode = ({ data, id }) => {
       <div className="p-3 relative bg-gradient-to-b from-[#3a3a3a] to-[#2b2b2b] min-h-[30px] rounded-b-lg flex flex-col justify-between">
             <div className="flex justify-between w-full h-full min-h-[30px]">
                 {/* DYNAMIC INPUTS */}
-                <div className="flex flex-col justify-around h-full space-y-2">
+                <div className="flex flex-col justify-around h-full gap-2">
                     {inputs.map((inp, idx) => {
                         const isHidden = collapsed && idx >= 2 && showCollapseToggle;
                         const color = getPortColor(inp.type, inp.label) !== '#a3a3a3' ? getPortColor(inp.type, inp.label) : getInHandleColor(inp.label);
                         return (
-                            <div key={inp.id} className={`relative flex items-center transition-all duration-300 ${isHidden ? 'h-0 overflow-hidden opacity-0 mb-0' : 'h-4'}`}>
+                            <div key={inp.id} className={`relative flex items-center transition-all duration-300 ${isHidden ? 'hidden' : 'h-4'}`}>
                                 <Handle type="target" position={Position.Left} id={inp.id} isConnectableStart={false} style={{ backgroundColor: color, top: '50%' }} className="w-3.5 h-3.5 rounded-full border-[2.5px] border-[#1a1a1a] cursor-crosshair hover:bg-white transition-all z-50 !-left-4" />
                                 <span style={{ color: color }} className="text-[9px] font-mono font-bold tracking-widest pointer-events-none drop-shadow-sm ml-1">{inp.label || inp.id.toUpperCase()}</span>
                             </div>
@@ -197,12 +198,12 @@ const MagPINode = ({ data, id }) => {
                     })}
                 </div>
                 {/* DYNAMIC OUTPUTS */}
-                <div className="flex flex-col justify-around h-full items-end space-y-2">
+                <div className="flex flex-col justify-around h-full items-end gap-2">
                     {outputs.map((out, idx) => {
                         const isHidden = collapsed && idx >= 2 && showCollapseToggle;
                         const color = getPortColor(out.type, out.label) !== '#a3a3a3' ? getPortColor(out.type, out.label) : getOutHandleColor(toolId);
                         return (
-                            <div key={out.id} className={`relative flex items-center justify-end transition-all duration-300 ${isHidden ? 'h-0 overflow-hidden opacity-0 mb-0' : 'h-4'}`}>
+                            <div key={out.id} className={`relative flex items-center justify-end transition-all duration-300 ${isHidden ? 'hidden' : 'h-4'}`}>
                                 <span style={{ color: color }} className="text-[9px] font-mono font-bold tracking-widest pointer-events-none drop-shadow-sm mr-1">{out.label || out.id.toUpperCase()}</span>
                                 <Handle type="source" position={Position.Right} id={out.id} style={{ backgroundColor: color, top: '50%' }} className="w-3.5 h-3.5 rounded-full border-[2.5px] border-[#1a1a1a] cursor-crosshair hover:bg-white transition-all z-50 !-right-4" />
                                 
@@ -264,6 +265,36 @@ export default function NodeCanvas({
 
   const [rfNodes, setRfNodes, onNodesChange] = useNodesState([]);
   const [rfEdges, setRfEdges, onEdgesChange] = useEdgesState([]);
+  
+  const connectingNodeId = React.useRef(null);
+  const connectingHandleId = React.useRef(null);
+  const connectingHandleType = React.useRef(null);
+  const [menuData, setMenuData] = React.useState(null);
+
+  const onConnectStart = React.useCallback((_, { nodeId, handleId, handleType }) => {
+    connectingNodeId.current = nodeId;
+    connectingHandleId.current = handleId;
+    connectingHandleType.current = handleType;
+  }, []);
+
+  const onConnectEnd = React.useCallback((event) => {
+    const targetIsPane = event.target.classList.contains('react-flow__pane');
+    if (targetIsPane && connectingNodeId.current && connectingHandleId.current) {
+        const bounds = reactFlowWrapper.current.getBoundingClientRect();
+        const position = screenToFlowPosition({ x: event.clientX, y: event.clientY });
+        setMenuData({
+            x: event.clientX - bounds.left,
+            y: event.clientY - bounds.top,
+            flowPos: position,
+            sourceNode: connectingNodeId.current,
+            sourceHandle: connectingHandleId.current,
+            sourceType: connectingHandleType.current
+        });
+    }
+    connectingNodeId.current = null;
+    connectingHandleId.current = null;
+    connectingHandleType.current = null;
+  }, [screenToFlowPosition]);
 
   // Sync MagPI nodes -> rfNodes (preserves dragging state)
   React.useEffect(() => {
@@ -453,6 +484,8 @@ export default function NodeCanvas({
         onNodeDragStop={onNodeDragStop}
         onNodesDelete={onNodesDelete}
         onConnect={onConnect}
+        onConnectStart={onConnectStart}
+        onConnectEnd={onConnectEnd}
         onDrop={onDrop}
         onDragOver={onDragOver}
         onEdgesDelete={onEdgesDelete}
@@ -476,6 +509,52 @@ export default function NodeCanvas({
         <Controls showInteractive={false} className="react-flow__controls" />
         <MiniMap nodeColor={() => '#334155'} maskColor="rgba(15, 23, 42, 0.75)" className="bg-slate-900 border border-slate-700/80 rounded-lg overflow-hidden shadow-2xl mb-2 mr-2" />
       </ReactFlow>
+
+      {/* DEAD DROP CONTEXT MENU */}
+      {menuData && (
+        <div 
+            className="absolute z-50 bg-[#1e293b] border border-[#334155] rounded shadow-2xl p-2 w-48 text-sm"
+            style={{ top: menuData.y, left: menuData.x }}
+        >
+            <div className="flex justify-between items-center mb-2 pb-1 border-b border-[#334155]">
+                <span className="text-xs font-bold text-slate-400">Spawn Node</span>
+                <button onClick={() => setMenuData(null)} className="text-slate-500 hover:text-white"><XCircle size={12} /></button>
+            </div>
+            <div className="max-h-[200px] overflow-y-auto space-y-1 scrollbar-hide">
+                {TOOLBOX_CATEGORIES.flatMap(cat => cat.tools).filter(t => t.type !== 'input' || t.id === 'logic_constant').map(tool => (
+                    <div 
+                        key={tool.id} 
+                        className="flex items-center space-x-2 p-1.5 hover:bg-[#334155] rounded cursor-pointer text-slate-200 transition-colors"
+                        onClick={() => {
+                            const newNodeId = addNode(tool, menuData.flowPos.x, menuData.flowPos.y);
+                            if (menuData.sourceType === 'source') {
+                                setConnections(prev => [...prev, {
+                                    id: `edge_${Date.now()}`,
+                                    source: menuData.sourceNode, 
+                                    sourceHandle: menuData.sourceHandle, 
+                                    target: newNodeId, 
+                                    targetHandle: tool.inputs ? tool.inputs[0].id : 'in' 
+                                }]);
+                            } else {
+                                setConnections(prev => [...prev, {
+                                    id: `edge_${Date.now()}`,
+                                    source: newNodeId, 
+                                    sourceHandle: tool.outputs ? tool.outputs[0].id : 'out', 
+                                    target: menuData.sourceNode, 
+                                    targetHandle: menuData.sourceHandle
+                                }]);
+                            }
+                            setMenuData(null);
+                        }}
+                    >
+                        <span className="text-[#3b82f6]">{tool.icon}</span>
+                        <span className="text-[10px] uppercase font-mono">{tool.name}</span>
+                    </div>
+                ))}
+            </div>
+        </div>
+      )}
+
     </div>
   );
 }
