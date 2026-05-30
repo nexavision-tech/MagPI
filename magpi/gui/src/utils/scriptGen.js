@@ -143,11 +143,31 @@ export const generatePythonScript = (nodes, connections, crs, processingScope, g
         }
         else if (n.toolId === 'load_raster') {
             const inPathCx = incomingCxs.find(c => c.targetHandle === 'path_in');
+            const inCrsCx = incomingCxs.find(c => c.targetHandle === 'set_crs');
             const inPathVar = inPathCx ? resolveSourceVar(inPathCx) : `"${p.file_path}"`;
             funcCall = `${outVar} = arcpy.Raster(${inPathVar})`;
+            
+            if (inCrsCx) {
+                const inCrsVar = resolveSourceVar(inCrsCx);
+                const outName = `"reproj_raster_${n.id.split('_')[1]}.tif"`;
+                funcCall += `\narcpy.AddMessage(f"Dynamically reprojecting {${inPathVar}} to match {${inCrsVar}}")`;
+                funcCall += `\narcpy.management.ProjectRaster(${outVar}, os.path.join(arcpy.env.scratchWorkspace, ${outName}), ${inCrsVar})`;
+                funcCall += `\n${outVar} = arcpy.Raster(os.path.join(arcpy.env.scratchWorkspace, ${outName}))`;
+            }
         }
         else if (n.toolId === 'load_vector') {
-            funcCall = `${outVar} = "${p.file_path}"`;
+            const inPathCx = incomingCxs.find(c => c.targetHandle === 'path_in');
+            const inCrsCx = incomingCxs.find(c => c.targetHandle === 'set_crs');
+            const inPathVar = inPathCx ? resolveSourceVar(inPathCx) : `"${p.file_path}"`;
+            funcCall = `${outVar} = ${inPathVar}`;
+            
+            if (inCrsCx) {
+                const inCrsVar = resolveSourceVar(inCrsCx);
+                const outName = `"reproj_vector_${n.id.split('_')[1]}.shp"`;
+                funcCall += `\narcpy.AddMessage(f"Dynamically reprojecting {${inPathVar}} to match {${inCrsVar}}")`;
+                funcCall += `\narcpy.management.Project(${outVar}, os.path.join(arcpy.env.scratchWorkspace, ${outName}), ${inCrsVar})`;
+                funcCall += `\n${outVar} = os.path.join(arcpy.env.scratchWorkspace, ${outName})`;
+            }
         }
         else if (n.toolId === 'wfs_sentinel2') {
             let extraArgs = "";

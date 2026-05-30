@@ -92,7 +92,8 @@ class LoadRasterNode(Node):
             raise FileNotFoundError(f"Input Raster not found: {resolved_path}")
             
         # Check for dynamic override of CRS
-        override_crs = self.inputs.get('set_crs', [None])[0]
+        override_crs = self.inputs.get('set_crs')
+        if isinstance(override_crs, list) and override_crs: override_crs = override_crs[0]
         if override_crs:
             logger.info(f"Input Raster: Dynamic CRS override triggered -> {override_crs}")
             import rasterio
@@ -126,7 +127,21 @@ class LoadRasterNode(Node):
                                 resampling=Resampling.nearest)
                     resolved_path = warped_path
             
-        self.output = resolved_path
+        import rasterio
+        try:
+            with rasterio.open(resolved_path) as src:
+                crs_str = str(src.crs)
+                bounds = list(src.bounds)
+        except:
+            crs_str = None
+            bounds = None
+            
+        self.output = {
+            'raster': resolved_path,
+            'path_out': resolved_path,
+            'crs': crs_str,
+            'extent': bounds
+        }
 
 @register_node('load_vector')
 class LoadVectorNode(Node):
@@ -147,7 +162,8 @@ class LoadVectorNode(Node):
             raise FileNotFoundError(f"Input Vector not found: {resolved_path}")
             
         # Check for dynamic override of CRS
-        override_crs = self.inputs.get('set_crs', [None])[0]
+        override_crs = self.inputs.get('set_crs')
+        if isinstance(override_crs, list) and override_crs: override_crs = override_crs[0]
         if override_crs:
             logger.info(f"Input Vector: Dynamic CRS override triggered -> {override_crs}")
             import geopandas as gpd
@@ -167,10 +183,23 @@ class LoadVectorNode(Node):
                 resolved_path = reproj_path
             
         layer_name = p.get('layer_name')
-        if layer_name:
-            self.output = (resolved_path, layer_name)
-        else:
-            self.output = resolved_path
+        
+        # Get metadata to pass forward
+        import geopandas as gpd
+        try:
+            gdf = gpd.read_file(resolved_path)
+            crs_str = str(gdf.crs) if gdf.crs else None
+            bounds = gdf.total_bounds.tolist() if gdf.crs else None
+        except:
+            crs_str = None
+            bounds = None
+            
+        self.output = {
+            'vector': (resolved_path, layer_name) if layer_name else resolved_path,
+            'path_out': resolved_path,
+            'crs': crs_str,
+            'extent': bounds
+        }
 
 @register_node('core_date_variable')
 class DateVariableNode(Node):
