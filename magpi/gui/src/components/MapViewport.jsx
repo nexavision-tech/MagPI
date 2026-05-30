@@ -251,6 +251,7 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                                 }
                             }).catch(() => { setLoadedData(prev => ({ ...prev, [layer.id]: { isFetching: false } })); });
                     }
+                }
             });
             
             if (!computedLayers.find(l => l.isBase)?.visible && map.hasLayer(osmLayerRef.current)) {
