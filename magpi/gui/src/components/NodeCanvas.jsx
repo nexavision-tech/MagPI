@@ -198,7 +198,7 @@ const MagPINode = ({ data, id }) => {
     }
   }
   
-  const showCollapseToggle = inputs.length > 4 || outputs.length > 4;
+  const showCollapseToggle = !isPrimitive && (inputs.length > 0 || outputs.length > 0);
 
   return (
     <div className={`flex flex-col min-w-[170px] max-w-[250px] transition-all duration-200 bg-[#2b2b2b] rounded-lg shadow-[0_4px_15px_rgba(0,0,0,0.5)] border ${data.selected ? 'border-[#ff8c00] shadow-[0_0_15px_rgba(255,140,0,0.3)]' : 'border-[#1a1a1a]'}`}>
@@ -206,6 +206,15 @@ const MagPINode = ({ data, id }) => {
       {/* HEADER ROW */}
       <div className={`px-3 py-1.5 flex items-center justify-between ${data.color || 'bg-slate-700'} border-b border-[#1a1a1a] rounded-t-lg`}>
         <div className="flex items-center space-x-2">
+            {showCollapseToggle && (
+                <div 
+                    onClick={() => setCollapsed(!collapsed)}
+                    className="text-slate-300 hover:text-white cursor-pointer transition-transform duration-200 flex items-center justify-center w-3 h-3"
+                    style={{ transform: collapsed ? 'rotate(0deg)' : 'rotate(90deg)' }}
+                >
+                    <span className="text-[10px] font-bold">►</span>
+                </div>
+            )}
             <div className="text-white drop-shadow-md">{getIconElement(data.toolId)}</div>
             <div>
                 <div className="text-[10px] font-bold text-white tracking-wider drop-shadow-md">{data.name}</div>
@@ -224,7 +233,8 @@ const MagPINode = ({ data, id }) => {
                 {/* DYNAMIC INPUTS */}
                 <div className="flex flex-col justify-around h-full gap-2">
                     {inputs.map((inp, idx) => {
-                        const isHidden = collapsed && idx >= 2 && showCollapseToggle;
+                        const isConnected = edges.some(e => e.target === id && e.targetHandle === inp.id);
+                        const isHidden = collapsed && !isConnected;
                         const color = getPortColor(inp.type, inp.label) !== '#a3a3a3' ? getPortColor(inp.type, inp.label) : getInHandleColor(inp.label);
                         return (
                             <div key={inp.id} className={`relative flex items-center transition-all duration-300 ${isHidden ? 'hidden' : 'h-4'}`}>
@@ -237,7 +247,8 @@ const MagPINode = ({ data, id }) => {
                 {/* DYNAMIC OUTPUTS */}
                 <div className="flex flex-col justify-around h-full items-end gap-2">
                     {outputs.map((out, idx) => {
-                        const isHidden = collapsed && idx >= 2 && showCollapseToggle;
+                        const isConnected = edges.some(e => e.source === id && e.sourceHandle === out.id);
+                        const isHidden = collapsed && !isConnected;
                         const color = getPortColor(out.type, out.label) !== '#a3a3a3' ? getPortColor(out.type, out.label) : getOutHandleColor(toolId);
                         let displayValue = out.value;
                         const setterHandle = `set_${out.id}`;
@@ -279,15 +290,6 @@ const MagPINode = ({ data, id }) => {
                     })}
                 </div>
             </div>
-            
-            {showCollapseToggle && (
-                <div 
-                    onClick={() => setCollapsed(!collapsed)} 
-                    className="w-full text-center mt-2 pt-1 border-t border-[#444] cursor-pointer hover:bg-[#444] transition-colors rounded-b-sm"
-                >
-                    <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{collapsed ? '▼ Show More' : '▲ Show Less'}</span>
-                </div>
-            )}
             
             {isPrimitive && primitiveValue !== undefined && (
                 <div className="w-full mt-2 pt-2 border-t border-[#444] flex flex-col items-center justify-center gap-1">
