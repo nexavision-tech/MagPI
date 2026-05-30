@@ -359,9 +359,8 @@ const MagPINode = ({ data, id }) => {
               <div onClick={() => setAttributesExpanded(!attributesExpanded)} className="w-full text-center py-1.5 cursor-pointer hover:bg-[#444] transition-colors pointer-events-auto">
                   <span className="text-[9px] font-bold tracking-widest text-slate-300">{attributesExpanded ? '▼' : '►'} ATTRIBUTES ({attrOutputs.length})</span>
               </div>
-              <div className={`flex justify-between w-full transition-all duration-300 ${attributesExpanded ? 'max-h-[300px] overflow-y-auto pl-1 custom-scrollbar pb-2 px-3' : 'h-0 overflow-hidden px-3'}`} style={attributesExpanded ? { direction: 'rtl' } : {}}>
-                  <div className="flex flex-col gap-2 w-1/2" style={attributesExpanded ? { direction: 'ltr' } : {}}></div>
-                  <div className="flex flex-col items-end gap-2 w-1/2" style={attributesExpanded ? { direction: 'ltr' } : {}}>
+              <div className={`flex justify-between w-full transition-all duration-300 ${attributesExpanded ? 'pb-2 px-3' : 'h-0 overflow-hidden px-3'}`}>
+                  <div className="flex flex-col gap-2 w-full">
                       {attrOutputs.map(out => renderOutput(out, attributesExpanded))}
                   </div>
               </div>
@@ -374,9 +373,8 @@ const MagPINode = ({ data, id }) => {
               <div onClick={() => setBandsExpanded(!bandsExpanded)} className="w-full text-center py-1.5 cursor-pointer hover:bg-[#444] transition-colors pointer-events-auto">
                   <span className="text-[9px] font-bold tracking-widest text-slate-300">{bandsExpanded ? '▼' : '►'} BANDS ({bandOutputs.length})</span>
               </div>
-              <div className={`flex justify-between w-full transition-all duration-300 ${bandsExpanded ? 'max-h-[300px] overflow-y-auto pl-1 custom-scrollbar pb-2 px-3' : 'h-0 overflow-hidden px-3'}`} style={bandsExpanded ? { direction: 'rtl' } : {}}>
-                  <div className="flex flex-col gap-2 w-1/2" style={bandsExpanded ? { direction: 'ltr' } : {}}></div>
-                  <div className="flex flex-col items-end gap-2 w-1/2" style={bandsExpanded ? { direction: 'ltr' } : {}}>
+              <div className={`flex justify-between w-full transition-all duration-300 ${bandsExpanded ? 'pb-2 px-3' : 'h-0 overflow-hidden px-3'}`}>
+                  <div className="flex flex-col gap-2 w-full">
                       {bandOutputs.map(out => renderOutput(out, bandsExpanded))}
                   </div>
               </div>
