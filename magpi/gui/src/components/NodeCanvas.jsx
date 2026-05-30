@@ -240,6 +240,9 @@ const MagPINode = ({ data, id }) => {
 
       return (
           <div key={out.id} className={`w-full relative flex items-center justify-end transition-all duration-300 ${isHidden ? 'hidden' : 'h-4'}`}>
+              {out.id.startsWith('attr_') && (
+                  <Handle type="target" position={Position.Left} id={`in_${out.id}`} isConnectableStart={false} style={{ backgroundColor: '#a3a3a3', top: '50%' }} className="w-3.5 h-3.5 rounded-full border-[2.5px] border-[#1a1a1a] cursor-crosshair hover:bg-white transition-all z-50 !-left-4" />
+              )}
               {toolId === 'core_date_variable' && (out.id === 'start' || out.id === 'end') ? (
                   <input 
                       type="date"
