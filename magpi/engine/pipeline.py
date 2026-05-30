@@ -124,6 +124,16 @@ class PipelineRunner:
                     output_val = node.output
                     if isinstance(output_val, dict) and src_handle and src_handle != 'out':
                         output_val = output_val.get(src_handle, output_val)
+                    elif src_handle and src_handle.startswith('attr_') and isinstance(output_val, str) and output_val.endswith(('.shp', '.gpkg', '.gdb', '.geojson')):
+                        import geopandas as gpd
+                        try:
+                            # Extract the specific column array
+                            col_name = src_handle.replace('attr_', '')
+                            gdf = gpd.read_file(output_val)
+                            if col_name in gdf.columns:
+                                output_val = gdf[col_name].tolist()
+                        except Exception as e:
+                            logger.error(f"Failed to dynamically extract attribute {src_handle} from {output_val}: {e}")
                     
                     # Map handle to input key. Default to 'in' if no explicit port.
                     input_key = tgt_handle or "in"

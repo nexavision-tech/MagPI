@@ -24,37 +24,65 @@ class ConstantNode(Node):
             logger.error(f"Failed to parse constant value '{val_str}' as {val_type}")
             raise
 
-@register_node('logic_math')
-class MathNode(Node):
+class BaseMathNode(Node):
+    def get_operator(self):
+        return "+"
+        
     def execute(self):
         p = self.params
         
-        # In a dual-input scenario (IN 1, IN 2), pipeline.py passes inputs differently based on how they were appended.
-        # But for logic_math, we probably just expect 'in' to be a list if multiple things connected,
-        # OR we rely on params if they are passed directly, OR we rely on specific handles 'A' and 'B'.
-        # Since we use 'A' and 'B' as handles in the UI (or topLbl/botLbl), let's extract them:
-        var_a = self.inputs.get("A", p.get("value_a", 0.0))
-        var_b = self.inputs.get("B", p.get("value_b", 0.0))
+        # In the UI, the inputs are labeled 'a' and 'b'.
+        var_a = self.inputs.get("a", p.get("value_a", 0.0))
+        var_b = self.inputs.get("b", p.get("value_b", 0.0))
         
-        op = p.get("operator", "+")
+        op = self.get_operator()
         
         try:
-            a = float(var_a)
-            b = float(var_b)
+            import numpy as np
             
-            if op == '+': self.output = a + b
-            elif op == '-': self.output = a - b
-            elif op == '*': self.output = a * b
+            # Convert to numpy arrays for vectorized math if they are lists
+            a = np.array(var_a, dtype=float) if isinstance(var_a, list) else float(var_a)
+            b = np.array(var_b, dtype=float) if isinstance(var_b, list) else float(var_b)
+            
+            if op == '+': self.output = (a + b).tolist() if isinstance(a, np.ndarray) or isinstance(b, np.ndarray) else a + b
+            elif op == '-': self.output = (a - b).tolist() if isinstance(a, np.ndarray) or isinstance(b, np.ndarray) else a - b
+            elif op == '*': self.output = (a * b).tolist() if isinstance(a, np.ndarray) or isinstance(b, np.ndarray) else a * b
             elif op == '/': 
-                if b == 0: raise ValueError("Division by zero")
-                self.output = a / b
+                # Handle division by zero safely for arrays
+                if isinstance(b, np.ndarray):
+                    with np.errstate(divide='ignore', invalid='ignore'):
+                        res = np.true_divide(a, b)
+                        res[~np.isfinite(res)] = 0  # Fill NaNs/Infs with 0
+                        self.output = res.tolist()
+                else:
+                    if b == 0: raise ValueError("Division by zero")
+                    self.output = a / b
             else:
                 raise ValueError(f"Unknown operator: {op}")
                 
-            logger.info(f"Math Result: {a} {op} {b} = {self.output}")
+            if isinstance(self.output, list):
+                logger.info(f"Math Result: Element-wise {op} computed on arrays of length {len(self.output)}")
+            else:
+                logger.info(f"Math Result: {a} {op} {b} = {self.output}")
         except Exception as e:
             logger.error(f"Math operation failed: {e}")
             raise
+
+@register_node('logic_math_add')
+class MathAddNode(BaseMathNode):
+    def get_operator(self): return "+"
+
+@register_node('logic_math_sub')
+class MathSubNode(BaseMathNode):
+    def get_operator(self): return "-"
+
+@register_node('logic_math_mul')
+class MathMulNode(BaseMathNode):
+    def get_operator(self): return "*"
+
+@register_node('logic_math_div')
+class MathDivNode(BaseMathNode):
+    def get_operator(self): return "/"
 
 @register_node('logic_extract_attr')
 class ExtractAttributeNode(Node):
