@@ -169,8 +169,9 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                     if (!map.hasLayer(osmLayerRef.current)) {
                         map.addLayer(osmLayerRef.current);
                     }
-                    osmLayerRef.current.setOpacity(layer.opacity / 100);
-                } else if (layer.extent) {
+                    osmLayerRef.current.setOpacity(layer.opacity / 100);                } 
+                
+                if (layer.extent) {
                     const { xmin, ymin, xmax, ymax } = layer.extent;
                     const y1 = parseFloat(ymin), x1 = parseFloat(xmin), y2 = parseFloat(ymax), x2 = parseFloat(xmax);
                     if (!isNaN(y1) && !isNaN(x1) && !isNaN(y2) && !isNaN(x2)) {
@@ -190,59 +191,66 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                         });
                         
                         highlightGroup.current.addLayer(rect);
-
-                        // Render Raster
-                        if (layer.isRaster && layer.filePath) {
-                            const cached = loadedData[layer.id];
-                            if (cached && cached.type === 'raster') {
-                                const imgLayer = L.imageOverlay(cached.image, cached.bounds, {
-                                    opacity: layer.opacity / 100,
-                                    interactive: true
-                                });
-                                imgLayer.bindPopup(`<div class="text-xs font-bold text-slate-800">${layer.name}</div>`);
-                                highlightGroup.current.addLayer(imgLayer);
-                            } else if (!cached || !cached.isFetching) {
-                                setLoadedData(prev => ({ ...prev, [layer.id]: { isFetching: true } }));
-                                fetch(`http://localhost:8080/api/raster?file=${encodeURIComponent(layer.filePath)}&cmap=${layer.cmap}`)
-                                    .then(r => r.ok ? r.json() : null)
-                                    .then(data => {
-                                        if (data && data.image) {
-                                            setLoadedData(prev => ({ ...prev, [layer.id]: { type: 'raster', image: data.image, bounds: data.bounds, isFetching: false } }));
-                                        }
-                                    }).catch(() => { setLoadedData(prev => ({ ...prev, [layer.id]: { isFetching: false } })); });
-                            }
-                        }
-                        // Render GeoJSON
-                        else if (layer.filePath && !layer.id.includes('extent')) {
-                            const cached = loadedData[layer.id];
-                            if (cached && cached.type === 'geojson') {
-                                const gjLayer = L.geoJSON(cached.data, {
-                                    style: { color: layer.vectorColor, weight: 1.5, fillOpacity: layer.opacity / 100 },
-                                    onEachFeature: (feature, featureLayer) => {
-                                        featureLayer.on('click', (e) => {
-                                            L.DomEvent.stopPropagation(e);
-                                            window.dispatchEvent(new CustomEvent('magpi-feature-selected', { detail: { feature: feature, layerName: layer.name } }));
-                                        });
-                                    }
-                                });
-                                highlightGroup.current.addLayer(gjLayer);
-                            } else if (!cached || !cached.isFetching) {
-                                setLoadedData(prev => ({ ...prev, [layer.id]: { isFetching: true } }));
-                                fetch(`http://localhost:8080/api/geojson?file=${encodeURIComponent(layer.filePath)}`)
-                                    .then(r => r.ok ? r.json() : null)
-                                    .then(data => {
-                                        if (data) {
-                                            setLoadedData(prev => ({ ...prev, [layer.id]: { type: 'geojson', data: data, isFetching: false } }));
-                                        }
-                                    }).catch(() => { setLoadedData(prev => ({ ...prev, [layer.id]: { isFetching: false } })); });
-                            }
-                        }
-
-                        if (isSelected && !layer.isRaster && activeWorkspace !== 'globe') {
+                        
+                        if (isSelected && activeWorkspace !== 'globe') {
                             try { mapInstance.current.fitBounds(bounds, { animate: false, padding: [30, 30] }); } catch (e) {}
                         }
                     }
                 }
+
+                // Render Raster
+                if (layer.isRaster && layer.filePath) {
+                    const cached = loadedData[layer.id];
+                    if (cached && cached.type === 'raster') {
+                        const imgLayer = L.imageOverlay(cached.image, cached.bounds, {
+                            opacity: layer.opacity / 100,
+                            interactive: true
+                        });
+                        imgLayer.bindPopup(`<div class="text-xs font-bold text-slate-800">${layer.name}</div>`);
+                        highlightGroup.current.addLayer(imgLayer);
+                        
+                        if (layer.selected && !layer.extent && activeWorkspace !== 'globe') {
+                            try { mapInstance.current.fitBounds(cached.bounds, { animate: false, padding: [30, 30] }); } catch (e) {}
+                        }
+                    } else if (!cached || !cached.isFetching) {
+                        setLoadedData(prev => ({ ...prev, [layer.id]: { isFetching: true } }));
+                        fetch(`http://localhost:8080/api/raster?file=${encodeURIComponent(layer.filePath)}&cmap=${layer.cmap}`)
+                            .then(r => r.ok ? r.json() : null)
+                            .then(data => {
+                                if (data && data.image) {
+                                    setLoadedData(prev => ({ ...prev, [layer.id]: { type: 'raster', image: data.image, bounds: data.bounds, isFetching: false } }));
+                                }
+                            }).catch(() => { setLoadedData(prev => ({ ...prev, [layer.id]: { isFetching: false } })); });
+                    }
+                }
+                // Render GeoJSON
+                else if (layer.filePath && !layer.id.includes('extent')) {
+                    const cached = loadedData[layer.id];
+                    if (cached && cached.type === 'geojson') {
+                        const gjLayer = L.geoJSON(cached.data, {
+                            style: { color: layer.vectorColor, weight: 1.5, fillOpacity: layer.opacity / 100 },
+                            onEachFeature: (feature, featureLayer) => {
+                                featureLayer.on('click', (e) => {
+                                    L.DomEvent.stopPropagation(e);
+                                    window.dispatchEvent(new CustomEvent('magpi-feature-selected', { detail: { feature: feature, layerName: layer.name } }));
+                                });
+                            }
+                        });
+                        highlightGroup.current.addLayer(gjLayer);
+                        
+                        if (layer.selected && !layer.extent && activeWorkspace !== 'globe') {
+                            try { mapInstance.current.fitBounds(gjLayer.getBounds(), { animate: false, padding: [30, 30] }); } catch (e) {}
+                        }
+                    } else if (!cached || !cached.isFetching) {
+                        setLoadedData(prev => ({ ...prev, [layer.id]: { isFetching: true } }));
+                        fetch(`http://localhost:8080/api/geojson?file=${encodeURIComponent(layer.filePath)}`)
+                            .then(r => r.ok ? r.json() : null)
+                            .then(data => {
+                                if (data) {
+                                    setLoadedData(prev => ({ ...prev, [layer.id]: { type: 'geojson', data: data, isFetching: false } }));
+                                }
+                            }).catch(() => { setLoadedData(prev => ({ ...prev, [layer.id]: { isFetching: false } })); });
+                    }
             });
             
             if (!computedLayers.find(l => l.isBase)?.visible && map.hasLayer(osmLayerRef.current)) {

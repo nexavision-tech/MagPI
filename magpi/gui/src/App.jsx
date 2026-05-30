@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
+import { ReactFlowProvider } from '@xyflow/react';
 import { GitBranch, XCircle, AlertTriangle, Bell, TerminalSquare, Save, Map as MapIcon, Edit3, Wrench, Layers, Activity, Database, Satellite } from 'lucide-react';
 import TopRibbon from './components/TopRibbon';
 import Terminal from './components/Terminal';
@@ -592,12 +593,19 @@ export default function App() {
         </div>
       </div>
       
-      <div className="flex-1 flex overflow-hidden min-h-0 relative z-0 bg-slate-800">
-        
-        {/* Render Catalog Pane when in Builder or Planar */}
-        <div className={`relative ${['builder', 'planar'].includes(activeWorkspace) ? 'flex' : 'hidden'} flex-col z-20`}>
-          <CatalogPane mapLayers={mapLayers} setMapLayers={setMapLayers} />
-        </div>
+      <ReactFlowProvider>
+        <div className="flex-1 flex overflow-hidden min-h-0 relative z-0 bg-slate-800">
+          
+          {/* Render Catalog Pane when in Builder or Planar */}
+          <div className={`relative ${['builder', 'planar'].includes(activeWorkspace) ? 'flex' : 'hidden'} flex-col z-20`}>
+            <CatalogPane 
+                mapLayers={mapLayers} 
+                setMapLayers={setMapLayers} 
+                activeWorkspace={activeWorkspace}
+                nodes={nodes}
+                setSelectedNodeId={setSelectedNodeId}
+            />
+          </div>
 
         <div className={activeWorkspace === 'builder' ? 'flex-1 relative opacity-100 z-10' : 'absolute inset-0 opacity-0 pointer-events-none -z-10'}>
             <NodeCanvas nodes={nodes} setNodes={setNodes} connections={connections} setConnections={setConnections} selectedNodeId={selectedNodeId} setSelectedNodeId={setSelectedNodeId} setActiveRightTab={setActiveRightTab} nodeStatuses={nodeStatuses} removeConnection={removeConnection} addNode={addNode} />
@@ -638,6 +646,7 @@ export default function App() {
             <DataStudio />
         </div>
       </div>
+      </ReactFlowProvider>
 
       <div className="flex-none z-30"><Terminal showTerminal={showTerminal} setShowTerminal={setShowTerminal} logs={logs} isProcessing={isProcessing} /></div>
       

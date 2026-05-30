@@ -21,8 +21,10 @@ import {
   Layers, Grid, DownloadCloud, Map as MapIcon, Globe, 
   ImageIcon, Box, Leaf, Cpu, Crosshair, Scissors, 
   CircleDashed, Settings, PaintBucket, FileOutput, LineChart,
-  Database, SlidersHorizontal
+  Database, SlidersHorizontal, Network, Target
 } from 'lucide-react';
+
+
 
 // --- INTELLIGENT ICON ROUTER ---
 const getIconElement = (iconName) => {
@@ -172,7 +174,7 @@ const MagPINode = ({ data }) => {
 const nodeTypes = { magpiNode: MagPINode };
 
 // --- INNER CANVAS ENGINE ---
-function CanvasInner({ 
+export default function NodeCanvas({ 
   nodes, setNodes, connections, setConnections, 
   selectedNodeId, setSelectedNodeId, setActiveRightTab, nodeStatuses, addNode 
 }) {
@@ -390,17 +392,8 @@ function CanvasInner({
       >
         <Background color="#1e293b" gap={20} size={1.5} />
         <Controls showInteractive={false} className="react-flow__controls" />
-        <MiniMap nodeColor={() => '#334155'} maskColor="rgba(15, 23, 42, 0.75)" className="bg-slate-900 border border-slate-700/80 rounded-lg overflow-hidden shadow-2xl" />
+        <MiniMap nodeColor={() => '#334155'} maskColor="rgba(15, 23, 42, 0.75)" className="bg-slate-900 border border-slate-700/80 rounded-lg overflow-hidden shadow-2xl mb-2 mr-2" />
       </ReactFlow>
     </div>
-  );
-}
-
-// WRAPPER: Essential to inject the ReactFlowProvider so screenToFlowPosition works!
-export default function NodeCanvas(props) {
-  return (
-    <ReactFlowProvider>
-      <CanvasInner {...props} />
-    </ReactFlowProvider>
   );
 }
