@@ -59,7 +59,7 @@ const GdbLayerSelector = ({ selectedNode, updateNodeParam }) => {
   );
 };
 
-const TOOLBOX_CATEGORIES = [
+export const TOOLBOX_CATEGORIES = [
   {
     name: "Core Inputs", icon: <Database size={18} className="text-yellow-500/70" />,
     tools: [
@@ -82,6 +82,8 @@ const TOOLBOX_CATEGORIES = [
           { id: 'bands', type: 'ARRAY', label: 'BANDS' },
           { id: 'dtype', type: 'STRING', label: 'DTYPE' },
           { id: 'nodata', type: 'FLOAT', label: 'NODATA' },
+          { id: 'acq_date', type: 'STRING', label: 'ACQ DATE' },
+          { id: 'wavelengths', type: 'ARRAY', label: 'WAVELENGTHS' },
           { id: 'rpc', type: 'OBJECT', label: 'RPC' }
         ],
         params: { file_path: "./test_data/noaa_florida/2021_4BandImagery.tif" }

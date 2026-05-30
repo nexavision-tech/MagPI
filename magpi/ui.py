@@ -117,6 +117,8 @@ def LaunchCanvas(port=8080):
                 self.handle_geojson(parsed_path.query)
             elif parsed_path.path == '/api/raster':
                 self.handle_raster(parsed_path.query)
+            elif parsed_path.path == '/api/raster_metadata':
+                self.handle_raster_metadata(parsed_path.query)
             elif parsed_path.path == '/api/load_project':
                 self.handle_load_project(parsed_path.query)
             elif parsed_path.path == '/api/community_nodes':
@@ -309,6 +311,46 @@ def LaunchCanvas(port=8080):
                     self.send_header('Content-type', 'application/json')
                     self.end_headers()
                     self.wfile.write(json.dumps({"error": str(e)}).encode('utf-8'))
+
+        def handle_raster_metadata(self, query):
+            qs = parse_qs(query)
+            target_file = qs.get('file', [''])[0]
+            
+            try:
+                import rasterio
+                if not os.path.exists(target_file):
+                    raise FileNotFoundError(f"File not found: {target_file}")
+                
+                with rasterio.open(target_file) as src:
+                    bands = src.count
+                    crs = src.crs.to_string() if src.crs else "Unknown"
+                    nodata = src.nodata
+                    dtype = str(src.dtypes[0]) if len(src.dtypes) > 0 else "Unknown"
+                    bounds = src.bounds
+                    extent = [bounds.bottom, bounds.left, bounds.top, bounds.right]
+                    rpc = src.tags(ns='RPC')
+                    tags = src.tags()
+                    
+                    self.send_response(200)
+                    self.send_header('Content-type', 'application/json')
+                    self.send_header('Access-Control-Allow-Origin', '*')
+                    self.end_headers()
+                    self.wfile.write(json.dumps({
+                        "bands": bands,
+                        "crs": crs,
+                        "nodata": nodata,
+                        "dtype": dtype,
+                        "extent": extent,
+                        "rpc": rpc if rpc else None,
+                        "tags": tags
+                    }).encode('utf-8'))
+                    
+            except Exception as e:
+                self.send_response(500)
+                self.send_header('Content-type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": str(e)}).encode('utf-8'))
 
         def handle_load_project(self, query):
             qs = parse_qs(query)

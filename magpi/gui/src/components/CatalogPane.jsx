@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useReactFlow } from '@xyflow/react';
 import { Folder, Database, File, ChevronRight, ChevronDown, RefreshCw, Box, Map, Image as ImageIcon, Layers, Eye, EyeOff, Network, Target } from 'lucide-react';
+import { TOOLBOX_CATEGORIES } from './Toolbox';
 
 const FileNode = ({ node, level }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -30,12 +31,24 @@ const FileNode = ({ node, level }) => {
 
   const handleDragStart = (e, dragData) => {
     const isVector = ['shp', 'geojson', 'gdb', 'gpkg', 'sqlite', 'db'].includes(dragData.type);
+    const toolId = isVector ? 'load_vector' : 'load_raster';
+    let baseToolDef = null;
+    for (const cat of TOOLBOX_CATEGORIES) {
+        const found = cat.tools.find(t => t.id === toolId);
+        if (found) {
+            baseToolDef = found;
+            break;
+        }
+    }
+
     const toolData = {
-        id: isVector ? 'load_vector' : 'load_raster',
+        id: toolId,
         name: isVector ? "Input Vector" : "Input Raster",
         type: 'input',
         color: 'bg-blue-600',
         border: 'border-blue-500',
+        inputs: baseToolDef?.inputs,
+        outputs: baseToolDef?.outputs,
         params: {
             file_path: dragData.path,
             ...(isVector ? { layer_name: dragData.layer_name || "" } : {})

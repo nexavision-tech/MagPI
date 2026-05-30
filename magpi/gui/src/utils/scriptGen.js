@@ -109,6 +109,8 @@ export const generatePythonScript = (nodes, connections, crs, processingScope, g
                     case 'bands': return `${baseVar}.bandCount`;
                     case 'dtype': return `${baseVar}.pixelType`;
                     case 'nodata': return `${baseVar}.noDataValues`;
+                    case 'acq_date': return `getattr(${baseVar}, "acquisitionDate", None)`;
+                    case 'wavelengths': return `getattr(${baseVar}, "wavelengths", None)`;
                     case 'rpc': return `getattr(${baseVar}, "RPC", None)`;
                     case 'raster': return baseVar;
                     default: return baseVar;

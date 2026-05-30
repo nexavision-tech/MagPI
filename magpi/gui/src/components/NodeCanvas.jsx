@@ -58,9 +58,46 @@ const getOutHandleColor = (toolId) => {
 };
 
 // --- DYNAMIC CHAINNER NODE COMPONENT ---
-const MagPINode = ({ data }) => {
+const MagPINode = ({ data, id }) => {
+  const [collapsed, setCollapsed] = React.useState(true);
+  const { setNodes } = useReactFlow();
   // 1. Structural Logic
   const toolId = data.toolId || '';
+
+  React.useEffect(() => {
+    if (toolId === 'load_raster' && data.params?.file_path && !data.metadataFetched) {
+        fetch(`http://localhost:8080/api/raster_metadata?file=${encodeURIComponent(data.params.file_path)}`)
+        .then(res => res.ok ? res.json() : null)
+        .then(meta => {
+            if (meta && !meta.error) {
+                const newOutputs = [
+                    { id: 'raster', type: 'RASTER', label: 'RASTER' },
+                    { id: 'path_out', type: 'STRING', label: 'PATH OUT' },
+                    { id: 'crs', type: 'STRING', label: 'CRS', value: meta.crs },
+                    { id: 'extent', type: 'EXTENT', label: 'EXTENT', value: meta.extent ? `[${meta.extent.map(v=>v.toFixed(2)).join(', ')}]` : null },
+                    { id: 'dtype', type: 'STRING', label: 'DTYPE', value: meta.dtype },
+                    { id: 'nodata', type: 'FLOAT', label: 'NODATA', value: meta.nodata !== null ? meta.nodata : 'N/A' },
+                    { id: 'acq_date', type: 'STRING', label: 'ACQ DATE', value: meta.tags?.['TIFFTAG_DATETIME'] || 'N/A' },
+                ];
+                
+                if (meta.tags && meta.tags.wavelengths) {
+                    newOutputs.push({ id: 'wavelengths', type: 'ARRAY', label: 'WAVELENGTHS', value: 'PRESENT' });
+                }
+                
+                for (let i = 1; i <= (meta.bands || 0); i++) {
+                    newOutputs.push({ id: `b${i}`, type: 'ARRAY', label: `BAND ${i}` });
+                }
+                
+                if (meta.rpc) {
+                    newOutputs.push({ id: 'rpc', type: 'OBJECT', label: 'RPC', value: 'PRESENT' });
+                }
+                
+                setNodes(nds => nds.map(n => n.id === id ? { ...n, data: { ...n.data, outputs: newOutputs, metadataFetched: true } } : n));
+            }
+        }).catch(err => console.error(err));
+    }
+  }, [toolId, data.params?.file_path, data.metadataFetched, id, setNodes]);
+
   
   // Pure sources (NO LEFT PORTS)
   const isPureSource = ['core_extent', 'load_raster', 'load_vector', 'logic_constant'].includes(toolId);
@@ -120,6 +157,9 @@ const MagPINode = ({ data }) => {
       outputs.push({ id: 'out', label: 'OUT', type: 'OUT' });
     }
   }
+  
+  const showCollapseToggle = inputs.length > 4 || outputs.length > 4;
+
   return (
     <div className={`flex flex-col min-w-[170px] max-w-[250px] transition-all duration-200 bg-[#2b2b2b] rounded-lg shadow-[0_4px_15px_rgba(0,0,0,0.5)] border ${data.selected ? 'border-[#ff8c00] shadow-[0_0_15px_rgba(255,140,0,0.3)]' : 'border-[#1a1a1a]'}`}>
       
@@ -139,14 +179,15 @@ const MagPINode = ({ data }) => {
       </div>
 
       {/* BODY ROW */}
-      <div className="p-3 relative bg-gradient-to-b from-[#3a3a3a] to-[#2b2b2b] min-h-[50px] rounded-b-lg flex flex-col justify-between">
-            <div className="flex justify-between w-full h-full min-h-[40px]">
+      <div className="p-3 relative bg-gradient-to-b from-[#3a3a3a] to-[#2b2b2b] min-h-[30px] rounded-b-lg flex flex-col justify-between">
+            <div className="flex justify-between w-full h-full min-h-[30px]">
                 {/* DYNAMIC INPUTS */}
                 <div className="flex flex-col justify-around h-full space-y-2">
-                    {inputs.map((inp) => {
+                    {inputs.map((inp, idx) => {
+                        const isHidden = collapsed && idx >= 2 && showCollapseToggle;
                         const color = getPortColor(inp.type, inp.label) !== '#a3a3a3' ? getPortColor(inp.type, inp.label) : getInHandleColor(inp.label);
                         return (
-                            <div key={inp.id} className="relative h-4 flex items-center">
+                            <div key={inp.id} className={`relative flex items-center transition-all duration-300 ${isHidden ? 'h-0 overflow-hidden opacity-0 mb-0' : 'h-4'}`}>
                                 <Handle type="target" position={Position.Left} id={inp.id} isConnectableStart={false} style={{ backgroundColor: color, top: '50%' }} className="w-3.5 h-3.5 rounded-full border-[2.5px] border-[#1a1a1a] cursor-crosshair hover:bg-white transition-all z-50 !-left-4" />
                                 <span style={{ color: color }} className="text-[9px] font-mono font-bold tracking-widest pointer-events-none drop-shadow-sm ml-1">{inp.label || inp.id.toUpperCase()}</span>
                             </div>
@@ -155,17 +196,33 @@ const MagPINode = ({ data }) => {
                 </div>
                 {/* DYNAMIC OUTPUTS */}
                 <div className="flex flex-col justify-around h-full items-end space-y-2">
-                    {outputs.map((out) => {
+                    {outputs.map((out, idx) => {
+                        const isHidden = collapsed && idx >= 2 && showCollapseToggle;
                         const color = getPortColor(out.type, out.label) !== '#a3a3a3' ? getPortColor(out.type, out.label) : getOutHandleColor(toolId);
                         return (
-                            <div key={out.id} className="relative h-4 flex items-center justify-end">
+                            <div key={out.id} className={`relative flex items-center justify-end transition-all duration-300 ${isHidden ? 'h-0 overflow-hidden opacity-0 mb-0' : 'h-4'}`}>
                                 <span style={{ color: color }} className="text-[9px] font-mono font-bold tracking-widest pointer-events-none drop-shadow-sm mr-1">{out.label || out.id.toUpperCase()}</span>
                                 <Handle type="source" position={Position.Right} id={out.id} style={{ backgroundColor: color, top: '50%' }} className="w-3.5 h-3.5 rounded-full border-[2.5px] border-[#1a1a1a] cursor-crosshair hover:bg-white transition-all z-50 !-right-4" />
+                                
+                                {!collapsed && out.value && (
+                                    <div className="absolute -right-5 top-1/2 -translate-y-1/2 translate-x-full text-left max-w-[120px] pointer-events-none">
+                                        <span className="text-[8px] text-slate-300 font-mono bg-[#1a1a1a]/80 px-1.5 py-[2px] rounded truncate block shadow-sm border border-[#333]">{String(out.value)}</span>
+                                    </div>
+                                )}
                             </div>
                         );
                     })}
                 </div>
             </div>
+            
+            {showCollapseToggle && (
+                <div 
+                    onClick={() => setCollapsed(!collapsed)} 
+                    className="w-full text-center mt-2 pt-1 border-t border-[#444] cursor-pointer hover:bg-[#444] transition-colors rounded-b-sm"
+                >
+                    <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{collapsed ? '▼ Show More' : '▲ Show Less'}</span>
+                </div>
+            )}
       </div>
     </div>
   );
