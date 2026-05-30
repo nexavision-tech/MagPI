@@ -397,10 +397,10 @@ export const TOOLBOX_CATEGORIES = [
       },
       {
         id: 'core_date_variable', name: "Date Variable", type: 'input', icon: <Calendar size={14} />, color: 'bg-yellow-600', border: 'border-yellow-500',
-        description: "Defines a chronological date string (YYYY-MM-DD). Translates to {{ ds }} in Airflow for Temporal Iteration.",
+        description: "Defines a chronological date string or range (YYYY-MM-DD). Translates to {{ ds }} in Airflow.",
         inputs: [],
         outputs: [{ id: 'out', label: 'DATE', type: 'STRING' }],
-        params: { date: "2024-01-01" }
+        params: { start_date: new Date().toISOString().split('T')[0], end_date: "" }
       },
       {
         id: 'logic_math_add', name: "Math Add", type: 'process', icon: <Cpu size={14} />, color: 'bg-yellow-600', border: 'border-yellow-500',

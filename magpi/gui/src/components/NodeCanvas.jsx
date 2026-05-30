@@ -14,7 +14,9 @@ import {
   useNodesState,
   useEdgesState,
   reconnectEdge,
-  Panel
+  Panel,
+  useNodes,
+  useEdges
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { 
@@ -139,7 +141,10 @@ const MagPINode = ({ data, id }) => {
   const isDualInput = ['ia_export_dl', 'stats_confusion_matrix', 'mgt_clip', 'ia_pansharpen', 'etl_spatial_join', 'ia_raster_math', 'logic_math'].includes(toolId);
   
   const isPrimitive = ['logic_string', 'logic_integer', 'logic_float', 'logic_boolean', 'core_date_variable'].includes(toolId);
-  const primitiveValue = data.params?.date !== undefined ? data.params.date : data.params?.value;
+  const primitiveValue = toolId === 'core_date_variable' ? data.params?.start_date : data.params?.value;
+
+  const edges = useEdges();
+  const nodes = useNodes();
 
   // 2. Visual Hierarchy (Shapes)
   let shapeClass = "rounded-lg"; 
@@ -234,14 +239,25 @@ const MagPINode = ({ data, id }) => {
                     {outputs.map((out, idx) => {
                         const isHidden = collapsed && idx >= 2 && showCollapseToggle;
                         const color = getPortColor(out.type, out.label) !== '#a3a3a3' ? getPortColor(out.type, out.label) : getOutHandleColor(toolId);
+                        let displayValue = out.value;
+                        const setterHandle = `set_${out.id}`;
+                        const incomingEdge = edges.find(e => e.target === id && e.targetHandle === setterHandle);
+                        if (incomingEdge) {
+                            const sourceNode = nodes.find(n => n.id === incomingEdge.source);
+                            if (sourceNode && sourceNode.data && sourceNode.data.params) {
+                                if (sourceNode.data.toolId === 'core_date_variable') displayValue = sourceNode.data.params.start_date;
+                                else if (sourceNode.data.params.value !== undefined) displayValue = sourceNode.data.params.value;
+                            }
+                        }
+
                         return (
                             <div key={out.id} className={`relative flex items-center justify-end transition-all duration-300 ${isHidden ? 'hidden' : 'h-4'}`}>
                                 <span style={{ color: color }} className="text-[9px] font-mono font-bold tracking-widest pointer-events-none drop-shadow-sm mr-1">{out.label || out.id.toUpperCase()}</span>
                                 <Handle type="source" position={Position.Right} id={out.id} style={{ backgroundColor: color, top: '50%' }} className="w-3.5 h-3.5 rounded-full border-[2.5px] border-[#1a1a1a] cursor-crosshair hover:bg-white transition-all z-50 !-right-4" />
                                 
-                                {!collapsed && out.value !== undefined && out.value !== null && out.value !== '' && (
+                                {!collapsed && displayValue !== undefined && displayValue !== null && displayValue !== '' && (
                                     <div className="absolute -right-5 top-1/2 -translate-y-1/2 translate-x-full text-left max-w-[120px] pointer-events-none">
-                                        <span className="text-[8px] text-slate-300 font-mono bg-[#1a1a1a]/80 px-1.5 py-[2px] rounded truncate block shadow-sm border border-[#333]">{String(out.value)}</span>
+                                        <span className="text-[8px] text-slate-300 font-mono bg-[#1a1a1a]/80 px-1.5 py-[2px] rounded truncate block shadow-sm border border-[#333]">{String(displayValue)}</span>
                                     </div>
                                 )}
                             </div>
@@ -260,8 +276,34 @@ const MagPINode = ({ data, id }) => {
             )}
             
             {isPrimitive && primitiveValue !== undefined && (
-                <div className="w-full mt-2 pt-2 border-t border-[#444] flex items-center justify-center">
-                    <span className="text-xs text-[#ffcc00] font-mono font-bold tracking-widest">{String(primitiveValue)}</span>
+                <div className="w-full mt-2 pt-2 border-t border-[#444] flex flex-col items-center justify-center gap-1">
+                    <input 
+                        type={toolId === 'core_date_variable' ? "date" : (toolId === 'logic_string' ? "text" : "number")}
+                        value={primitiveValue}
+                        onChange={(e) => {
+                            let val = e.target.value;
+                            if (toolId === 'logic_integer') val = parseInt(val, 10);
+                            else if (toolId === 'logic_float') val = parseFloat(val);
+                            
+                            if (data.updateGlobalNode) {
+                                if (toolId === 'core_date_variable') data.updateGlobalNode({ params: { ...data.params, start_date: val } });
+                                else data.updateGlobalNode({ params: { ...data.params, value: val } });
+                            }
+                        }}
+                        className="w-11/12 bg-transparent text-center text-xs text-[#ffcc00] font-mono font-bold tracking-widest outline-none border-b border-transparent hover:border-[#444] focus:border-[#ffcc00] transition-colors pb-1"
+                    />
+                    {toolId === 'core_date_variable' && (
+                        <input 
+                            type="date"
+                            value={data.params?.end_date || ''}
+                            onChange={(e) => {
+                                if (data.updateGlobalNode) {
+                                    data.updateGlobalNode({ params: { ...data.params, end_date: e.target.value } });
+                                }
+                            }}
+                            className="w-11/12 bg-transparent text-center text-[10px] text-slate-400 font-mono tracking-widest outline-none border-b border-transparent hover:border-[#444] focus:border-slate-400 transition-colors opacity-70"
+                        />
+                    )}
                 </div>
             )}
             
