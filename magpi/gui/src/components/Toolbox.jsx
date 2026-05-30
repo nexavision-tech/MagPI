@@ -73,7 +73,12 @@ export const TOOLBOX_CATEGORIES = [
       {
         id: 'load_raster', name: "Input Raster", type: 'input', icon: <ImageIcon size={14} />, color: 'bg-blue-600', border: 'border-blue-500',
         description: "Loads a multi-band imagery file (TIFF, IMG, JP2) into the MagPI processing matrix.",
-        inputs: [{ id: 'path_in', type: 'STRING', label: 'PATH IN' }],
+        inputs: [
+          { id: 'path_in', type: 'STRING', label: 'PATH IN' },
+          { id: 'set_crs', type: 'STRING', label: 'SET CRS' },
+          { id: 'set_nodata', type: 'FLOAT', label: 'SET NODATA' },
+          { id: 'set_date', type: 'STRING', label: 'SET DATE' }
+        ],
         outputs: [
           { id: 'raster', type: 'RASTER', label: 'RASTER' },
           { id: 'path_out', type: 'STRING', label: 'PATH OUT' },
@@ -91,7 +96,10 @@ export const TOOLBOX_CATEGORIES = [
       {
         id: 'load_vector', name: "Input Vector", type: 'input', icon: <Hexagon size={14} />, color: 'bg-blue-600', border: 'border-blue-500',
         description: "Loads a feature class (e.g. Shapefile, GeoJSON, or File Geodatabase layer).",
-        inputs: [ { id: 'path', type: 'STRING', label: 'PATH IN' } ],
+        inputs: [ 
+          { id: 'path', type: 'STRING', label: 'PATH IN' },
+          { id: 'set_crs', type: 'STRING', label: 'SET CRS' }
+        ],
         outputs: [
           { id: 'vector', type: 'VECTOR', label: 'VECTOR' },
           { id: 'path_out', type: 'STRING', label: 'PATH OUT' },
@@ -362,30 +370,36 @@ export const TOOLBOX_CATEGORIES = [
       {
         id: 'logic_string', name: "String", type: 'input', icon: <FileJson size={14} />, color: 'bg-yellow-700', border: 'border-yellow-600',
         description: "A primitive string value.",
+        inputs: [],
         outputs: [{ id: 'out', label: 'STRING', type: 'STRING' }],
         params: { value: "text" }
       },
       {
         id: 'logic_integer', name: "Integer", type: 'input', icon: <Hash size={14} />, color: 'bg-yellow-700', border: 'border-yellow-600',
         description: "A primitive whole number.",
+        inputs: [],
         outputs: [{ id: 'out', label: 'INT', type: 'INT' }],
         params: { value: 0 }
       },
       {
         id: 'logic_float', name: "Float", type: 'input', icon: <Hash size={14} />, color: 'bg-yellow-700', border: 'border-yellow-600',
         description: "A primitive decimal number.",
+        inputs: [],
         outputs: [{ id: 'out', label: 'FLOAT', type: 'FLOAT' }],
         params: { value: 0.0 }
       },
       {
         id: 'logic_boolean', name: "Boolean", type: 'input', icon: <ToggleLeft size={14} />, color: 'bg-yellow-700', border: 'border-yellow-600',
         description: "A primitive true/false value.",
+        inputs: [],
         outputs: [{ id: 'out', label: 'BOOL', type: 'BOOL' }],
         params: { value: true }
       },
       {
         id: 'core_date_variable', name: "Date Variable", type: 'input', icon: <Calendar size={14} />, color: 'bg-yellow-600', border: 'border-yellow-500',
         description: "Defines a chronological date string (YYYY-MM-DD). Translates to {{ ds }} in Airflow for Temporal Iteration.",
+        inputs: [],
+        outputs: [{ id: 'out', label: 'DATE', type: 'STRING' }],
         params: { date: "2024-01-01" }
       },
       {
