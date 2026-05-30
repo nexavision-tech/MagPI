@@ -395,6 +395,14 @@ export const TOOLBOX_CATEGORIES = [
         description: "Pushes the incoming vector dataset directly into a remote PostGIS database table.",
         params: { connection_name: "", table_name: "new_table", if_exists: { value: "replace", type: "select", options: ["fail", "replace", "append"] } }
       },
+      {
+        id: 'export_to_map', name: "Export to Map", type: 'endpoint', icon: <MapIcon size={14} />, color: 'bg-indigo-600', border: 'border-indigo-400',
+        description: "Pushes the incoming raster or vector dataset directly to the MapViewer canvas as a new interactive layer.",
+        inputs: [
+            { id: 'data_in', type: 'ANY', label: 'DATA IN' }
+        ],
+        params: { layer_name: "My New Layer", color: "#3388ff", opacity: 0.8 }
+      },
     ]
   },
   {
