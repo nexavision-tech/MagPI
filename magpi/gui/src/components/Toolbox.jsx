@@ -316,16 +316,40 @@ export const TOOLBOX_CATEGORIES = [
       {
         id: 'mgt_clip', name: "Clip to AOI", type: 'process', icon: <Scissors size={14} />, color: 'bg-slate-600', border: 'border-slate-500',
         description: "Extracts a spatial subset of a raster or vector based on a drawn Spatial Extent node.",
+        inputs: [
+            { id: 'target_in', type: 'ANY', label: 'TARGET IN' },
+            { id: 'clip_extent', type: 'EXTENT', label: 'CLIP EXTENT' }
+        ],
+        outputs: [
+            { id: 'clipped_out', type: 'ANY', label: 'CLIPPED OUT' }
+        ],
         params: {}
       },
       {
         id: 'mgt_buffer', name: "Buffer", type: 'process', icon: <CircleDashed size={14} />, color: 'bg-slate-600', border: 'border-slate-500',
         description: "Creates polygon boundaries at a specified distance around input vector features.",
+        inputs: [
+            { id: 'vector_in', type: 'VECTOR', label: 'VECTOR IN' },
+            { id: 'set_distance', type: 'FLOAT', label: 'SET DISTANCE' },
+            { id: 'set_unit', type: 'STRING', label: 'SET UNIT' }
+        ],
+        outputs: [
+            { id: 'vector_out', type: 'VECTOR', label: 'VECTOR OUT' },
+            { id: 'distance', type: 'FLOAT', label: 'DISTANCE' },
+            { id: 'unit', type: 'STRING', label: 'UNIT' }
+        ],
         params: { distance: 50, unit: { value: "Meters", type: "select", options: ["Meters", "Kilometers", "Feet", "Miles"] } }
       },
       {
         id: 'mgt_intersect', name: "Intersect", type: 'process', icon: <Layers size={14} />, color: 'bg-slate-600', border: 'border-slate-500',
         description: "Computes a geometric intersection of the input features.",
+        inputs: [
+            { id: 'vector_a', type: 'VECTOR', label: 'VECTOR A' },
+            { id: 'vector_b', type: 'VECTOR', label: 'VECTOR B' }
+        ],
+        outputs: [
+            { id: 'vector_out', type: 'VECTOR', label: 'VECTOR OUT' }
+        ],
         params: {}
       },
       {
@@ -346,6 +370,14 @@ export const TOOLBOX_CATEGORIES = [
       {
         id: 'mgt_project_vector', name: "Project Vector", type: 'process', icon: <MapIcon size={14} />, color: 'bg-slate-600', border: 'border-slate-500',
         description: "Projects spatial data from one coordinate system to another.",
+        inputs: [
+            { id: 'vector_in', type: 'VECTOR', label: 'VECTOR IN' },
+            { id: 'set_out_crs', type: 'STRING', label: 'SET OUT CRS' }
+        ],
+        outputs: [
+            { id: 'vector_out', type: 'VECTOR', label: 'VECTOR OUT' },
+            { id: 'out_crs', type: 'STRING', label: 'OUT CRS' }
+        ],
         params: { out_crs: "EPSG:6438", out_feature_class: "projected_vector.shp" }
       },
       {

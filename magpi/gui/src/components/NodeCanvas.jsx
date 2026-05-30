@@ -319,7 +319,7 @@ const MagPINode = ({ data, id }) => {
                       <span className="text-[9px] font-bold tracking-widest text-slate-300">{attributesExpanded ? '▼' : '►'} ATTRIBUTES ({attrOutputs.length})</span>
                   </div>
               )}
-              <div className="flex justify-between w-full">
+              <div className={`flex justify-between w-full transition-all duration-300 ${attributesExpanded ? 'max-h-[300px] overflow-y-auto pr-1 custom-scrollbar' : ''}`}>
                   <div className="flex flex-col gap-2 w-1/2"></div>
                   <div className="flex flex-col items-end gap-2 w-1/2">
                       {attrOutputs.map(out => renderOutput(out, attributesExpanded))}
@@ -332,7 +332,7 @@ const MagPINode = ({ data, id }) => {
                       <span className="text-[9px] font-bold tracking-widest text-slate-300">{bandsExpanded ? '▼' : '►'} BANDS ({bandOutputs.length})</span>
                   </div>
               )}
-              <div className="flex justify-between w-full">
+              <div className={`flex justify-between w-full transition-all duration-300 ${bandsExpanded ? 'max-h-[300px] overflow-y-auto pr-1 custom-scrollbar' : ''}`}>
                   <div className="flex flex-col gap-2 w-1/2"></div>
                   <div className="flex flex-col items-end gap-2 w-1/2">
                       {bandOutputs.map(out => renderOutput(out, bandsExpanded))}
