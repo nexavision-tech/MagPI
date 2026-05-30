@@ -228,16 +228,16 @@ const MagPINode = ({ data, id }) => {
       </div>
 
       {/* BODY ROW */}
-      <div className="p-3 relative bg-gradient-to-b from-[#3a3a3a] to-[#2b2b2b] min-h-[30px] rounded-b-lg flex flex-col justify-between">
-            <div className="flex justify-between w-full h-full min-h-[30px]">
+      <div className={`relative bg-gradient-to-b from-[#3a3a3a] to-[#2b2b2b] rounded-b-lg flex flex-col justify-between ${isPrimitive ? 'p-2' : 'p-3 min-h-[30px]'}`}>
+            <div className={`flex justify-between w-full h-full ${isPrimitive ? '' : 'min-h-[30px]'}`}>
                 {/* DYNAMIC INPUTS */}
-                <div className="flex flex-col justify-around h-full gap-2">
+                <div className="flex flex-col justify-around h-full gap-2 w-1/2">
                     {inputs.map((inp, idx) => {
                         const isConnected = edges.some(e => e.target === id && e.targetHandle === inp.id);
                         const isHidden = collapsed && !isConnected;
                         const color = getPortColor(inp.type, inp.label) !== '#a3a3a3' ? getPortColor(inp.type, inp.label) : getInHandleColor(inp.label);
                         return (
-                            <div key={inp.id} className={`relative flex items-center transition-all duration-300 ${isHidden ? 'hidden' : 'h-4'}`}>
+                            <div key={inp.id} className={`w-full relative flex items-center transition-all duration-300 ${isHidden ? 'hidden' : 'h-4'}`}>
                                 <Handle type="target" position={Position.Left} id={inp.id} isConnectableStart={false} style={{ backgroundColor: color, top: '50%' }} className="w-3.5 h-3.5 rounded-full border-[2.5px] border-[#1a1a1a] cursor-crosshair hover:bg-white transition-all z-50 !-left-4" />
                                 <span style={{ color: color }} className="text-[9px] font-mono font-bold tracking-widest pointer-events-none drop-shadow-sm ml-1">{inp.label || inp.id.toUpperCase()}</span>
                             </div>
@@ -245,7 +245,7 @@ const MagPINode = ({ data, id }) => {
                     })}
                 </div>
                 {/* DYNAMIC OUTPUTS */}
-                <div className="flex flex-col justify-around h-full items-end gap-2">
+                <div className="flex flex-col justify-around h-full items-end gap-2 w-1/2">
                     {outputs.map((out, idx) => {
                         const isConnected = edges.some(e => e.source === id && e.sourceHandle === out.id);
                         const isHidden = collapsed && !isConnected;
@@ -262,7 +262,7 @@ const MagPINode = ({ data, id }) => {
                         }
 
                         return (
-                            <div key={out.id} className={`relative flex items-center justify-end transition-all duration-300 ${isHidden ? 'hidden' : 'h-4'}`}>
+                            <div key={out.id} className={`w-full relative flex items-center justify-end transition-all duration-300 ${isHidden ? 'hidden' : 'h-4'}`}>
                                 {toolId === 'core_date_variable' && (out.id === 'start' || out.id === 'end') ? (
                                     <input 
                                         type="date"
@@ -508,6 +508,20 @@ export default function NodeCanvas({
     }
   }, [setNodes, setSelectedNodeId]);
 
+  const onPaneContextMenu = useCallback((event) => {
+    event.preventDefault();
+    const bounds = reactFlowWrapper.current.getBoundingClientRect();
+    const position = screenToFlowPosition({ x: event.clientX, y: event.clientY });
+    setMenuData({
+        x: event.clientX - bounds.left,
+        y: event.clientY - bounds.top,
+        flowPos: position,
+        sourceNode: null,
+        sourceHandle: null,
+        sourceType: null
+    });
+  }, [screenToFlowPosition]);
+
   const onDrop = useCallback((event) => {
       event.preventDefault();
       try {
@@ -583,6 +597,7 @@ export default function NodeCanvas({
         onSelectionChange={onSelectionChange}
         onNodeClick={onNodeClick}
         onPaneClick={onPaneClick}
+        onPaneContextMenu={onPaneContextMenu}
         nodeTypes={nodeTypes}
         fitView
         snapToGrid={true}
