@@ -199,6 +199,66 @@ const MagPINode = ({ data, id }) => {
       outputs.push({ id: 'out', label: 'OUT', type: 'OUT' });
     }
   }
+  const renderInput = (inp) => {
+      const isConnected = edges.some(e => e.target === id && e.targetHandle === inp.id);
+      const isHidden = collapsed && !isConnected;
+      const color = getPortColor(inp.type, inp.label) !== '#a3a3a3' ? getPortColor(inp.type, inp.label) : getInHandleColor(inp.label);
+      return (
+          <div key={inp.id} className={`w-full relative flex items-center transition-all duration-300 ${isHidden ? 'hidden' : 'h-4'}`}>
+              <Handle type="target" position={Position.Left} id={inp.id} isConnectableStart={false} style={{ backgroundColor: color, top: '50%' }} className="w-3.5 h-3.5 rounded-full border-[2.5px] border-[#1a1a1a] cursor-crosshair hover:bg-white transition-all z-50 !-left-4" />
+              <span style={{ color: color }} className="text-[9px] font-mono font-bold tracking-widest pointer-events-none drop-shadow-sm ml-1">{inp.label || inp.id.toUpperCase()}</span>
+          </div>
+      );
+  };
+
+  const renderOutput = (out, groupExpanded) => {
+      const isConnected = edges.some(e => e.source === id && e.sourceHandle === out.id);
+      let isHidden = collapsed && !isConnected;
+      if (groupExpanded !== undefined && !collapsed && !groupExpanded && !isConnected) isHidden = true;
+
+      const color = getPortColor(out.type, out.label) !== '#a3a3a3' ? getPortColor(out.type, out.label) : getOutHandleColor(toolId);
+      let displayValue = out.value;
+      const setterHandle = `set_${out.id}`;
+      const incomingEdge = edges.find(e => e.target === id && e.targetHandle === setterHandle);
+      if (incomingEdge) {
+          const sourceNode = nodes.find(n => n.id === incomingEdge.source);
+          if (sourceNode && sourceNode.data && sourceNode.data.params) {
+              if (sourceNode.data.toolId === 'core_date_variable') displayValue = sourceNode.data.params.start_date;
+              else if (sourceNode.data.params.value !== undefined) displayValue = sourceNode.data.params.value;
+          }
+      }
+
+      return (
+          <div key={out.id} className={`w-full relative flex items-center justify-end transition-all duration-300 ${isHidden ? 'hidden' : 'h-4'}`}>
+              {toolId === 'core_date_variable' && (out.id === 'start' || out.id === 'end') ? (
+                  <input 
+                      type="date"
+                      value={out.id === 'start' ? (data.params?.start_date || '') : (data.params?.end_date || '')}
+                      onChange={(e) => {
+                          if (data.updateGlobalNode) {
+                              const key = out.id === 'start' ? 'start_date' : 'end_date';
+                              data.updateGlobalNode({ params: { ...data.params, [key]: e.target.value } });
+                          }
+                      }}
+                      className={`bg-transparent text-right text-[9px] font-mono tracking-widest outline-none border-b border-transparent hover:border-[#444] transition-colors mr-1 w-24 ${out.id === 'start' ? 'text-[#ffcc00] focus:border-[#ffcc00] font-bold' : 'text-slate-400 focus:border-slate-400'}`}
+                  />
+              ) : (
+                  <span style={{ color: color }} className="text-[9px] font-mono font-bold tracking-widest pointer-events-none drop-shadow-sm mr-1">{out.label || out.id.toUpperCase()}</span>
+              )}
+              <Handle type="source" position={Position.Right} id={out.id} style={{ backgroundColor: color, top: '50%' }} className="w-3.5 h-3.5 rounded-full border-[2.5px] border-[#1a1a1a] cursor-crosshair hover:bg-white transition-all z-50 !-right-4" />
+              
+              {!collapsed && displayValue !== undefined && displayValue !== null && displayValue !== '' && (
+                  <div className="absolute -right-5 top-1/2 -translate-y-1/2 translate-x-full text-left max-w-[120px] pointer-events-none z-10">
+                      <span className="text-[8px] text-slate-300 font-mono bg-[#1a1a1a]/80 px-1.5 py-[2px] rounded truncate block shadow-sm border border-[#333]">{String(displayValue)}</span>
+                  </div>
+              )}
+          </div>
+      );
+  };
+
+  const attrOutputs = outputs.filter(o => o.id.startsWith('attr_'));
+  const bandOutputs = outputs.filter(o => o.id.startsWith('b') && !isNaN(o.id.substring(1)));
+  const stdOutputs = outputs.filter(o => !o.id.startsWith('attr_') && !(o.id.startsWith('b') && !isNaN(o.id.substring(1))));
   
   const showCollapseToggle = !isPrimitive && (inputs.length > 0 || outputs.length > 0);
 
@@ -231,88 +291,45 @@ const MagPINode = ({ data, id }) => {
 
       {/* BODY ROW */}
       <div className={`relative bg-gradient-to-b from-[#3a3a3a] to-[#2b2b2b] rounded-b-lg flex flex-col justify-between ${isPrimitive ? 'p-2' : 'p-3 min-h-[30px]'}`}>
-            <div className={`flex justify-between w-full h-full ${isPrimitive ? '' : 'min-h-[30px]'}`}>
-                {/* DYNAMIC INPUTS */}
-                <div className="flex flex-col justify-around h-full gap-2 w-1/2">
-                    {inputs.map((inp, idx) => {
-                        const isConnected = edges.some(e => e.target === id && e.targetHandle === inp.id);
-                        const isHidden = collapsed && !isConnected;
-                        const color = getPortColor(inp.type, inp.label) !== '#a3a3a3' ? getPortColor(inp.type, inp.label) : getInHandleColor(inp.label);
-                        return (
-                            <div key={inp.id} className={`w-full relative flex items-center transition-all duration-300 ${isHidden ? 'hidden' : 'h-4'}`}>
-                                <Handle type="target" position={Position.Left} id={inp.id} isConnectableStart={false} style={{ backgroundColor: color, top: '50%' }} className="w-3.5 h-3.5 rounded-full border-[2.5px] border-[#1a1a1a] cursor-crosshair hover:bg-white transition-all z-50 !-left-4" />
-                                <span style={{ color: color }} className="text-[9px] font-mono font-bold tracking-widest pointer-events-none drop-shadow-sm ml-1">{inp.label || inp.id.toUpperCase()}</span>
-                            </div>
-                        );
-                    })}
-                </div>
-                {/* DYNAMIC OUTPUTS */}
-                <div className="flex flex-col justify-around h-full items-end gap-2 w-1/2">
-                    {outputs.map((out, idx) => {
-                        const isAttr = out.id.startsWith('attr_');
-                        const isFirstAttr = isAttr && idx === outputs.findIndex(o => o.id.startsWith('attr_'));
-                        const isBand = out.id.startsWith('b') && !isNaN(out.id.substring(1));
-                        const isFirstBand = isBand && idx === outputs.findIndex(o => o.id.startsWith('b') && !isNaN(o.id.substring(1)));
+          <div className="w-full flex flex-col">
+              
+              {/* STANDARD ROW */}
+              <div className={`flex justify-between w-full ${isPrimitive ? '' : 'min-h-[30px]'}`}>
+                  <div className="flex flex-col justify-around h-full gap-2 w-1/2">
+                      {inputs.map(inp => renderInput(inp))}
+                  </div>
+                  <div className="flex flex-col justify-around h-full items-end gap-2 w-1/2">
+                      {stdOutputs.map(out => renderOutput(out))}
+                  </div>
+              </div>
+              
+              {/* ATTRIBUTES ROW */}
+              {!collapsed && attrOutputs.length > 0 && (
+                  <div onClick={() => setAttributesExpanded(!attributesExpanded)} className="w-full text-center mt-3 mb-1 border-t border-[#444] pt-1.5 cursor-pointer hover:bg-[#444] bg-[#2b2b2b]/50 transition-colors pointer-events-auto rounded">
+                      <span className="text-[9px] font-bold tracking-widest text-slate-300">{attributesExpanded ? '▼' : '►'} ATTRIBUTES ({attrOutputs.length})</span>
+                  </div>
+              )}
+              <div className="flex justify-between w-full">
+                  <div className="flex flex-col gap-2 w-1/2"></div>
+                  <div className="flex flex-col items-end gap-2 w-1/2">
+                      {attrOutputs.map(out => renderOutput(out, attributesExpanded))}
+                  </div>
+              </div>
 
-                        const isConnected = edges.some(e => e.source === id && e.sourceHandle === out.id);
-                        
-                        let isHidden = collapsed && !isConnected;
-                        if (isAttr && !collapsed && !attributesExpanded && !isConnected) isHidden = true;
-                        if (isBand && !collapsed && !bandsExpanded && !isConnected) isHidden = true;
+              {/* BANDS ROW */}
+              {!collapsed && bandOutputs.length > 0 && (
+                  <div onClick={() => setBandsExpanded(!bandsExpanded)} className="w-full text-center mt-3 mb-1 border-t border-[#444] pt-1.5 cursor-pointer hover:bg-[#444] bg-[#2b2b2b]/50 transition-colors pointer-events-auto rounded">
+                      <span className="text-[9px] font-bold tracking-widest text-slate-300">{bandsExpanded ? '▼' : '►'} BANDS ({bandOutputs.length})</span>
+                  </div>
+              )}
+              <div className="flex justify-between w-full">
+                  <div className="flex flex-col gap-2 w-1/2"></div>
+                  <div className="flex flex-col items-end gap-2 w-1/2">
+                      {bandOutputs.map(out => renderOutput(out, bandsExpanded))}
+                  </div>
+              </div>
 
-                        const color = getPortColor(out.type, out.label) !== '#a3a3a3' ? getPortColor(out.type, out.label) : getOutHandleColor(toolId);
-                        let displayValue = out.value;
-                        const setterHandle = `set_${out.id}`;
-                        const incomingEdge = edges.find(e => e.target === id && e.targetHandle === setterHandle);
-                        if (incomingEdge) {
-                            const sourceNode = nodes.find(n => n.id === incomingEdge.source);
-                            if (sourceNode && sourceNode.data && sourceNode.data.params) {
-                                if (sourceNode.data.toolId === 'core_date_variable') displayValue = sourceNode.data.params.start_date;
-                                else if (sourceNode.data.params.value !== undefined) displayValue = sourceNode.data.params.value;
-                            }
-                        }
-
-                        return (
-                        <React.Fragment key={out.id}>
-                            {isFirstAttr && !collapsed && (
-                                <div onClick={() => setAttributesExpanded(!attributesExpanded)} className="w-full text-right mt-1 mb-1 border-t border-[#444] pt-1 cursor-pointer hover:text-white text-slate-400 transition-colors pointer-events-auto">
-                                    <span className="text-[8px] font-bold tracking-widest">{attributesExpanded ? '▼' : '►'} ATTRIBUTES ({outputs.filter(o => o.id.startsWith('attr_')).length})</span>
-                                </div>
-                            )}
-                            {isFirstBand && !collapsed && (
-                                <div onClick={() => setBandsExpanded(!bandsExpanded)} className="w-full text-right mt-1 mb-1 border-t border-[#444] pt-1 cursor-pointer hover:text-white text-slate-400 transition-colors pointer-events-auto">
-                                    <span className="text-[8px] font-bold tracking-widest">{bandsExpanded ? '▼' : '►'} BANDS ({outputs.filter(o => o.id.startsWith('b') && !isNaN(o.id.substring(1))).length})</span>
-                                </div>
-                            )}
-                            <div className={`w-full relative flex items-center justify-end transition-all duration-300 ${isHidden ? 'hidden' : 'h-4'}`}>
-                                {toolId === 'core_date_variable' && (out.id === 'start' || out.id === 'end') ? (
-                                    <input 
-                                        type="date"
-                                        value={out.id === 'start' ? (data.params?.start_date || '') : (data.params?.end_date || '')}
-                                        onChange={(e) => {
-                                            if (data.updateGlobalNode) {
-                                                const key = out.id === 'start' ? 'start_date' : 'end_date';
-                                                data.updateGlobalNode({ params: { ...data.params, [key]: e.target.value } });
-                                            }
-                                        }}
-                                        className={`bg-transparent text-right text-[9px] font-mono tracking-widest outline-none border-b border-transparent hover:border-[#444] transition-colors mr-1 w-24 ${out.id === 'start' ? 'text-[#ffcc00] focus:border-[#ffcc00] font-bold' : 'text-slate-400 focus:border-slate-400'}`}
-                                    />
-                                ) : (
-                                    <span style={{ color: color }} className="text-[9px] font-mono font-bold tracking-widest pointer-events-none drop-shadow-sm mr-1">{out.label || out.id.toUpperCase()}</span>
-                                )}
-                                <Handle type="source" position={Position.Right} id={out.id} style={{ backgroundColor: color, top: '50%' }} className="w-3.5 h-3.5 rounded-full border-[2.5px] border-[#1a1a1a] cursor-crosshair hover:bg-white transition-all z-50 !-right-4" />
-                                
-                                {!collapsed && displayValue !== undefined && displayValue !== null && displayValue !== '' && (
-                                    <div className="absolute -right-5 top-1/2 -translate-y-1/2 translate-x-full text-left max-w-[120px] pointer-events-none">
-                                        <span className="text-[8px] text-slate-300 font-mono bg-[#1a1a1a]/80 px-1.5 py-[2px] rounded truncate block shadow-sm border border-[#333]">{String(displayValue)}</span>
-                                    </div>
-                                )}
-                            </div>
-                        </React.Fragment>
-                        );
-                    })}
-                </div>
-            </div>
+          </div>
             
             {isPrimitive && primitiveValue !== undefined && (
                 <div className="w-full mt-2 pt-2 border-t border-[#444] flex flex-col items-center justify-center gap-1">

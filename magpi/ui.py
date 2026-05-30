@@ -378,8 +378,19 @@ def LaunchCanvas(port=8080):
                 with fiona.open(file_path, 'r', **kwargs) as src:
                     crs = 'N/A'
                     if hasattr(src, 'crs') and src.crs:
-                        crs = src.crs.to_string() if hasattr(src.crs, 'to_string') else str(src.crs)
-                        
+                        crs_val = src.crs
+                        if hasattr(crs_val, 'to_epsg') and crs_val.to_epsg():
+                            crs = f"EPSG:{crs_val.to_epsg()}"
+                        elif isinstance(crs_val, dict) and 'init' in crs_val:
+                            crs = str(crs_val['init']).upper()
+                        else:
+                            crs_str = crs_val.to_string() if hasattr(crs_val, 'to_string') else str(crs_val)
+                            import re
+                            epsg_match = re.search(r'AUTHORITY\["EPSG",\s*"(\d+)"\]', crs_str)
+                            if epsg_match:
+                                crs = f"EPSG:{epsg_match.group(1)}"
+                            else:
+                                crs = crs_str[:25] + "..." if len(crs_str) > 25 else crs_str
                     extent = list(src.bounds) if hasattr(src, 'bounds') and src.bounds else None
                     geom_type = src.schema.get('geometry', 'Unknown') if hasattr(src, 'schema') else 'Unknown'
                     
