@@ -74,8 +74,13 @@ const MagPINode = ({ data, id }) => {
         .then(res => res.ok ? res.json() : null)
         .then(meta => {
             if (meta && !meta.error) {
+                let fileExt = '';
+                if (data.params?.file_path) {
+                    const parts = data.params.file_path.split('.');
+                    if (parts.length > 1) fileExt = ` (.${parts.pop().toLowerCase()})`;
+                }
                 const newOutputs = [
-                    { id: 'raster', type: 'RASTER', label: 'RASTER' },
+                    { id: 'raster', type: 'RASTER', label: `RASTER${fileExt}` },
                     { id: 'path_out', type: 'STRING', label: 'PATH OUT' },
                     { id: 'crs', type: 'STRING', label: 'CRS', value: meta.crs },
                     { id: 'extent', type: 'EXTENT', label: 'EXTENT', value: meta.extent ? `[${meta.extent.map(v=>v.toFixed(2)).join(', ')}]` : null },
@@ -109,8 +114,13 @@ const MagPINode = ({ data, id }) => {
         .then(res => res.ok ? res.json() : null)
         .then(meta => {
             if (meta && !meta.error) {
+                let fileExt = '';
+                if (data.params?.file_path) {
+                    const parts = data.params.file_path.split('.');
+                    if (parts.length > 1) fileExt = ` (.${parts.pop().toLowerCase()})`;
+                }
                 const newOutputs = [
-                    { id: 'vector', type: 'VECTOR', label: 'VECTOR' },
+                    { id: 'vector', type: 'VECTOR', label: `VECTOR${fileExt}` },
                     { id: 'path_out', type: 'STRING', label: 'PATH OUT' },
                     { id: 'crs', type: 'STRING', label: 'CRS', value: meta.crs },
                     { id: 'extent', type: 'EXTENT', label: 'EXTENT', value: meta.extent ? `[${meta.extent.map(v=>v.toFixed(2)).join(', ')}]` : null },
