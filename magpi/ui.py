@@ -137,6 +137,8 @@ def LaunchCanvas(port=8080):
                 self.handle_list_files(parsed_path.query)
             elif parsed_path.path == '/api/list_layers':
                 self.handle_list_layers(parsed_path.query)
+            elif parsed_path.path == '/api/vector_data':
+                self.handle_vector_data(parsed_path.query)
             else:
                 super().do_GET()
 
@@ -416,6 +418,56 @@ def LaunchCanvas(port=8080):
                 import traceback
                 with open("/tmp/magpi_vector_meta_err.txt", "w") as f:
                     f.write(traceback.format_exc())
+                self.send_response(500)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": str(e)}).encode('utf-8'))
+
+        def handle_vector_data(self, query):
+            try:
+                params = parse_qs(query)
+                file_path = params.get('file', [''])[0]
+                limit = int(params.get('limit', ['100'])[0])
+                offset = int(params.get('offset', ['0'])[0])
+
+                if not file_path:
+                    raise ValueError("Missing file parameter")
+
+                if file_path.startswith('~/'):
+                    file_path = os.path.expanduser(file_path)
+
+                import geopandas as gpd
+                import pandas as pd
+                
+                # Reading the entire shapefile can be slow for 471k rows, 
+                # but we'll read it and slice it for now. 
+                # Future optimization: use fiona to slice directly or read in chunks.
+                gdf = gpd.read_file(file_path, rows=slice(offset, offset + limit))
+                
+                # Convert geometry to WKT for display if it exists
+                if 'geometry' in gdf.columns:
+                    gdf['geometry'] = gdf['geometry'].apply(lambda x: x.wkt if x else None)
+                    
+                # Replace NaNs with None for JSON serialization
+                gdf = gdf.replace({pd.NA: None, float('nan'): None})
+                
+                columns = list(gdf.columns)
+                rows = gdf.to_dict(orient='records')
+                
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({
+                    "columns": columns,
+                    "rows": rows,
+                    "count": len(rows),
+                    "offset": offset,
+                    "limit": limit
+                }).encode('utf-8'))
+
+            except Exception as e:
+                import traceback
+                logger.error(f"Vector Data API failed: {e}")
                 self.send_response(500)
                 self.send_header('Content-type', 'application/json')
                 self.end_headers()
