@@ -60,7 +60,6 @@ const getOutHandleColor = (toolId) => {
 // --- DYNAMIC CHAINNER NODE COMPONENT ---
 const MagPINode = ({ data, id }) => {
   const [collapsed, setCollapsed] = React.useState(true);
-  const { setNodes } = useReactFlow();
   // 1. Structural Logic
   const toolId = data.toolId || '';
 
@@ -85,18 +84,21 @@ const MagPINode = ({ data, id }) => {
                 }
                 
                 for (let i = 1; i <= (meta.bands || 0); i++) {
-                    newOutputs.push({ id: `b${i}`, type: 'ARRAY', label: `BAND ${i}` });
+                    const desc = meta.descriptions && meta.descriptions[i - 1] ? ` (${meta.descriptions[i - 1]})` : '';
+                    newOutputs.push({ id: `b${i}`, type: 'ARRAY', label: `BAND ${i}${desc}` });
                 }
                 
                 if (meta.rpc) {
                     newOutputs.push({ id: 'rpc', type: 'OBJECT', label: 'RPC', value: 'PRESENT' });
                 }
                 
-                setNodes(nds => nds.map(n => n.id === id ? { ...n, data: { ...n.data, outputs: newOutputs, metadataFetched: true } } : n));
+                if (data.updateGlobalNode) {
+                    data.updateGlobalNode({ outputs: newOutputs, metadataFetched: true });
+                }
             }
         }).catch(err => console.error(err));
     }
-  }, [toolId, data.params?.file_path, data.metadataFetched, id, setNodes]);
+  }, [toolId, data.params?.file_path, data.metadataFetched, id, data]);
 
   
   // Pure sources (NO LEFT PORTS)
@@ -267,7 +269,14 @@ export default function NodeCanvas({
         id: n.id,
         type: 'magpiNode',
         position: position,
-        data: { ...n, selected: n.selected || n.id === selectedNodeId, status: nodeStatuses[n.id] }
+        data: { 
+            ...n, 
+            selected: n.selected || n.id === selectedNodeId, 
+            status: nodeStatuses[n.id],
+            updateGlobalNode: (newData) => {
+                setNodes(prev => prev.map(pn => pn.id === n.id ? { ...pn, ...newData } : pn));
+            }
+        }
       };
     }));
   }, [nodes, selectedNodeId, nodeStatuses, setRfNodes]);

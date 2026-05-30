@@ -330,6 +330,7 @@ def LaunchCanvas(port=8080):
                     extent = [bounds.bottom, bounds.left, bounds.top, bounds.right]
                     rpc = src.tags(ns='RPC')
                     tags = src.tags()
+                    descriptions = list(src.descriptions) if hasattr(src, 'descriptions') else []
                     
                     self.send_response(200)
                     self.send_header('Content-type', 'application/json')
@@ -342,7 +343,8 @@ def LaunchCanvas(port=8080):
                         "dtype": dtype,
                         "extent": extent,
                         "rpc": rpc if rpc else None,
-                        "tags": tags
+                        "tags": tags,
+                        "descriptions": descriptions
                     }).encode('utf-8'))
                     
             except Exception as e:
