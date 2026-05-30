@@ -308,10 +308,10 @@ const MagPINode = ({ data, id }) => {
               
               {/* STANDARD ROW */}
               <div className={`flex justify-between w-full ${isPrimitive ? '' : 'min-h-[30px]'}`}>
-                  <div className="flex flex-col justify-around h-full gap-2 w-1/2">
+                  <div className="flex flex-col justify-start h-full gap-2 w-1/2 pt-2 pb-2">
                       {inputs.map(inp => renderInput(inp))}
                   </div>
-                  <div className="flex flex-col justify-around h-full items-end gap-2 w-1/2">
+                  <div className="flex flex-col justify-start h-full items-end gap-2 w-1/2 pt-2 pb-2">
                       {stdOutputs.map(out => renderOutput(out))}
                   </div>
               </div>

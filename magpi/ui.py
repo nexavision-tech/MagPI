@@ -451,6 +451,10 @@ def LaunchCanvas(port=8080):
                 # Replace NaNs with None for JSON serialization
                 gdf = gdf.replace({pd.NA: None, float('nan'): None})
                 
+                # Convert any datetime columns to string to prevent JSON serialization errors
+                for col in gdf.select_dtypes(include=['datetime', 'datetimetz']).columns:
+                    gdf[col] = gdf[col].astype(str)
+                
                 columns = list(gdf.columns)
                 rows = gdf.to_dict(orient='records')
                 
@@ -509,6 +513,10 @@ def LaunchCanvas(port=8080):
                 gdf = gpd.read_file(target_file)
                 if gdf.crs and not gdf.crs.is_geographic:
                     gdf = gdf.to_crs("EPSG:4326")
+                    
+                # Convert any datetime columns to string to prevent JSON serialization errors
+                for col in gdf.select_dtypes(include=['datetime', 'datetimetz']).columns:
+                    gdf[col] = gdf[col].astype(str)
                     
                 geojson_str = gdf.to_json()
                 

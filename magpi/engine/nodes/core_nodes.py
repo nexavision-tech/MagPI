@@ -77,15 +77,54 @@ class CreateRasterNode(Node):
 class LoadRasterNode(Node):
     def execute(self):
         p = self.params
-        file_path = p.get('file_path')
+        
+        # Determine file_path: favor dynamic input 'path_in' over static param 'file_path'
+        file_path = self.inputs.get('path_in', [p.get('file_path')])[0]
+        
         if not file_path:
-            raise ValueError("LoadRaster requires a 'file_path' parameter.")
+            raise ValueError("LoadRaster requires a 'file_path' parameter or 'path_in' connection.")
         logger.info(f"Loading Raster: {file_path}")
         
         from magpi.env import env
+        import os
         resolved_path = env.resolve_path(file_path, intent="input")
-        if not __import__('os').path.exists(resolved_path):
+        if not os.path.exists(resolved_path):
             raise FileNotFoundError(f"Input Raster not found: {resolved_path}")
+            
+        # Check for dynamic override of CRS
+        override_crs = self.inputs.get('set_crs', [None])[0]
+        if override_crs:
+            logger.info(f"Input Raster: Dynamic CRS override triggered -> {override_crs}")
+            import rasterio
+            from rasterio.warp import calculate_default_transform, reproject, Resampling
+            import tempfile
+            
+            with rasterio.open(resolved_path) as src:
+                if str(src.crs) != str(override_crs):
+                    logger.info(f"Input Raster: Warping raster from {src.crs} to {override_crs} in scratch space.")
+                    transform, width, height = calculate_default_transform(
+                        src.crs, override_crs, src.width, src.height, *src.bounds)
+                    kwargs = src.meta.copy()
+                    kwargs.update({
+                        'crs': override_crs,
+                        'transform': transform,
+                        'width': width,
+                        'height': height
+                    })
+                    
+                    warped_path = os.path.join(env.scratch_dir, f"warped_{os.path.basename(resolved_path)}")
+                    
+                    with rasterio.open(warped_path, 'w', **kwargs) as dst:
+                        for i in range(1, src.count + 1):
+                            reproject(
+                                source=rasterio.band(src, i),
+                                destination=rasterio.band(dst, i),
+                                src_transform=src.transform,
+                                src_crs=src.crs,
+                                dst_transform=transform,
+                                dst_crs=override_crs,
+                                resampling=Resampling.nearest)
+                    resolved_path = warped_path
             
         self.output = resolved_path
 
@@ -93,15 +132,39 @@ class LoadRasterNode(Node):
 class LoadVectorNode(Node):
     def execute(self):
         p = self.params
-        file_path = p.get('file_path')
+        
+        # Determine file_path: favor dynamic input 'path_in' over static param 'file_path'
+        file_path = self.inputs.get('path_in', [p.get('file_path')])[0]
+        
         if not file_path:
-            raise ValueError("LoadVector requires a 'file_path' parameter.")
+            raise ValueError("LoadVector requires a 'file_path' parameter or 'path_in' connection.")
         logger.info(f"Loading Vector: {file_path}")
         
         from magpi.env import env
+        import os
         resolved_path = env.resolve_path(file_path, intent="input")
-        if not __import__('os').path.exists(resolved_path):
+        if not os.path.exists(resolved_path):
             raise FileNotFoundError(f"Input Vector not found: {resolved_path}")
+            
+        # Check for dynamic override of CRS
+        override_crs = self.inputs.get('set_crs', [None])[0]
+        if override_crs:
+            logger.info(f"Input Vector: Dynamic CRS override triggered -> {override_crs}")
+            import geopandas as gpd
+            gdf = gpd.read_file(resolved_path)
+            
+            # Simple string check for CRS equality
+            current_crs_str = str(gdf.crs) if gdf.crs else ""
+            if current_crs_str != str(override_crs):
+                logger.info(f"Input Vector: Reprojecting from {current_crs_str} to {override_crs} in scratch space.")
+                if gdf.crs is None:
+                    gdf.set_crs(override_crs, allow_override=True, inplace=True)
+                else:
+                    gdf = gdf.to_crs(override_crs)
+                
+                reproj_path = os.path.join(env.scratch_dir, f"reproj_{os.path.basename(resolved_path)}")
+                gdf.to_file(reproj_path)
+                resolved_path = reproj_path
             
         layer_name = p.get('layer_name')
         if layer_name:
