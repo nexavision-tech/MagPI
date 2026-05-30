@@ -73,7 +73,6 @@ const MagPINode = ({ data }) => {
   if (isEndpoint) shapeClass = "rounded-r-[24px] rounded-l-md"; 
 
   // 3. Dynamic Typed Ports Logic
-  const hasDynamicPorts = data.inputs || data.outputs;
   
   const getPortColor = (type, label) => {
       const t = (type || label || '').toUpperCase();
@@ -98,6 +97,27 @@ const MagPINode = ({ data }) => {
   else if (toolId.startsWith('wfs_')) singleLbl = "AOI";
   else if (toolId === 'logic_extract_attr') singleLbl = "VECTOR";
 
+  // 5. Synthesize Inputs/Outputs if missing
+  let inputs = data.inputs;
+  if (!inputs) {
+    inputs = [];
+    if (!isPureSource) {
+      if (isDualInput) {
+        inputs.push({ id: 'in1', label: topLbl, type: topLbl });
+        inputs.push({ id: 'in2', label: botLbl, type: botLbl });
+      } else {
+        inputs.push({ id: 'in', label: singleLbl, type: singleLbl });
+      }
+    }
+  }
+
+  let outputs = data.outputs;
+  if (!outputs) {
+    outputs = [];
+    if (!isEndpoint) {
+      outputs.push({ id: 'out', label: 'OUT', type: 'OUT' });
+    }
+  }
   return (
     <div className={`flex flex-col min-w-[170px] max-w-[250px] transition-all duration-200 bg-[#2b2b2b] rounded-lg shadow-[0_4px_15px_rgba(0,0,0,0.5)] border ${data.selected ? 'border-[#ff8c00] shadow-[0_0_15px_rgba(255,140,0,0.3)]' : 'border-[#1a1a1a]'}`}>
       
@@ -118,14 +138,11 @@ const MagPINode = ({ data }) => {
 
       {/* BODY ROW */}
       <div className="p-3 relative bg-gradient-to-b from-[#3a3a3a] to-[#2b2b2b] min-h-[50px] rounded-b-lg flex flex-col justify-between">
-        
-        {hasDynamicPorts ? (
             <div className="flex justify-between w-full h-full min-h-[40px]">
                 {/* DYNAMIC INPUTS */}
                 <div className="flex flex-col justify-around h-full space-y-2">
-                    {(data.inputs || []).map((inp, idx, arr) => {
-                        const topPct = arr.length === 1 ? '50%' : `${(100 / (arr.length + 1)) * (idx + 1)}%`;
-                        const color = getPortColor(inp.type, inp.label);
+                    {inputs.map((inp) => {
+                        const color = getPortColor(inp.type, inp.label) !== '#a3a3a3' ? getPortColor(inp.type, inp.label) : getInHandleColor(inp.label);
                         return (
                             <div key={inp.id} className="relative h-4 flex items-center">
                                 <Handle type="target" position={Position.Left} id={inp.id} isConnectableStart={false} style={{ backgroundColor: color, top: '50%' }} className="w-3.5 h-3.5 rounded-full border-[2.5px] border-[#1a1a1a] cursor-crosshair hover:bg-white transition-all z-50 !-left-4" />
@@ -136,9 +153,8 @@ const MagPINode = ({ data }) => {
                 </div>
                 {/* DYNAMIC OUTPUTS */}
                 <div className="flex flex-col justify-around h-full items-end space-y-2">
-                    {(data.outputs || []).map((out, idx, arr) => {
-                        const topPct = arr.length === 1 ? '50%' : `${(100 / (arr.length + 1)) * (idx + 1)}%`;
-                        const color = getPortColor(out.type, out.label);
+                    {outputs.map((out) => {
+                        const color = getPortColor(out.type, out.label) !== '#a3a3a3' ? getPortColor(out.type, out.label) : getOutHandleColor(toolId);
                         return (
                             <div key={out.id} className="relative h-4 flex items-center justify-end">
                                 <span style={{ color: color }} className="text-[9px] font-mono font-bold tracking-widest pointer-events-none drop-shadow-sm mr-1">{out.label || out.id.toUpperCase()}</span>
@@ -148,37 +164,6 @@ const MagPINode = ({ data }) => {
                     })}
                 </div>
             </div>
-        ) : (
-            /* LEGACY FALLBACK FOR OLD NODES WITHOUT TYPED PORTS */
-            <>
-                {/* SINGLE INPUT */}
-                {!isPureSource && !isDualInput && (
-                    <>
-                    <Handle type="target" position={Position.Left} id="in" isConnectableStart={false} style={{ backgroundColor: getInHandleColor(singleLbl) }} className="w-3.5 h-3.5 rounded-full border-[2.5px] border-[#1a1a1a] cursor-crosshair hover:bg-white transition-all z-50" />
-                    <span style={{ color: getInHandleColor(singleLbl) }} className="absolute left-3 top-1/2 -translate-y-1/2 text-[9px] font-mono font-bold pointer-events-none tracking-widest">{singleLbl}</span>
-                    </>
-                )}
-
-                {/* DUAL INPUTS */}
-                {isDualInput && (
-                    <>
-                    <Handle type="target" position={Position.Left} id="in1" style={{ top: '30%', backgroundColor: getInHandleColor(topLbl) }} isConnectableStart={false} className="w-3.5 h-3.5 rounded-full border-[2.5px] border-[#1a1a1a] cursor-crosshair hover:bg-white transition-all z-50" />
-                    <span style={{ color: getInHandleColor(topLbl) }} className="absolute left-3 top-[30%] -translate-y-1/2 text-[9px] font-mono font-bold pointer-events-none tracking-widest">{topLbl}</span>
-
-                    <Handle type="target" position={Position.Left} id="in2" style={{ top: '70%', backgroundColor: getInHandleColor(botLbl) }} isConnectableStart={false} className="w-3.5 h-3.5 rounded-full border-[2.5px] border-[#1a1a1a] cursor-crosshair hover:bg-white transition-all z-50" />
-                    <span style={{ color: getInHandleColor(botLbl) }} className="absolute left-3 top-[70%] -translate-y-1/2 text-[9px] font-mono font-bold pointer-events-none tracking-widest">{botLbl}</span>
-                    </>
-                )}
-
-                {/* OUTPUT */}
-                {!isEndpoint && (
-                    <>
-                    <span style={{ color: getOutHandleColor(toolId) }} className="absolute right-3 top-1/2 -translate-y-1/2 text-[9px] font-mono font-bold pointer-events-none tracking-widest">OUT</span>
-                    <Handle type="source" position={Position.Right} id="out" style={{ backgroundColor: getOutHandleColor(toolId) }} className="w-3.5 h-3.5 rounded-full border-[2.5px] border-[#1a1a1a] cursor-crosshair hover:bg-white transition-all z-50" />
-                    </>
-                )}
-            </>
-        )}
       </div>
     </div>
   );
