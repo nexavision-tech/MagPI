@@ -137,6 +137,9 @@ const MagPINode = ({ data, id }) => {
   const isEndpoint = ['conv_raster_to_polygon', 'stats_confusion_matrix', 'etl_db_writer'].includes(toolId);
   // Dual-input receivers
   const isDualInput = ['ia_export_dl', 'stats_confusion_matrix', 'mgt_clip', 'ia_pansharpen', 'etl_spatial_join', 'ia_raster_math', 'logic_math'].includes(toolId);
+  
+  const isPrimitive = ['logic_string', 'logic_integer', 'logic_float', 'logic_boolean', 'core_date_variable'].includes(toolId);
+  const primitiveValue = data.params?.date !== undefined ? data.params.date : data.params?.value;
 
   // 2. Visual Hierarchy (Shapes)
   let shapeClass = "rounded-lg"; 
@@ -256,7 +259,13 @@ const MagPINode = ({ data, id }) => {
                 </div>
             )}
             
-            {data.params && typeof data.params.export_to_map === 'boolean' && (
+            {isPrimitive && primitiveValue !== undefined && (
+                <div className="w-full mt-2 pt-2 border-t border-[#444] flex items-center justify-center">
+                    <span className="text-xs text-[#ffcc00] font-mono font-bold tracking-widest">{String(primitiveValue)}</span>
+                </div>
+            )}
+            
+            {!isPrimitive && data.params && typeof data.params.export_to_map === 'boolean' && (
                 <div className="w-full mt-2 pt-2 border-t border-[#444] flex items-center justify-between">
                     <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Export to Map</span>
                     <input 
