@@ -132,7 +132,7 @@ const MagPINode = ({ data, id }) => {
                     meta.attributes.forEach(attr => {
                         let shortType = attr.type;
                         if (shortType.includes(':')) shortType = shortType.split(':')[0]; // e.g., int:10 -> int
-                        newOutputs.push({ id: `attr_${attr.name}`, type: 'FLOAT', label: `ATTR: ${attr.name}`, value: shortType });
+                        newOutputs.push({ id: `attr_${attr.name}`, type: 'FLOAT', label: attr.name, value: shortType });
                     });
                 }
                 
@@ -253,7 +253,7 @@ const MagPINode = ({ data, id }) => {
                       className={`bg-transparent text-right text-[9px] font-mono tracking-widest outline-none border-b border-transparent hover:border-[#444] transition-colors mr-1 w-24 ${out.id === 'start' ? 'text-[#ffcc00] focus:border-[#ffcc00] font-bold' : 'text-slate-400 focus:border-slate-400'}`}
                   />
               ) : (
-                  <span style={{ color: color }} className="text-[9px] font-mono font-bold tracking-widest pointer-events-none drop-shadow-sm mr-1">{out.label || out.id.toUpperCase()}</span>
+                  <span style={{ color: color }} className="text-[9px] font-mono font-bold tracking-widest pointer-events-none drop-shadow-sm mr-1 truncate max-w-[120px] text-right" title={out.label || out.id.toUpperCase()}>{out.label || out.id.toUpperCase()}</span>
               )}
               <Handle type="source" position={Position.Right} id={out.id} style={{ backgroundColor: color, top: '50%' }} className="w-3.5 h-3.5 rounded-full border-[2.5px] border-[#1a1a1a] cursor-crosshair hover:bg-white transition-all z-50 !-right-4" />
               
