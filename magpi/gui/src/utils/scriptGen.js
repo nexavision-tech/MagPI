@@ -97,23 +97,52 @@ export const generatePythonScript = (nodes, connections, crs, processingScope, g
         let inLabelVar = 'None';
         let inExtentVars = [];
 
+        const resolveSourceVar = (c) => {
+            const baseVar = varMap[c.from];
+            const srcNode = nodes.find(src => src.id === c.from);
+            
+            if (srcNode && srcNode.toolId === 'load_raster' && c.sourceHandle) {
+                switch(c.sourceHandle) {
+                    case 'path_out': return `getattr(${baseVar}, "catalogPath", getattr(${baseVar}, "name", str(${baseVar})))`;
+                    case 'crs': return `${baseVar}.spatialReference`;
+                    case 'extent': return `${baseVar}.extent`;
+                    case 'bands': return `${baseVar}.bandCount`;
+                    case 'dtype': return `${baseVar}.pixelType`;
+                    case 'nodata': return `${baseVar}.noDataValues`;
+                    case 'rpc': return `getattr(${baseVar}, "RPC", None)`;
+                    case 'raster': return baseVar;
+                    default: return baseVar;
+                }
+            }
+            return baseVar;
+        };
+
         incomingCxs.forEach(c => {
             const { from } = c;
             const prov = getProvenance(from);
-            if (prov === 'raster') inRasterVar = varMap[from];
-            else if (prov === 'label') inLabelVar = varMap[from];
-            else if (prov === 'extent') inExtentVars.push(varMap[from]);
+            const resolvedVar = resolveSourceVar(c);
+            
+            if (c.sourceHandle === 'extent' || prov === 'extent') {
+                inExtentVars.push(resolvedVar);
+            }
+            else if (prov === 'raster' && c.sourceHandle !== 'extent' && c.sourceHandle !== 'crs' && c.sourceHandle !== 'bands') {
+                inRasterVar = resolvedVar;
+            }
+            else if (prov === 'label') {
+                inLabelVar = resolvedVar;
+            }
         });
 
         const inExtentVar = inExtentVars.length > 0 ? inExtentVars[0] : 'None';
-
-        const primaryInVar = inNodes.length > 0 ? varMap[inNodes[0].id] : 'None';
+        const primaryInVar = incomingCxs.length > 0 ? resolveSourceVar(incomingCxs[0]) : 'None';
 
         if (n.toolId === 'core_extent') {
             funcCall = `${outVar} = arcpy.Extent(${p.xmin}, ${p.ymin}, ${p.xmax}, ${p.ymax})`;
         }
         else if (n.toolId === 'load_raster') {
-            funcCall = `${outVar} = arcpy.Raster("${p.file_path}")`;
+            const inPathCx = incomingCxs.find(c => c.targetHandle === 'path_in');
+            const inPathVar = inPathCx ? resolveSourceVar(inPathCx) : `"${p.file_path}"`;
+            funcCall = `${outVar} = arcpy.Raster(${inPathVar})`;
         }
         else if (n.toolId === 'load_vector') {
             funcCall = `${outVar} = "${p.file_path}"`;

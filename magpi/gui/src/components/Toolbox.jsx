@@ -61,6 +61,49 @@ const GdbLayerSelector = ({ selectedNode, updateNodeParam }) => {
 
 const TOOLBOX_CATEGORIES = [
   {
+    name: "Core Inputs", icon: <Database size={18} className="text-yellow-500/70" />,
+    tools: [
+      {
+        id: 'core_extent', name: "Spatial Extent (AOI)", type: 'input', icon: <Hexagon size={14} />, color: 'bg-yellow-600', border: 'border-yellow-500',
+        description: "Defines the geographic bounding box for the entire pipeline. Automatically triggers WFS/WCS streaming on connected nodes.",
+        inputs: [],
+        outputs: [{ id: 'extent', type: 'EXTENT', label: 'EXTENT' }],
+        params: { xmin: -122.5, ymin: 37.7, xmax: -122.3, ymax: 37.8 }
+      },
+      {
+        id: 'load_raster', name: "Input Raster", type: 'input', icon: <ImageIcon size={14} />, color: 'bg-blue-600', border: 'border-blue-500',
+        description: "Loads a multi-band imagery file (TIFF, IMG, JP2) into the MagPI processing matrix.",
+        inputs: [{ id: 'path_in', type: 'STRING', label: 'PATH IN' }],
+        outputs: [
+          { id: 'raster', type: 'RASTER', label: 'RASTER' },
+          { id: 'path_out', type: 'STRING', label: 'PATH OUT' },
+          { id: 'crs', type: 'STRING', label: 'CRS' },
+          { id: 'extent', type: 'EXTENT', label: 'EXTENT' },
+          { id: 'bands', type: 'ARRAY', label: 'BANDS' },
+          { id: 'dtype', type: 'STRING', label: 'DTYPE' },
+          { id: 'nodata', type: 'FLOAT', label: 'NODATA' },
+          { id: 'rpc', type: 'OBJECT', label: 'RPC' }
+        ],
+        params: { file_path: "./test_data/noaa_florida/2021_4BandImagery.tif" }
+      },
+      {
+        id: 'load_vector', name: "Input Vector", type: 'input', icon: <Hexagon size={14} />, color: 'bg-blue-600', border: 'border-blue-500',
+        description: "Loads an existing vector feature class or GeoJSON from the filesystem. Can read single layers or specific layers from a Geodatabase.",
+        params: { file_path: "/home/gda/MagPI/test_data/input_labels.geojson", layer_name: "" }
+      },
+      {
+        id: 'core_create_vector', name: "Create Feature Class", type: 'process', icon: <Hexagon size={14} />, color: 'bg-blue-600', border: 'border-blue-500',
+        description: "Creates an empty feature class (shapefile) or an AOI polygon, serving as a blank canvas for vectors.",
+        params: { out_feature_class: "new_vector.shp", crs: "EPSG:4326" }
+      },
+      {
+        id: 'core_create_raster', name: "Create Constant Raster", type: 'process', icon: <ImageIcon size={14} />, color: 'bg-blue-600', border: 'border-blue-500',
+        description: "Creates a new constant value raster based on an input extent and resolution.",
+        params: { cell_size: 10, value: 0, crs: "EPSG:4326" }
+      }
+    ]
+  },
+  {
     name: "Open Data WFS (Free)", icon: <Cloud size={18} className="text-cyan-400" />,
     tools: [
       {
@@ -149,38 +192,6 @@ const TOOLBOX_CATEGORIES = [
         description: "Executes a cloud batch job for inference and downloads the resulting GeoTIFF.",
         params: { out_format: { value: "GTiff", type: "select", options: ["GTiff", "NetCDF"] }, prefix: "dynamic_landcover", max_credits: 100 }
       }
-    ]
-  },
-  {
-    name: "Core Inputs", icon: <Database size={18} className="text-yellow-500/70" />,
-    tools: [
-      {
-        id: 'core_extent', name: "Spatial Extent (AOI)", type: 'input', icon: <Hexagon size={14} />, color: 'bg-yellow-600', border: 'border-yellow-500',
-        description: "Defines the geographic bounding box for the entire pipeline. Automatically triggers WFS/WCS streaming on connected nodes.",
-        inputs: [],
-        outputs: [{ id: 'extent', type: 'EXTENT', label: 'EXTENT' }],
-        params: { xmin: -122.5, ymin: 37.7, xmax: -122.3, ymax: 37.8 }
-      },
-      {
-        id: 'load_raster', name: "Input Raster", type: 'input', icon: <ImageIcon size={14} />, color: 'bg-blue-600', border: 'border-blue-500',
-        description: "Loads a multi-band imagery file (TIFF, IMG, JP2) into the MagPI processing matrix.",
-        params: { file_path: "./test_data/noaa_florida/2021_4BandImagery.tif" }
-      },
-      {
-        id: 'load_vector', name: "Input Vector", type: 'input', icon: <Hexagon size={14} />, color: 'bg-blue-600', border: 'border-blue-500',
-        description: "Loads an existing vector feature class or GeoJSON from the filesystem. Can read single layers or specific layers from a Geodatabase.",
-        params: { file_path: "/home/gda/MagPI/test_data/input_labels.geojson", layer_name: "" }
-      },
-      {
-        id: 'core_create_vector', name: "Create Feature Class", type: 'process', icon: <Hexagon size={14} />, color: 'bg-blue-600', border: 'border-blue-500',
-        description: "Creates an empty feature class (shapefile) or an AOI polygon, serving as a blank canvas for vectors.",
-        params: { out_feature_class: "new_vector.shp", crs: "EPSG:4326" }
-      },
-      {
-        id: 'core_create_raster', name: "Create Constant Raster", type: 'process', icon: <ImageIcon size={14} />, color: 'bg-blue-600', border: 'border-blue-500',
-        description: "Generates a raster layer filled with a constant value across a given spatial extent.",
-        params: { out_raster: "new_raster.tif", cell_size: 30, fill_value: 0, crs: "EPSG:4326" }
-      },
     ]
   },
   {
