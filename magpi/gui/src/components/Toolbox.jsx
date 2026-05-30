@@ -86,7 +86,7 @@ export const TOOLBOX_CATEGORIES = [
           { id: 'wavelengths', type: 'ARRAY', label: 'WAVELENGTHS' },
           { id: 'rpc', type: 'OBJECT', label: 'RPC' }
         ],
-        params: { file_path: "./test_data/noaa_florida/2021_4BandImagery.tif" }
+        params: { file_path: "./test_data/noaa_florida/2021_4BandImagery_Florida_J1378560tR0_C0.tif" }
       },
       {
         id: 'load_vector', name: "Input Vector", type: 'input', icon: <Hexagon size={14} />, color: 'bg-blue-600', border: 'border-blue-500',

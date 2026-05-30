@@ -225,6 +225,22 @@ const MagPINode = ({ data, id }) => {
                     <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{collapsed ? '▼ Show More' : '▲ Show Less'}</span>
                 </div>
             )}
+            
+            {data.params && typeof data.params.export_to_map === 'boolean' && (
+                <div className="w-full mt-2 pt-2 border-t border-[#444] flex items-center justify-between">
+                    <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Export to Map</span>
+                    <input 
+                        type="checkbox" 
+                        checked={data.params.export_to_map} 
+                        onChange={(e) => {
+                            if (data.updateGlobalNode) {
+                                data.updateGlobalNode({ params: { ...data.params, export_to_map: e.target.checked } });
+                            }
+                        }}
+                        className="w-3 h-3 accent-blue-500 cursor-pointer"
+                    />
+                </div>
+            )}
       </div>
     </div>
   );

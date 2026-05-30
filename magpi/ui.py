@@ -348,6 +348,9 @@ def LaunchCanvas(port=8080):
                     }).encode('utf-8'))
                     
             except Exception as e:
+                import traceback
+                with open('/home/gda/MagPI/error.txt', 'w') as f:
+                    f.write(traceback.format_exc())
                 self.send_response(500)
                 self.send_header('Content-type', 'application/json')
                 self.send_header('Access-Control-Allow-Origin', '*')
