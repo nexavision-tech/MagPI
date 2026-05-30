@@ -99,6 +99,35 @@ const MagPINode = ({ data, id }) => {
             }
         }).catch(err => console.error(err));
     }
+    
+    if (toolId === 'load_vector' && data.params?.file_path && !data.metadataFetched) {
+        fetch(`http://localhost:8080/api/vector_metadata?file=${encodeURIComponent(data.params.file_path)}`)
+        .then(res => res.ok ? res.json() : null)
+        .then(meta => {
+            if (meta && !meta.error) {
+                const newOutputs = [
+                    { id: 'vector', type: 'VECTOR', label: 'VECTOR' },
+                    { id: 'path_out', type: 'STRING', label: 'PATH OUT' },
+                    { id: 'crs', type: 'STRING', label: 'CRS', value: meta.crs },
+                    { id: 'extent', type: 'EXTENT', label: 'EXTENT', value: meta.extent ? `[${meta.extent.map(v=>v.toFixed(2)).join(', ')}]` : null },
+                    { id: 'geometry', type: 'STRING', label: 'GEOMETRY', value: meta.geometry },
+                    { id: 'feature_count', type: 'INT', label: 'FEATURE COUNT', value: meta.feature_count }
+                ];
+                
+                if (meta.attributes) {
+                    meta.attributes.forEach(attr => {
+                        let shortType = attr.type;
+                        if (shortType.includes(':')) shortType = shortType.split(':')[0]; // e.g., int:10 -> int
+                        newOutputs.push({ id: `attr_${attr.name}`, type: 'FLOAT', label: `ATTR: ${attr.name}`, value: shortType });
+                    });
+                }
+                
+                if (data.updateGlobalNode) {
+                    data.updateGlobalNode({ outputs: newOutputs, metadataFetched: true });
+                }
+            }
+        }).catch(err => console.error(err));
+    }
   }, [toolId, data.params?.file_path, data.metadataFetched, id, data]);
 
   

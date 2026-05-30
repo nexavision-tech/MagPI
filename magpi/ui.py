@@ -119,6 +119,8 @@ def LaunchCanvas(port=8080):
                 self.handle_raster(parsed_path.query)
             elif parsed_path.path == '/api/raster_metadata':
                 self.handle_raster_metadata(parsed_path.query)
+            elif parsed_path.path == '/api/vector_metadata':
+                self.handle_vector_metadata(parsed_path.query)
             elif parsed_path.path == '/api/load_project':
                 self.handle_load_project(parsed_path.query)
             elif parsed_path.path == '/api/community_nodes':
@@ -349,6 +351,59 @@ def LaunchCanvas(port=8080):
             except Exception as e:
                 import traceback
                 with open('/home/gda/MagPI/error.txt', 'w') as f:
+                    f.write(traceback.format_exc())
+                self.send_response(500)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": str(e)}).encode('utf-8'))
+
+        def handle_vector_metadata(self, query):
+            try:
+                params = parse_qs(query)
+                file_path = params.get('file', [''])[0]
+                layer_name = params.get('layer', [''])[0]
+
+                if not file_path:
+                    raise ValueError("Missing file parameter")
+
+                import fiona
+                
+                if file_path.startswith('~/'):
+                    file_path = os.path.expanduser(file_path)
+
+                kwargs = {}
+                if layer_name:
+                    kwargs['layer'] = layer_name
+
+                with fiona.open(file_path, 'r', **kwargs) as src:
+                    crs = 'N/A'
+                    if hasattr(src, 'crs') and src.crs:
+                        crs = src.crs.to_string() if hasattr(src.crs, 'to_string') else str(src.crs)
+                        
+                    extent = list(src.bounds) if hasattr(src, 'bounds') and src.bounds else None
+                    geom_type = src.schema.get('geometry', 'Unknown') if hasattr(src, 'schema') else 'Unknown'
+                    
+                    attributes = []
+                    if hasattr(src, 'schema') and 'properties' in src.schema:
+                        for prop_name, prop_type in src.schema.get('properties', {}).items():
+                            attributes.append({"name": prop_name, "type": prop_type})
+                            
+                    feature_count = len(src)
+
+                    self.send_response(200)
+                    self.send_header('Content-type', 'application/json')
+                    self.end_headers()
+                    self.wfile.write(json.dumps({
+                        "crs": crs,
+                        "extent": extent,
+                        "geometry": geom_type,
+                        "feature_count": feature_count,
+                        "attributes": attributes
+                    }).encode('utf-8'))
+
+            except Exception as e:
+                import traceback
+                with open("/tmp/magpi_vector_meta_err.txt", "w") as f:
                     f.write(traceback.format_exc())
                 self.send_response(500)
                 self.send_header('Content-type', 'application/json')

@@ -90,8 +90,18 @@ export const TOOLBOX_CATEGORIES = [
       },
       {
         id: 'load_vector', name: "Input Vector", type: 'input', icon: <Hexagon size={14} />, color: 'bg-blue-600', border: 'border-blue-500',
-        description: "Loads an existing vector feature class or GeoJSON from the filesystem. Can read single layers or specific layers from a Geodatabase.",
-        params: { file_path: "/home/gda/MagPI/test_data/input_labels.geojson", layer_name: "" }
+        description: "Loads a feature class (e.g. Shapefile, GeoJSON, or File Geodatabase layer).",
+        inputs: [ { id: 'path', type: 'STRING', label: 'PATH IN' } ],
+        outputs: [
+          { id: 'vector', type: 'VECTOR', label: 'VECTOR' },
+          { id: 'path_out', type: 'STRING', label: 'PATH OUT' },
+          { id: 'crs', type: 'STRING', label: 'CRS' },
+          { id: 'extent', type: 'EXTENT', label: 'EXTENT' },
+          { id: 'geometry', type: 'STRING', label: 'GEOMETRY' },
+          { id: 'feature_count', type: 'INT', label: 'FEATURE COUNT' }
+        ],
+        params: { file_path: "./test_data/noaa_florida/Orange_County_Tracts_2020.shp", layer_name: "" },
+        custom_ui: GdbLayerSelector
       },
       {
         id: 'core_create_vector', name: "Create Feature Class", type: 'process', icon: <Hexagon size={14} />, color: 'bg-blue-600', border: 'border-blue-500',
@@ -379,9 +389,32 @@ export const TOOLBOX_CATEGORIES = [
         params: { date: "2024-01-01" }
       },
       {
-        id: 'logic_math', name: "Math Operator", type: 'process', icon: <Cpu size={14} />, color: 'bg-yellow-600', border: 'border-yellow-500',
-        description: "Performs basic scalar math (+, -, *, /) on two input variables or constants.",
-        params: { operator: { value: "+", type: "select", options: ["+", "-", "*", "/"] }, value_a: 0.0, value_b: 0.0 }
+        id: 'logic_math_add', name: "Math Add", type: 'process', icon: <Cpu size={14} />, color: 'bg-yellow-600', border: 'border-yellow-500',
+        description: "Adds value A and value B together.",
+        inputs: [{ id: 'a', type: 'FLOAT', label: 'A' }, { id: 'b', type: 'FLOAT', label: 'B' }],
+        outputs: [{ id: 'out', type: 'FLOAT', label: 'RESULT' }],
+        params: { value_a: 0.0, value_b: 0.0 }
+      },
+      {
+        id: 'logic_math_subtract', name: "Math Subtract", type: 'process', icon: <Cpu size={14} />, color: 'bg-yellow-600', border: 'border-yellow-500',
+        description: "Subtracts value B from value A.",
+        inputs: [{ id: 'a', type: 'FLOAT', label: 'A' }, { id: 'b', type: 'FLOAT', label: 'B' }],
+        outputs: [{ id: 'out', type: 'FLOAT', label: 'RESULT' }],
+        params: { value_a: 0.0, value_b: 0.0 }
+      },
+      {
+        id: 'logic_math_multiply', name: "Math Multiply", type: 'process', icon: <Cpu size={14} />, color: 'bg-yellow-600', border: 'border-yellow-500',
+        description: "Multiplies value A and value B together.",
+        inputs: [{ id: 'a', type: 'FLOAT', label: 'A' }, { id: 'b', type: 'FLOAT', label: 'B' }],
+        outputs: [{ id: 'out', type: 'FLOAT', label: 'RESULT' }],
+        params: { value_a: 0.0, value_b: 0.0 }
+      },
+      {
+        id: 'logic_math_divide', name: "Math Divide", type: 'process', icon: <Cpu size={14} />, color: 'bg-yellow-600', border: 'border-yellow-500',
+        description: "Divides value A by value B.",
+        inputs: [{ id: 'a', type: 'FLOAT', label: 'A' }, { id: 'b', type: 'FLOAT', label: 'B' }],
+        outputs: [{ id: 'out', type: 'FLOAT', label: 'RESULT' }],
+        params: { value_a: 0.0, value_b: 1.0 }
       },
       {
         id: 'logic_extract_attr', name: "Extract Attribute", type: 'process', icon: <Database size={14} />, color: 'bg-yellow-600', border: 'border-yellow-500',
