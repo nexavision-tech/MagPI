@@ -207,7 +207,7 @@ const MagPINode = ({ data, id }) => {
                                 <span style={{ color: color }} className="text-[9px] font-mono font-bold tracking-widest pointer-events-none drop-shadow-sm mr-1">{out.label || out.id.toUpperCase()}</span>
                                 <Handle type="source" position={Position.Right} id={out.id} style={{ backgroundColor: color, top: '50%' }} className="w-3.5 h-3.5 rounded-full border-[2.5px] border-[#1a1a1a] cursor-crosshair hover:bg-white transition-all z-50 !-right-4" />
                                 
-                                {!collapsed && out.value && (
+                                {!collapsed && out.value !== undefined && out.value !== null && out.value !== '' && (
                                     <div className="absolute -right-5 top-1/2 -translate-y-1/2 translate-x-full text-left max-w-[120px] pointer-events-none">
                                         <span className="text-[8px] text-slate-300 font-mono bg-[#1a1a1a]/80 px-1.5 py-[2px] rounded truncate block shadow-sm border border-[#333]">{String(out.value)}</span>
                                     </div>

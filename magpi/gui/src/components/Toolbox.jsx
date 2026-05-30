@@ -7,7 +7,7 @@ import {
   Search, Copy, Info, Fingerprint, Loader2, AlertCircle,
   Cloud, Map as MapIcon, Satellite, Box, Globe, DownloadCloud, PaintBucket,
   FileOutput, LineChart, Brain, Sparkles, RefreshCcw, Activity, BrainCircuit, Play, Compass, Calendar,
-  BookOpen, ExternalLink, AlertTriangle, Users
+  BookOpen, ExternalLink, AlertTriangle, Users, Hash, ToggleLeft, FileJson
 } from 'lucide-react';
 
 const GdbLayerSelector = ({ selectedNode, updateNodeParam }) => {
@@ -350,9 +350,28 @@ export const TOOLBOX_CATEGORIES = [
     name: "Logic & Variables", icon: <SlidersHorizontal size={18} className="text-yellow-500/70" />,
     tools: [
       {
-        id: 'logic_constant', name: "Constant Value", type: 'input', icon: <Box size={14} />, color: 'bg-yellow-600', border: 'border-yellow-500',
-        description: "Defines a static number or string to pass into downstream math or geoprocessing operations.",
-        params: { value: "0", type: { value: "float", type: "select", options: ["float", "integer", "string"] } }
+        id: 'logic_string', name: "String", type: 'input', icon: <FileJson size={14} />, color: 'bg-yellow-700', border: 'border-yellow-600',
+        description: "A primitive string value.",
+        outputs: [{ id: 'out', label: 'STRING', type: 'STRING' }],
+        params: { value: "text" }
+      },
+      {
+        id: 'logic_integer', name: "Integer", type: 'input', icon: <Hash size={14} />, color: 'bg-yellow-700', border: 'border-yellow-600',
+        description: "A primitive whole number.",
+        outputs: [{ id: 'out', label: 'INT', type: 'INT' }],
+        params: { value: 0 }
+      },
+      {
+        id: 'logic_float', name: "Float", type: 'input', icon: <Hash size={14} />, color: 'bg-yellow-700', border: 'border-yellow-600',
+        description: "A primitive decimal number.",
+        outputs: [{ id: 'out', label: 'FLOAT', type: 'FLOAT' }],
+        params: { value: 0.0 }
+      },
+      {
+        id: 'logic_boolean', name: "Boolean", type: 'input', icon: <ToggleLeft size={14} />, color: 'bg-yellow-700', border: 'border-yellow-600',
+        description: "A primitive true/false value.",
+        outputs: [{ id: 'out', label: 'BOOL', type: 'BOOL' }],
+        params: { value: true }
       },
       {
         id: 'core_date_variable', name: "Date Variable", type: 'input', icon: <Calendar size={14} />, color: 'bg-yellow-600', border: 'border-yellow-500',
