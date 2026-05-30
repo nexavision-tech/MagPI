@@ -63,6 +63,8 @@ const getOutHandleColor = (toolId) => {
 // --- DYNAMIC CHAINNER NODE COMPONENT ---
 const MagPINode = ({ data, id }) => {
   const [collapsed, setCollapsed] = React.useState(false);
+  const [attributesExpanded, setAttributesExpanded] = React.useState(false);
+  const [bandsExpanded, setBandsExpanded] = React.useState(false);
   // 1. Structural Logic
   const toolId = data.toolId || '';
 
@@ -247,8 +249,17 @@ const MagPINode = ({ data, id }) => {
                 {/* DYNAMIC OUTPUTS */}
                 <div className="flex flex-col justify-around h-full items-end gap-2 w-1/2">
                     {outputs.map((out, idx) => {
+                        const isAttr = out.id.startsWith('attr_');
+                        const isFirstAttr = isAttr && idx === outputs.findIndex(o => o.id.startsWith('attr_'));
+                        const isBand = out.id.startsWith('b') && !isNaN(out.id.substring(1));
+                        const isFirstBand = isBand && idx === outputs.findIndex(o => o.id.startsWith('b') && !isNaN(o.id.substring(1)));
+
                         const isConnected = edges.some(e => e.source === id && e.sourceHandle === out.id);
-                        const isHidden = collapsed && !isConnected;
+                        
+                        let isHidden = collapsed && !isConnected;
+                        if (isAttr && !collapsed && !attributesExpanded && !isConnected) isHidden = true;
+                        if (isBand && !collapsed && !bandsExpanded && !isConnected) isHidden = true;
+
                         const color = getPortColor(out.type, out.label) !== '#a3a3a3' ? getPortColor(out.type, out.label) : getOutHandleColor(toolId);
                         let displayValue = out.value;
                         const setterHandle = `set_${out.id}`;
@@ -262,7 +273,18 @@ const MagPINode = ({ data, id }) => {
                         }
 
                         return (
-                            <div key={out.id} className={`w-full relative flex items-center justify-end transition-all duration-300 ${isHidden ? 'hidden' : 'h-4'}`}>
+                        <React.Fragment key={out.id}>
+                            {isFirstAttr && !collapsed && (
+                                <div onClick={() => setAttributesExpanded(!attributesExpanded)} className="w-full text-right mt-1 mb-1 border-t border-[#444] pt-1 cursor-pointer hover:text-white text-slate-400 transition-colors pointer-events-auto">
+                                    <span className="text-[8px] font-bold tracking-widest">{attributesExpanded ? '▼' : '►'} ATTRIBUTES ({outputs.filter(o => o.id.startsWith('attr_')).length})</span>
+                                </div>
+                            )}
+                            {isFirstBand && !collapsed && (
+                                <div onClick={() => setBandsExpanded(!bandsExpanded)} className="w-full text-right mt-1 mb-1 border-t border-[#444] pt-1 cursor-pointer hover:text-white text-slate-400 transition-colors pointer-events-auto">
+                                    <span className="text-[8px] font-bold tracking-widest">{bandsExpanded ? '▼' : '►'} BANDS ({outputs.filter(o => o.id.startsWith('b') && !isNaN(o.id.substring(1))).length})</span>
+                                </div>
+                            )}
+                            <div className={`w-full relative flex items-center justify-end transition-all duration-300 ${isHidden ? 'hidden' : 'h-4'}`}>
                                 {toolId === 'core_date_variable' && (out.id === 'start' || out.id === 'end') ? (
                                     <input 
                                         type="date"
@@ -286,6 +308,7 @@ const MagPINode = ({ data, id }) => {
                                     </div>
                                 )}
                             </div>
+                        </React.Fragment>
                         );
                     })}
                 </div>
