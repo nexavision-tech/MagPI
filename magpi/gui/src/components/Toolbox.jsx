@@ -77,7 +77,7 @@ export const TOOLBOX_CATEGORIES = [
           { id: 'path_in', type: 'STRING', label: 'PATH IN' },
           { id: 'set_crs', type: 'STRING', label: 'SET CRS' },
           { id: 'set_nodata', type: 'FLOAT', label: 'SET NODATA' },
-          { id: 'set_date', type: 'STRING', label: 'SET DATE' }
+          { id: 'set_date', type: 'STRING', label: 'SET ACQ DATE' }
         ],
         outputs: [
           { id: 'raster', type: 'RASTER', label: 'RASTER' },
@@ -399,7 +399,10 @@ export const TOOLBOX_CATEGORIES = [
         id: 'core_date_variable', name: "Date Variable", type: 'input', icon: <Calendar size={14} />, color: 'bg-yellow-600', border: 'border-yellow-500',
         description: "Defines a chronological date string or range (YYYY-MM-DD). Translates to {{ ds }} in Airflow.",
         inputs: [],
-        outputs: [{ id: 'out', label: 'DATE', type: 'STRING' }],
+        outputs: [
+          { id: 'start', label: 'START', type: 'STRING' },
+          { id: 'end', label: 'END', type: 'STRING' }
+        ],
         params: { start_date: new Date().toISOString().split('T')[0], end_date: "" }
       },
       {

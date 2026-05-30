@@ -140,8 +140,8 @@ const MagPINode = ({ data, id }) => {
   // Dual-input receivers
   const isDualInput = ['ia_export_dl', 'stats_confusion_matrix', 'mgt_clip', 'ia_pansharpen', 'etl_spatial_join', 'ia_raster_math', 'logic_math'].includes(toolId);
   
-  const isPrimitive = ['logic_string', 'logic_integer', 'logic_float', 'logic_boolean', 'core_date_variable'].includes(toolId);
-  const primitiveValue = toolId === 'core_date_variable' ? data.params?.start_date : data.params?.value;
+  const isPrimitive = ['logic_string', 'logic_integer', 'logic_float', 'logic_boolean'].includes(toolId);
+  const primitiveValue = data.params?.value;
 
   const edges = useEdges();
   const nodes = useNodes();
@@ -252,7 +252,21 @@ const MagPINode = ({ data, id }) => {
 
                         return (
                             <div key={out.id} className={`relative flex items-center justify-end transition-all duration-300 ${isHidden ? 'hidden' : 'h-4'}`}>
-                                <span style={{ color: color }} className="text-[9px] font-mono font-bold tracking-widest pointer-events-none drop-shadow-sm mr-1">{out.label || out.id.toUpperCase()}</span>
+                                {toolId === 'core_date_variable' && (out.id === 'start' || out.id === 'end') ? (
+                                    <input 
+                                        type="date"
+                                        value={out.id === 'start' ? (data.params?.start_date || '') : (data.params?.end_date || '')}
+                                        onChange={(e) => {
+                                            if (data.updateGlobalNode) {
+                                                const key = out.id === 'start' ? 'start_date' : 'end_date';
+                                                data.updateGlobalNode({ params: { ...data.params, [key]: e.target.value } });
+                                            }
+                                        }}
+                                        className={`bg-transparent text-right text-[9px] font-mono tracking-widest outline-none border-b border-transparent hover:border-[#444] transition-colors mr-1 w-24 ${out.id === 'start' ? 'text-[#ffcc00] focus:border-[#ffcc00] font-bold' : 'text-slate-400 focus:border-slate-400'}`}
+                                    />
+                                ) : (
+                                    <span style={{ color: color }} className="text-[9px] font-mono font-bold tracking-widest pointer-events-none drop-shadow-sm mr-1">{out.label || out.id.toUpperCase()}</span>
+                                )}
                                 <Handle type="source" position={Position.Right} id={out.id} style={{ backgroundColor: color, top: '50%' }} className="w-3.5 h-3.5 rounded-full border-[2.5px] border-[#1a1a1a] cursor-crosshair hover:bg-white transition-all z-50 !-right-4" />
                                 
                                 {!collapsed && displayValue !== undefined && displayValue !== null && displayValue !== '' && (
@@ -278,7 +292,7 @@ const MagPINode = ({ data, id }) => {
             {isPrimitive && primitiveValue !== undefined && (
                 <div className="w-full mt-2 pt-2 border-t border-[#444] flex flex-col items-center justify-center gap-1">
                     <input 
-                        type={toolId === 'core_date_variable' ? "date" : (toolId === 'logic_string' ? "text" : "number")}
+                        type={toolId === 'logic_string' ? "text" : "number"}
                         value={primitiveValue}
                         onChange={(e) => {
                             let val = e.target.value;
@@ -286,24 +300,11 @@ const MagPINode = ({ data, id }) => {
                             else if (toolId === 'logic_float') val = parseFloat(val);
                             
                             if (data.updateGlobalNode) {
-                                if (toolId === 'core_date_variable') data.updateGlobalNode({ params: { ...data.params, start_date: val } });
-                                else data.updateGlobalNode({ params: { ...data.params, value: val } });
+                                data.updateGlobalNode({ params: { ...data.params, value: val } });
                             }
                         }}
                         className="w-11/12 bg-transparent text-center text-xs text-[#ffcc00] font-mono font-bold tracking-widest outline-none border-b border-transparent hover:border-[#444] focus:border-[#ffcc00] transition-colors pb-1"
                     />
-                    {toolId === 'core_date_variable' && (
-                        <input 
-                            type="date"
-                            value={data.params?.end_date || ''}
-                            onChange={(e) => {
-                                if (data.updateGlobalNode) {
-                                    data.updateGlobalNode({ params: { ...data.params, end_date: e.target.value } });
-                                }
-                            }}
-                            className="w-11/12 bg-transparent text-center text-[10px] text-slate-400 font-mono tracking-widest outline-none border-b border-transparent hover:border-[#444] focus:border-slate-400 transition-colors opacity-70"
-                        />
-                    )}
                 </div>
             )}
             
@@ -358,13 +359,19 @@ export default function NodeCanvas({
   }, []);
 
   const onConnectEnd = React.useCallback((event) => {
-    const targetIsPane = event.target.classList.contains('react-flow__pane');
-    if (targetIsPane && connectingNodeId.current && connectingHandleId.current) {
+    const isHandle = event.target.classList?.contains('react-flow__handle') || event.target.closest?.('.react-flow__handle');
+    const isNode = event.target.classList?.contains('react-flow__node') || event.target.closest?.('.react-flow__node');
+    
+    if (!isHandle && !isNode && connectingNodeId.current && connectingHandleId.current) {
         const bounds = reactFlowWrapper.current.getBoundingClientRect();
-        const position = screenToFlowPosition({ x: event.clientX, y: event.clientY });
+        // Fallback for touch vs mouse event coordinates
+        const clientX = 'changedTouches' in event ? event.changedTouches[0].clientX : event.clientX;
+        const clientY = 'changedTouches' in event ? event.changedTouches[0].clientY : event.clientY;
+        
+        const position = screenToFlowPosition({ x: clientX, y: clientY });
         setMenuData({
-            x: event.clientX - bounds.left,
-            y: event.clientY - bounds.top,
+            x: clientX - bounds.left,
+            y: clientY - bounds.top,
             flowPos: position,
             sourceNode: connectingNodeId.current,
             sourceHandle: connectingHandleId.current,
