@@ -315,33 +315,6 @@ const MagPINode = ({ data, id }) => {
                       {stdOutputs.map(out => renderOutput(out))}
                   </div>
               </div>
-              
-              {/* ATTRIBUTES ROW */}
-              {!collapsed && attrOutputs.length > 0 && (
-                  <div onClick={() => setAttributesExpanded(!attributesExpanded)} className="w-full text-center mt-3 mb-1 border-t border-[#444] pt-1.5 cursor-pointer hover:bg-[#444] bg-[#2b2b2b]/50 transition-colors pointer-events-auto rounded">
-                      <span className="text-[9px] font-bold tracking-widest text-slate-300">{attributesExpanded ? '▼' : '►'} ATTRIBUTES ({attrOutputs.length})</span>
-                  </div>
-              )}
-              <div className={`flex justify-between w-full transition-all duration-300 ${attributesExpanded ? 'max-h-[300px] overflow-y-auto pl-1 custom-scrollbar' : ''}`} style={attributesExpanded ? { direction: 'rtl' } : {}}>
-                  <div className="flex flex-col gap-2 w-1/2" style={attributesExpanded ? { direction: 'ltr' } : {}}></div>
-                  <div className="flex flex-col items-end gap-2 w-1/2" style={attributesExpanded ? { direction: 'ltr' } : {}}>
-                      {attrOutputs.map(out => renderOutput(out, attributesExpanded))}
-                  </div>
-              </div>
-
-              {/* BANDS ROW */}
-              {!collapsed && bandOutputs.length > 0 && (
-                  <div onClick={() => setBandsExpanded(!bandsExpanded)} className="w-full text-center mt-3 mb-1 border-t border-[#444] pt-1.5 cursor-pointer hover:bg-[#444] bg-[#2b2b2b]/50 transition-colors pointer-events-auto rounded">
-                      <span className="text-[9px] font-bold tracking-widest text-slate-300">{bandsExpanded ? '▼' : '►'} BANDS ({bandOutputs.length})</span>
-                  </div>
-              )}
-              <div className={`flex justify-between w-full transition-all duration-300 ${bandsExpanded ? 'max-h-[300px] overflow-y-auto pl-1 custom-scrollbar' : ''}`} style={bandsExpanded ? { direction: 'rtl' } : {}}>
-                  <div className="flex flex-col gap-2 w-1/2" style={bandsExpanded ? { direction: 'ltr' } : {}}></div>
-                  <div className="flex flex-col items-end gap-2 w-1/2" style={bandsExpanded ? { direction: 'ltr' } : {}}>
-                      {bandOutputs.map(out => renderOutput(out, bandsExpanded))}
-                  </div>
-              </div>
-
           </div>
             
             {isPrimitive && primitiveValue !== undefined && (
@@ -379,8 +352,40 @@ const MagPINode = ({ data, id }) => {
                 </div>
             )}
       </div>
+
+      {/* ATTRIBUTES ROW (DOM Level: Node Container) */}
+      {!collapsed && attrOutputs.length > 0 && (
+          <div className="w-full bg-gradient-to-b from-[#2b2b2b] to-[#222] border-t border-[#1a1a1a] rounded-b-lg">
+              <div onClick={() => setAttributesExpanded(!attributesExpanded)} className="w-full text-center py-1.5 cursor-pointer hover:bg-[#444] transition-colors pointer-events-auto">
+                  <span className="text-[9px] font-bold tracking-widest text-slate-300">{attributesExpanded ? '▼' : '►'} ATTRIBUTES ({attrOutputs.length})</span>
+              </div>
+              <div className={`flex justify-between w-full transition-all duration-300 ${attributesExpanded ? 'max-h-[300px] overflow-y-auto pl-1 custom-scrollbar pb-2 px-3' : 'h-0 overflow-hidden px-3'}`} style={attributesExpanded ? { direction: 'rtl' } : {}}>
+                  <div className="flex flex-col gap-2 w-1/2" style={attributesExpanded ? { direction: 'ltr' } : {}}></div>
+                  <div className="flex flex-col items-end gap-2 w-1/2" style={attributesExpanded ? { direction: 'ltr' } : {}}>
+                      {attrOutputs.map(out => renderOutput(out, attributesExpanded))}
+                  </div>
+              </div>
+          </div>
+      )}
+
+      {/* BANDS ROW (DOM Level: Node Container) */}
+      {!collapsed && bandOutputs.length > 0 && (
+          <div className="w-full bg-gradient-to-b from-[#2b2b2b] to-[#222] border-t border-[#1a1a1a] rounded-b-lg">
+              <div onClick={() => setBandsExpanded(!bandsExpanded)} className="w-full text-center py-1.5 cursor-pointer hover:bg-[#444] transition-colors pointer-events-auto">
+                  <span className="text-[9px] font-bold tracking-widest text-slate-300">{bandsExpanded ? '▼' : '►'} BANDS ({bandOutputs.length})</span>
+              </div>
+              <div className={`flex justify-between w-full transition-all duration-300 ${bandsExpanded ? 'max-h-[300px] overflow-y-auto pl-1 custom-scrollbar pb-2 px-3' : 'h-0 overflow-hidden px-3'}`} style={bandsExpanded ? { direction: 'rtl' } : {}}>
+                  <div className="flex flex-col gap-2 w-1/2" style={bandsExpanded ? { direction: 'ltr' } : {}}></div>
+                  <div className="flex flex-col items-end gap-2 w-1/2" style={bandsExpanded ? { direction: 'ltr' } : {}}>
+                      {bandOutputs.map(out => renderOutput(out, bandsExpanded))}
+                  </div>
+              </div>
+          </div>
+      )}
     </div>
   );
+            
+
 };
 
 const nodeTypes = { magpiNode: MagPINode };
