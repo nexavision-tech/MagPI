@@ -353,6 +353,17 @@ export const TOOLBOX_CATEGORIES = [
         params: {}
       },
       {
+        id: 'mgt_calculate_geometry', name: "Calculate Geometry", type: 'process', icon: <MapIcon size={14} />, color: 'bg-slate-600', border: 'border-slate-500',
+        description: "Adds information to a feature's attribute fields representing spatial characteristics like Area, Length, and Centroid Coordinates.",
+        inputs: [
+            { id: 'vector_in', type: 'VECTOR', label: 'VECTOR IN' }
+        ],
+        outputs: [
+            { id: 'vector_out', type: 'VECTOR', label: 'VECTOR OUT' }
+        ],
+        params: { property: { value: "Area", type: "select", options: ["Area", "Area (geodesic)", "Length", "Length (geodesic)", "Centroid x-coordinate", "Centroid y-coordinate", "Point x-coordinate", "Point y-coordinate"] }, unit: { value: "Meters", type: "select", options: ["Meters", "Kilometers", "Square Meters", "Hectares"] } }
+      },
+      {
         id: 'mgt_erase', name: "Erase", type: 'process', icon: <Scissors size={14} />, color: 'bg-slate-600', border: 'border-slate-500',
         description: "Creates a feature class by overlaying the Input Features with the polygons of the Erase Features.",
         params: {}
