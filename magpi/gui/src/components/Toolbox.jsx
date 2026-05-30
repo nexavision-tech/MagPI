@@ -97,8 +97,9 @@ export const TOOLBOX_CATEGORIES = [
         id: 'load_vector', name: "Input Vector", type: 'input', icon: <Hexagon size={14} />, color: 'bg-blue-600', border: 'border-blue-500',
         description: "Loads a feature class (e.g. Shapefile, GeoJSON, or File Geodatabase layer).",
         inputs: [ 
-          { id: 'path', type: 'STRING', label: 'PATH IN' },
-          { id: 'set_crs', type: 'STRING', label: 'SET CRS' }
+          { id: 'path_in', type: 'STRING', label: 'PATH IN' },
+          { id: 'set_crs', type: 'STRING', label: 'SET CRS' },
+          { id: 'set_geometry', type: 'STRING', label: 'SET GEOM TYPE' },
         ],
         outputs: [
           { id: 'vector', type: 'VECTOR', label: 'VECTOR' },

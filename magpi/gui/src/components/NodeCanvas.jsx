@@ -57,12 +57,12 @@ const getOutHandleColor = (toolId) => {
   if (toolId.startsWith('logic_') || toolId === 'core_extent') return '#ffcc00'; // Yellow
   if (toolId === 'core_create_vector' || toolId === 'mgt_buffer' || toolId === 'conv_raster_to_polygon') return '#32d74b'; // Green
   if (toolId.startsWith('wfs_') || toolId === 'load_raster' || toolId === 'mgt_clip') return '#5ac8fa'; // Blue
-  return '#ff3b30'; // Default Red
+  return '#8e8e93'; // Default Grey, reserving Red for Pre-flight validation
 };
 
 // --- DYNAMIC CHAINNER NODE COMPONENT ---
 const MagPINode = ({ data, id }) => {
-  const [collapsed, setCollapsed] = React.useState(true);
+  const [collapsed, setCollapsed] = React.useState(false);
   // 1. Structural Logic
   const toolId = data.toolId || '';
 
@@ -353,37 +353,13 @@ export default function NodeCanvas({
   const connectingHandleId = React.useRef(null);
   const connectingHandleType = React.useRef(null);
   const [menuData, setMenuData] = React.useState(null);
+  const [menuSearch, setMenuSearch] = React.useState("");
 
   const onConnectStart = React.useCallback((_, { nodeId, handleId, handleType }) => {
     connectingNodeId.current = nodeId;
     connectingHandleId.current = handleId;
     connectingHandleType.current = handleType;
   }, []);
-
-  const onConnectEnd = React.useCallback((event) => {
-    const isHandle = event.target.classList?.contains('react-flow__handle') || event.target.closest?.('.react-flow__handle');
-    const isNode = event.target.classList?.contains('react-flow__node') || event.target.closest?.('.react-flow__node');
-    
-    if (!isHandle && !isNode && connectingNodeId.current && connectingHandleId.current) {
-        const bounds = reactFlowWrapper.current.getBoundingClientRect();
-        // Fallback for touch vs mouse event coordinates
-        const clientX = 'changedTouches' in event ? event.changedTouches[0].clientX : event.clientX;
-        const clientY = 'changedTouches' in event ? event.changedTouches[0].clientY : event.clientY;
-        
-        const position = screenToFlowPosition({ x: clientX, y: clientY });
-        setMenuData({
-            x: clientX - bounds.left,
-            y: clientY - bounds.top,
-            flowPos: position,
-            sourceNode: connectingNodeId.current,
-            sourceHandle: connectingHandleId.current,
-            sourceType: connectingHandleType.current
-        });
-    }
-    connectingNodeId.current = null;
-    connectingHandleId.current = null;
-    connectingHandleType.current = null;
-  }, [screenToFlowPosition]);
 
   // Sync MagPI nodes -> rfNodes (preserves dragging state)
   React.useEffect(() => {
@@ -520,6 +496,7 @@ export default function NodeCanvas({
         sourceHandle: null,
         sourceType: null
     });
+    setMenuSearch("");
   }, [screenToFlowPosition]);
 
   const onDrop = useCallback((event) => {
@@ -588,7 +565,6 @@ export default function NodeCanvas({
         onNodesDelete={onNodesDelete}
         onConnect={onConnect}
         onConnectStart={onConnectStart}
-        onConnectEnd={onConnectEnd}
         onDrop={onDrop}
         onDragOver={onDragOver}
         onEdgesDelete={onEdgesDelete}
@@ -620,12 +596,27 @@ export default function NodeCanvas({
             className="absolute z-50 bg-[#1e293b] border border-[#334155] rounded shadow-2xl p-2 w-48 text-sm"
             style={{ top: menuData.y, left: menuData.x }}
         >
-            <div className="flex justify-between items-center mb-2 pb-1 border-b border-[#334155]">
-                <span className="text-xs font-bold text-slate-400">Spawn Node</span>
-                <button onClick={() => setMenuData(null)} className="text-slate-500 hover:text-white"><XCircle size={12} /></button>
+            <div className="flex justify-between items-center mb-2 pb-1 border-b border-[#334155] gap-2">
+                <input 
+                    type="text" 
+                    placeholder="Search tools..." 
+                    autoFocus
+                    className="w-full bg-transparent text-[11px] text-white outline-none placeholder-slate-500 font-mono font-bold"
+                    value={menuSearch}
+                    onChange={e => setMenuSearch(e.target.value)}
+                    onKeyDown={e => {
+                        if (e.key === 'Escape') {
+                            setMenuData(null);
+                            setMenuSearch("");
+                        }
+                    }}
+                />
             </div>
             <div className="max-h-[200px] overflow-y-auto space-y-1 scrollbar-hide">
-                {TOOLBOX_CATEGORIES.flatMap(cat => cat.tools).filter(t => t.type !== 'input' || t.id === 'logic_constant').map(tool => (
+                {TOOLBOX_CATEGORIES.flatMap(cat => cat.tools)
+                    .filter(t => t.type !== 'input' || t.id === 'logic_constant')
+                    .filter(t => t.name.toLowerCase().includes(menuSearch.toLowerCase()))
+                    .map(tool => (
                     <div 
                         key={tool.id} 
                         className="flex items-center space-x-2 p-1.5 hover:bg-[#334155] rounded cursor-pointer text-slate-200 transition-colors"
@@ -649,6 +640,7 @@ export default function NodeCanvas({
                                 }]);
                             }
                             setMenuData(null);
+                            setMenuSearch("");
                         }}
                     >
                         <span className="text-[#3b82f6]">{tool.icon}</span>
