@@ -212,3 +212,44 @@ class BandExtractorNode(Node):
         except Exception as e:
             logger.error(f"Band extraction failed: {e}")
             raise
+
+@register_node('mgt_append_attribute')
+class AppendAttributeNode(Node):
+    def execute(self):
+        in_vector = self.inputs.get("vector_in")
+        in_array = self.inputs.get("array_in")
+        p = self.params
+        
+        field_name = p.get('field_name', 'new_field')
+        
+        if not in_vector or not in_array:
+            raise ValueError("Append Attribute requires both a Vector and an Array input.")
+            
+        out_filename = f"appended_vector_{self.id.split('_')[1] if '_' in self.id else '1'}.shp"
+        out_path = os.path.join(os.environ.get('MAGPI_OUTPUT', '.'), out_filename)
+        
+        logger.info(f"Appending array of length {len(in_array) if isinstance(in_array, list) else 1} to {in_vector} as column '{field_name}'")
+        
+        try:
+            import geopandas as gpd
+            gdf = gpd.read_file(in_vector)
+            
+            # Ensure length matches or handle scalar
+            if isinstance(in_array, list):
+                if len(in_array) != len(gdf):
+                    logger.warning(f"Array length ({len(in_array)}) does not match feature count ({len(gdf)}). Padding/truncating.")
+                    # Pad or truncate to match GDF length
+                    if len(in_array) < len(gdf):
+                        in_array = in_array + [None] * (len(gdf) - len(in_array))
+                    else:
+                        in_array = in_array[:len(gdf)]
+                gdf[field_name] = in_array
+            else:
+                gdf[field_name] = in_array  # Broadcast scalar
+                
+            gdf.to_file(out_path)
+            self.output = out_path
+            logger.info(f"Appended vector saved to: {out_path}")
+        except Exception as e:
+            logger.error(f"Append Attribute failed: {e}")
+            raise

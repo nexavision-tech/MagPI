@@ -364,6 +364,18 @@ export const TOOLBOX_CATEGORIES = [
         params: { property: { value: "Area", type: "select", options: ["Area", "Area (geodesic)", "Length", "Length (geodesic)", "Centroid x-coordinate", "Centroid y-coordinate", "Point x-coordinate", "Point y-coordinate"] }, unit: { value: "Meters", type: "select", options: ["Meters", "Kilometers", "Square Meters", "Hectares"] } }
       },
       {
+        id: 'mgt_append_attribute', name: "Append Attribute", type: 'process', icon: <Database size={14} />, color: 'bg-slate-600', border: 'border-slate-500',
+        description: "Appends a standalone array/list of values into a Vector shapefile as a new attribute column.",
+        inputs: [
+            { id: 'vector_in', type: 'VECTOR', label: 'VECTOR IN' },
+            { id: 'array_in', type: 'ANY', label: 'ARRAY IN' }
+        ],
+        outputs: [
+            { id: 'vector_out', type: 'VECTOR', label: 'VECTOR OUT' }
+        ],
+        params: { field_name: "new_field" }
+      },
+      {
         id: 'mgt_erase', name: "Erase", type: 'process', icon: <Scissors size={14} />, color: 'bg-slate-600', border: 'border-slate-500',
         description: "Creates a feature class by overlaying the Input Features with the polygons of the Erase Features.",
         params: {}
