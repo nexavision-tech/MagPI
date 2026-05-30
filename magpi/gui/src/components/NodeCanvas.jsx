@@ -308,7 +308,7 @@ const MagPINode = ({ data, id }) => {
                 </div>
             )}
             
-            {!isPrimitive && data.params && typeof data.params.export_to_map === 'boolean' && (
+            {!isPrimitive && toolId !== 'core_date_variable' && data.params && typeof data.params.export_to_map === 'boolean' && (
                 <div className="w-full mt-2 pt-2 border-t border-[#444] flex items-center justify-between">
                     <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Export to Map</span>
                     <input 

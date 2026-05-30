@@ -77,7 +77,7 @@ export const TOOLBOX_CATEGORIES = [
           { id: 'path_in', type: 'STRING', label: 'PATH IN' },
           { id: 'set_crs', type: 'STRING', label: 'SET CRS' },
           { id: 'set_nodata', type: 'FLOAT', label: 'SET NODATA' },
-          { id: 'set_date', type: 'STRING', label: 'SET ACQ DATE' }
+          { id: 'set_acq_date', type: 'STRING', label: 'SET ACQ DATE' }
         ],
         outputs: [
           { id: 'raster', type: 'RASTER', label: 'RASTER' },
