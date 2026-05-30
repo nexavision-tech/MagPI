@@ -264,6 +264,18 @@ export const generatePythonScript = (nodes, connections, crs, processingScope, g
         else if (n.toolId === 'mgt_pyramids') {
             funcCall = `${outVar} = ${primaryInVar}\narcpy.management.BuildPyramidsAndStats(${primaryInVar}, build_pyramids=${p.build_pyramids ? 'True' : 'False'}, calculate_stats=${p.calculate_stats ? 'True' : 'False'})`;
         }
+        else if (n.toolId === 'mgt_append_attribute') {
+            let vectorVar = 'None', arrayVar = 'None';
+            incomingCxs.forEach(c => {
+                if (c.targetHandle === 'vector_in') vectorVar = varMap[c.from];
+                else if (c.targetHandle === 'array_in') arrayVar = varMap[c.from];
+            });
+            if (vectorVar === 'None' && inNodes.length > 0) vectorVar = varMap[inNodes[0].id];
+            if (arrayVar === 'None' && inNodes.length > 1) arrayVar = varMap[inNodes[1].id];
+            
+            const outFileName = `appended_vector_${n.id.split('_')[1]}.shp`;
+            funcCall = `import geopandas as gpd\n_gdf = gpd.read_file(${vectorVar})\n_gdf["${p.field_name || 'new_field'}"] = ${arrayVar}\n_gdf.to_file("${outFileName}")\n${outVar} = "${outFileName}"`;
+        }
         else if (n.toolId === 'conv_raster_to_polygon') {
             funcCall = `${outVar} = arcpy.conversion.RasterToPolygon(in_raster=${primaryInVar}, out_polygon_features="${p.out_polygon_features}", background_value=${p.background_value})`;
         }
@@ -310,6 +322,22 @@ export const generatePythonScript = (nodes, connections, crs, processingScope, g
         }
         else if (n.toolId === 'etl_field_calc') {
             funcCall = `${outVar} = arcpy.management.CalculateField(in_table=${primaryInVar}, field="${p.field_name}", expression="${p.expression}")`;
+        }
+        else if (n.toolId && n.toolId.startsWith('logic_math_')) {
+            let varA = 'None', varB = 'None';
+            incomingCxs.forEach(c => {
+                if (c.targetHandle === 'a') varA = varMap[c.from];
+                else if (c.targetHandle === 'b') varB = varMap[c.from];
+            });
+            if (varA === 'None' && inNodes.length > 0) varA = varMap[inNodes[0].id];
+            if (varB === 'None' && inNodes.length > 1) varB = varMap[inNodes[1].id];
+            
+            let op = '+';
+            if (n.toolId === 'logic_math_sub') op = '-';
+            else if (n.toolId === 'logic_math_mul') op = '*';
+            else if (n.toolId === 'logic_math_div') op = '/';
+            
+            funcCall = `import numpy as np\n_a = np.array(${varA}, dtype=float) if isinstance(${varA}, list) else float(${varA})\n_b = np.array(${varB}, dtype=float) if isinstance(${varB}, list) else float(${varB})\n_res = _a ${op} _b\n${outVar} = _res.tolist() if isinstance(_res, np.ndarray) else _res`;
         }
         else if (n.toolId === 'etl_db_writer') {
             funcCall = `arcpy.conversion.ExportToPostGIS(in_features=${primaryInVar}, connection_string="${p.connection_string}", table_name="${p.table_name}")`;
