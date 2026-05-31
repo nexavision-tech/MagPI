@@ -13,11 +13,46 @@ export default function Terminal({ showTerminal, setShowTerminal, logs, isProces
   const [page, setPage] = useState(0);
   const limit = 50;
 
+  // DB Studio State
+  const [dbConnections, setDbConnections] = useState([]);
+  const [selectedDb, setSelectedDb] = useState(null);
+  const [dbTables, setDbTables] = useState(null);
+  const [isLoadingDb, setIsLoadingDb] = useState(false);
+  const [dbError, setDbError] = useState(null);
+
   useEffect(() => {
     if (activeTab === 'logs') {
         bottomRef.current?.scrollIntoView({ behavior: "smooth" });
     }
   }, [logs, showTerminal, activeTab]);
+
+  // Fetch DB connections on tab open
+  useEffect(() => {
+      if (activeTab === 'db_studio') {
+          fetch('http://localhost:8080/api/db_connections')
+              .then(r => r.json())
+              .then(data => setDbConnections(data.connections || []))
+              .catch(e => setDbError("Failed to load connections."));
+      }
+  }, [activeTab]);
+
+  // Fetch tables on DB select
+  useEffect(() => {
+      if (selectedDb) {
+          setIsLoadingDb(true);
+          setDbError(null);
+          fetch(`http://localhost:8080/api/db_tables?connection=${encodeURIComponent(selectedDb)}`)
+              .then(r => r.json())
+              .then(data => {
+                  if (data.error) setDbError(data.error);
+                  else setDbTables(data.tables || []);
+              })
+              .catch(e => setDbError("Failed to fetch tables."))
+              .finally(() => setIsLoadingDb(false));
+      } else {
+          setDbTables(null);
+      }
+  }, [selectedDb]);
 
   // Refetch table data when node changes or page changes
   useEffect(() => {
@@ -97,6 +132,12 @@ export default function Terminal({ showTerminal, setShowTerminal, logs, isProces
                 className={`flex items-center px-4 py-2 font-bold tracking-widest text-[10px] uppercase border-b-2 transition-colors ${activeTab === 'data_studio' ? 'border-purple-500 text-slate-200 bg-slate-800/50' : 'border-transparent text-slate-500 hover:text-slate-300 hover:bg-slate-800/30'}`}
             >
                 <Table size={14} className={`mr-2 ${activeTab === 'data_studio' ? 'text-purple-500' : 'text-slate-500'}`} /> DATA STUDIO (BETA)
+            </button>
+            <button 
+                onClick={() => setActiveTab('db_studio')}
+                className={`flex items-center px-4 py-2 font-bold tracking-widest text-[10px] uppercase border-b-2 transition-colors ${activeTab === 'db_studio' ? 'border-amber-500 text-slate-200 bg-slate-800/50' : 'border-transparent text-slate-500 hover:text-slate-300 hover:bg-slate-800/30'}`}
+            >
+                <Table size={14} className={`mr-2 ${activeTab === 'db_studio' ? 'text-amber-500' : 'text-slate-500'}`} /> DB STUDIO
             </button>
         </div>
         
@@ -213,6 +254,77 @@ export default function Terminal({ showTerminal, setShowTerminal, logs, isProces
                       Select a node to inspect its data structure.
                   </div>
               )}
+          </div>
+      )}
+
+      {/* TAB CONTENT: DB STUDIO */}
+      {activeTab === 'db_studio' && (
+          <div className="flex-1 flex overflow-hidden bg-[#0a0a0a]">
+              {/* SIDEBAR: CONNECTIONS */}
+              <div className="w-1/4 border-r border-slate-800 bg-slate-900/50 flex flex-col">
+                  <div className="p-2 border-b border-slate-800 font-bold text-slate-400 text-[10px] uppercase tracking-widest bg-slate-900 sticky top-0">
+                      Connections
+                  </div>
+                  <div className="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-1">
+                      {dbConnections.length === 0 ? (
+                          <div className="text-slate-600 text-center italic mt-4">No connections</div>
+                      ) : (
+                          dbConnections.map((c, i) => (
+                              <div 
+                                  key={i} 
+                                  onClick={() => setSelectedDb(c.name)}
+                                  className={`p-2 rounded cursor-pointer transition-colors ${selectedDb === c.name ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'bg-slate-800/30 text-slate-400 hover:bg-slate-800 hover:text-slate-200 border border-transparent'}`}
+                              >
+                                  <div className="font-bold flex items-center">
+                                      <Table size={12} className="mr-2" />
+                                      {c.name}
+                                  </div>
+                              </div>
+                          ))
+                      )}
+                  </div>
+              </div>
+              
+              {/* MAIN: TABLES */}
+              <div className="flex-1 flex flex-col bg-[#0a0a0a] relative">
+                  {dbError ? (
+                      <div className="flex-1 flex items-center justify-center text-slate-500">
+                          <AlertTriangle size={16} className="mr-2 text-red-500" /> {dbError}
+                      </div>
+                  ) : isLoadingDb ? (
+                      <div className="flex-1 flex items-center justify-center text-amber-400">
+                          <Loader2 size={16} className="animate-spin mr-2" /> Introspecting database...
+                      </div>
+                  ) : dbTables ? (
+                      <div className="flex-1 overflow-auto custom-scrollbar p-4">
+                          <div className="mb-4 text-slate-500 italic">
+                              Drag any table onto the canvas to spawn a Vector Loader node.
+                          </div>
+                          <div className="grid grid-cols-3 gap-3">
+                              {dbTables.map((t, i) => (
+                                  <div 
+                                      key={i} 
+                                      draggable 
+                                      onDragStart={(e) => {
+                                          e.dataTransfer.setData('application/magpi-db-node', JSON.stringify({ connection: selectedDb, table: t.table, schema: t.schema }));
+                                      }}
+                                      className="p-3 bg-slate-800/40 border border-slate-700/50 rounded flex items-center cursor-grab active:cursor-grabbing hover:bg-slate-800 hover:border-amber-500/50 transition-colors"
+                                  >
+                                      <Table size={14} className="mr-3 text-amber-500/70" />
+                                      <div>
+                                          <div className="text-amber-400 font-bold text-xs truncate">{t.table}</div>
+                                          <div className="text-slate-500 text-[10px]">{t.schema} • {t.type}</div>
+                                      </div>
+                                  </div>
+                              ))}
+                          </div>
+                      </div>
+                  ) : (
+                      <div className="flex-1 flex items-center justify-center text-slate-500">
+                          Select a connection to view tables.
+                      </div>
+                  )}
+              </div>
           </div>
       )}
     </div>

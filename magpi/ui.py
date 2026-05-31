@@ -56,9 +56,17 @@ def execute_pipeline_background(job_id, payload):
         runner = PipelineRunner()
         runner.load_from_json(payload)
         
-        def progress_callback(node_id, status, current_idx, total_nodes):
+        def progress_callback(node_id, status, current_idx, total_nodes, **kwargs):
             JOB_REGISTRY[job_id]['progress'] = int((current_idx / max(1, total_nodes)) * 100)
             JOB_REGISTRY[job_id]['node_status'][node_id] = status
+            
+            derived = kwargs.get('derived', [])
+            if derived:
+                if 'derived_outputs' not in JOB_REGISTRY[job_id]:
+                    JOB_REGISTRY[job_id]['derived_outputs'] = []
+                for d in derived:
+                    JOB_REGISTRY[job_id]['derived_outputs'].append({'node_id': node_id, 'path': d})
+                    
             JOB_REGISTRY[job_id]['logs'] = log_stream.getvalue().split('\n')
             save_jobs()
             
@@ -135,6 +143,8 @@ def LaunchCanvas(port=8080):
                 self.handle_db_connections_get()
             elif parsed_path.path == '/api/list_files':
                 self.handle_list_files(parsed_path.query)
+            elif parsed_path.path == '/api/db_tables':
+                self.handle_db_tables(parsed_path.query)
             elif parsed_path.path == '/api/list_layers':
                 self.handle_list_layers(parsed_path.query)
             elif parsed_path.path == '/api/vector_data':
@@ -810,6 +820,65 @@ def LaunchCanvas(port=8080):
                 self.wfile.write(json.dumps({"status": "success", "connections": data["connections"]}).encode('utf-8'))
             except Exception as e:
                 logger.error(f"DB Connections POST API failed: {e}")
+                self.send_response(500)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": str(e)}).encode('utf-8'))
+
+        def handle_db_tables(self, query):
+            qs = parse_qs(query)
+            conn_name = qs.get('connection', [''])[0]
+            
+            try:
+                registry_path = os.path.join(os.getcwd(), 'magpi_workspace', 'db_connections.json')
+                if not os.path.exists(registry_path):
+                    raise ValueError("No database connections found.")
+                with open(registry_path, 'r') as f:
+                    data = json.load(f)
+                    
+                conn_str = None
+                for c in data.get("connections", []):
+                    if c.get("name") == conn_name:
+                        conn_str = c.get("connection_string")
+                        break
+                        
+                if not conn_str:
+                    raise ValueError(f"Connection {conn_name} not found.")
+                
+                # Use sqlalchemy to get tables
+                from sqlalchemy import create_engine
+                from sqlalchemy import inspect
+                
+                engine = create_engine(conn_str)
+                inspector = inspect(engine)
+                schemas = inspector.get_schema_names()
+                
+                tables_out = []
+                for schema in schemas:
+                    # Ignore internal schemas
+                    if schema in ['information_schema', 'pg_catalog', 'pg_toast', 'topology']:
+                        continue
+                    try:
+                        tables = inspector.get_table_names(schema=schema)
+                    except:
+                        tables = []
+                    try:
+                        views = inspector.get_view_names(schema=schema)
+                    except:
+                        views = []
+                    
+                    for t in tables:
+                        tables_out.append({"schema": schema, "table": t, "type": "table"})
+                    for v in views:
+                        tables_out.append({"schema": schema, "table": v, "type": "view"})
+                        
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"tables": tables_out}).encode('utf-8'))
+                
+            except Exception as e:
+                logger.error(f"DB Tables API failed: {e}")
                 self.send_response(500)
                 self.send_header('Content-type', 'application/json')
                 self.end_headers()

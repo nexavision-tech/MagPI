@@ -112,8 +112,31 @@ class PipelineRunner:
                     if progress_callback: progress_callback(nid, 'error', idx + 1, len(sorted_nodes))
                     return False
                 
+                # Check for derived outputs
+                derived_paths = []
+                import os
+                
+                # Only check for derived outputs if this is not a Load node
+                if not (node.name.startswith("Input Raster") or node.name.startswith("Input Vector")):
+                    def extract_paths(val):
+                        if isinstance(val, str) and (val.endswith('.shp') or val.endswith('.tif') or val.endswith('.gpkg') or val.endswith('.geojson')):
+                            scratch_dir = os.path.abspath(self.global_env.get('scratch_dir', './magpi_scratch'))
+                            output_dir = os.path.abspath(self.global_env.get('output_dir', './magpi_output'))
+                            val_abs = os.path.abspath(val)
+                            if val_abs.startswith(scratch_dir) or val_abs.startswith(output_dir):
+                                derived_paths.append(val_abs)
+                        elif isinstance(val, list):
+                            for v in val: extract_paths(v)
+                        elif isinstance(val, dict):
+                            for v in val.values(): extract_paths(v)
+                    
+                    try:
+                        extract_paths(node.output)
+                    except:
+                        pass
+
                 node.status = "success"
-                if progress_callback: progress_callback(nid, 'success', idx + 1, len(sorted_nodes))
+                if progress_callback: progress_callback(nid, 'success', idx + 1, len(sorted_nodes), derived=derived_paths)
                 logger.info(f"Node {node.name} completed successfully.")
                 
                 # Pass output forward to dependent nodes

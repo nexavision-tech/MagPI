@@ -565,6 +565,7 @@ export default function NodeCanvas({
         } else {
             const rawData = event.dataTransfer.getData('application/reactflow');
             const datasetData = event.dataTransfer.getData('application/magpi-dataset');
+            const dbData = event.dataTransfer.getData('application/magpi-db-node');
             
             if (rawData) {
                 toolData = JSON.parse(rawData);
@@ -580,6 +581,19 @@ export default function NodeCanvas({
                     params: {
                         file_path: dataset.path,
                         ...(isVector ? { layer_name: dataset.layer_name || "" } : {})
+                    }
+                };
+            } else if (dbData) {
+                const db = JSON.parse(dbData);
+                toolData = {
+                    id: 'load_vector',
+                    name: "Input DB Table",
+                    type: 'input',
+                    color: 'bg-amber-600',
+                    border: 'border-amber-500',
+                    params: {
+                        file_path: `PG:dbname='${db.connection}' schemas='${db.schema}' tables='${db.table}'`,
+                        layer_name: db.table
                     }
                 };
             }
