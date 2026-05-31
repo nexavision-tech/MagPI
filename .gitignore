@@ -5,6 +5,7 @@ __pycache__/
 # Ignore massive test data and raster formats
 test_data/
 tmp_wksp/
+test_scripts/
 
 # Ignore Magpi Internal Outputs
 magpi_output/
