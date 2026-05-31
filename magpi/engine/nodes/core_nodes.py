@@ -113,7 +113,7 @@ class LoadRasterNode(Node):
                         'height': height
                     })
                     
-                    warped_path = os.path.join(env.scratch_dir, f"warped_{os.path.basename(resolved_path)}")
+                    warped_path = os.path.join(env.scratchWorkspace, f"warped_{os.path.basename(resolved_path)}")
                     
                     with rasterio.open(warped_path, 'w', **kwargs) as dst:
                         for i in range(1, src.count + 1):
@@ -178,7 +178,7 @@ class LoadVectorNode(Node):
                 else:
                     gdf = gdf.to_crs(override_crs)
                 
-                reproj_path = os.path.join(env.scratch_dir, f"reproj_{os.path.basename(resolved_path)}")
+                reproj_path = os.path.join(env.scratchWorkspace, f"reproj_{os.path.basename(resolved_path)}")
                 gdf.to_file(reproj_path)
                 resolved_path = reproj_path
             
