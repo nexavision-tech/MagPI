@@ -18,8 +18,18 @@ setup(
         "rasterstats",
         "libpysal",
         "esda",
-        "requests"
+        "requests",
+        "shapely",
+        "pyproj",
+        "pystac-client",
+        "pystac",
+        "openeo"
     ],
+    extras_require={
+        "db": ["sqlalchemy", "geoalchemy2", "psycopg2-binary"],
+        "server": ["flask", "flask-cors"],
+        "geoai": ["torch", "torchvision"]
+    },
     classifiers=[
         "Programming Language :: Python :: 3",
         "Operating System :: POSIX :: Linux",
