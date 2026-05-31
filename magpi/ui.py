@@ -572,7 +572,7 @@ def LaunchCanvas(port=8080):
                         transform, _, _ = calculate_default_transform(
                             src.crs, dst_crs, width, height, *src.bounds)
 
-                    dst_array = np.zeros((src.count, height, width), dtype=np.float32)
+                    dst_array = np.full((src.count, height, width), np.nan, dtype=np.float32)
 
                     reproject(
                         source=rasterio.band(src, list(range(1, src.count + 1))),
@@ -581,6 +581,7 @@ def LaunchCanvas(port=8080):
                         src_crs=src.crs,
                         dst_transform=transform,
                         dst_crs=dst_crs,
+                        dst_nodata=np.nan,
                         resampling=Resampling.nearest)
                     
                     from rasterio.transform import array_bounds
