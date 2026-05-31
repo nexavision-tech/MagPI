@@ -141,6 +141,22 @@ export default function App() {
                 if (job.status === 'Finished' || job.status === 'Failed') {
                     setActiveJobId(null);
                     setIsProcessing(false);
+                    
+                    if (job.status === 'Finished' && job.derived_outputs && job.derived_outputs.length > 0) {
+                        setNodes(nds => {
+                            let updatedNodes = false;
+                            const newNds = nds.map(n => {
+                                const derived = job.derived_outputs.find(d => d.node_id === n.id);
+                                if (derived) {
+                                    updatedNodes = true;
+                                    const pathKey = derived.path.endsWith('.tif') ? 'out_raster' : 'file_path';
+                                    return { ...n, params: { ...n.params, [pathKey]: derived.path } };
+                                }
+                                return n;
+                            });
+                            return updatedNodes ? newNds : nds;
+                        });
+                    }
                 }
             }
           }

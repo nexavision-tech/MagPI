@@ -35,6 +35,7 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
     const osmImageryProvider = React.useMemo(() => new OpenStreetMapImageryProvider({ url: 'https://a.tile.openstreetmap.org/' }), []);
     const [selectedFeature, setSelectedFeature] = React.useState(null);
     const [loadedData, setLoadedData] = React.useState({}); // Cache for raster/geojson data
+    const lastZoomedNode = useRef(null);
 
     useEffect(() => {
         if (!mapRef.current) return;
@@ -192,8 +193,15 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                         
                         highlightGroup.current.addLayer(rect);
                         
-                        if (isSelected && activeWorkspace !== 'globe') {
-                            try { mapInstance.current.fitBounds(bounds, { animate: false, padding: [30, 30] }); } catch (e) {}
+                        if (isSelected && activeWorkspace !== 'globe' && lastZoomedNode.current !== layer.id) {
+                            try { 
+                                if (y1 === y2 && x1 === x2) {
+                                    mapInstance.current.setView([y1, x1], 15, { animate: false });
+                                } else {
+                                    mapInstance.current.fitBounds(bounds, { animate: false, padding: [30, 30] }); 
+                                }
+                                lastZoomedNode.current = layer.id;
+                            } catch (e) {}
                         }
                     }
                 }
@@ -209,8 +217,11 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                         imgLayer.bindPopup(`<div class="text-xs font-bold text-slate-800">${layer.name}</div>`);
                         highlightGroup.current.addLayer(imgLayer);
                         
-                        if (layer.selected && !layer.extent && activeWorkspace !== 'globe') {
-                            try { mapInstance.current.fitBounds(cached.bounds, { animate: false, padding: [30, 30] }); } catch (e) {}
+                        if (layer.selected && !layer.extent && activeWorkspace !== 'globe' && lastZoomedNode.current !== layer.id) {
+                            try { 
+                                mapInstance.current.fitBounds(cached.bounds, { animate: false, padding: [30, 30] }); 
+                                lastZoomedNode.current = layer.id;
+                            } catch (e) {}
                         }
                     } else if (!cached || !cached.isFetching) {
                         setLoadedData(prev => ({ ...prev, [layer.id]: { isFetching: true } }));
@@ -238,8 +249,18 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                         });
                         highlightGroup.current.addLayer(gjLayer);
                         
-                        if (layer.selected && !layer.extent && activeWorkspace !== 'globe') {
-                            try { mapInstance.current.fitBounds(gjLayer.getBounds(), { animate: false, padding: [30, 30] }); } catch (e) {}
+                        if (layer.selected && !layer.extent && activeWorkspace !== 'globe' && lastZoomedNode.current !== layer.id) {
+                            try { 
+                                const bounds = gjLayer.getBounds();
+                                if (bounds.isValid()) {
+                                    if (bounds.getNorth() === bounds.getSouth() && bounds.getEast() === bounds.getWest()) {
+                                        mapInstance.current.setView(bounds.getCenter(), 15, { animate: false });
+                                    } else {
+                                        mapInstance.current.fitBounds(bounds, { animate: false, padding: [30, 30] }); 
+                                    }
+                                }
+                                lastZoomedNode.current = layer.id;
+                            } catch (e) {}
                         }
                     } else if (!cached || !cached.isFetching) {
                         setLoadedData(prev => ({ ...prev, [layer.id]: { isFetching: true } }));
