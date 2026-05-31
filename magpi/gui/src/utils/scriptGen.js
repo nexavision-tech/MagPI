@@ -150,7 +150,7 @@ export const generatePythonScript = (nodes, connections, crs, processingScope, g
             if (inCrsCx) {
                 const inCrsVar = resolveSourceVar(inCrsCx);
                 const outName = `"reproj_raster_${n.id.split('_')[1]}.tif"`;
-                funcCall += `\narcpy.AddMessage(f"Dynamically reprojecting {${inPathVar}} to match {${inCrsVar}}")`;
+                funcCall += `\narcpy.AddMessage(f'Dynamically reprojecting {${inPathVar}} to match {${inCrsVar}}')`;
                 funcCall += `\narcpy.management.ProjectRaster(${outVar}, os.path.join(arcpy.env.scratchWorkspace, ${outName}), ${inCrsVar})`;
                 funcCall += `\n${outVar} = arcpy.Raster(os.path.join(arcpy.env.scratchWorkspace, ${outName}))`;
             }
@@ -164,7 +164,7 @@ export const generatePythonScript = (nodes, connections, crs, processingScope, g
             if (inCrsCx) {
                 const inCrsVar = resolveSourceVar(inCrsCx);
                 const outName = `"reproj_vector_${n.id.split('_')[1]}.shp"`;
-                funcCall += `\narcpy.AddMessage(f"Dynamically reprojecting {${inPathVar}} to match {${inCrsVar}}")`;
+                funcCall += `\narcpy.AddMessage(f'Dynamically reprojecting {${inPathVar}} to match {${inCrsVar}}')`;
                 funcCall += `\narcpy.management.Project(${outVar}, os.path.join(arcpy.env.scratchWorkspace, ${outName}), ${inCrsVar})`;
                 funcCall += `\n${outVar} = os.path.join(arcpy.env.scratchWorkspace, ${outName})`;
             }
