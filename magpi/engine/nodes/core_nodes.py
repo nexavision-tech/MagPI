@@ -102,12 +102,15 @@ class LoadRasterNode(Node):
             
             with rasterio.open(resolved_path) as src:
                 if str(src.crs) != str(override_crs):
-                    logger.info(f"Input Raster: Warping raster from {src.crs} to {override_crs} in scratch space.")
+                    from rasterio.crs import CRS
+                    target_crs_obj = CRS.from_user_input(override_crs)
+                    
+                    logger.info(f"Input Raster: Warping raster from {src.crs} to {target_crs_obj} in scratch space.")
                     transform, width, height = calculate_default_transform(
-                        src.crs, override_crs, src.width, src.height, *src.bounds)
+                        src.crs, target_crs_obj, src.width, src.height, *src.bounds)
                     kwargs = src.meta.copy()
                     kwargs.update({
-                        'crs': override_crs,
+                        'crs': target_crs_obj,
                         'transform': transform,
                         'width': width,
                         'height': height
@@ -123,8 +126,12 @@ class LoadRasterNode(Node):
                                 src_transform=src.transform,
                                 src_crs=src.crs,
                                 dst_transform=transform,
-                                dst_crs=override_crs,
+                                dst_crs=target_crs_obj,
                                 resampling=Resampling.nearest)
+                        try:
+                            dst.colorinterp = src.colorinterp
+                        except:
+                            pass
                     resolved_path = warped_path
             
         import rasterio
