@@ -29,6 +29,9 @@ psql -c "CREATE USER magpi_admin WITH PASSWORD '\''YOUR_SECURE_PASSWORD'\'';"
 psql -c "CREATE DATABASE magpi_enterprise OWNER magpi_admin;"
 psql -d magpi_enterprise -c "CREATE EXTENSION postgis;"
 psql -d magpi_enterprise -c "CREATE EXTENSION postgis_raster;"
+
+psql -c "CREATE USER authentik WITH PASSWORD '\''YOUR_SECURE_PASSWORD'\'';"
+psql -c "CREATE DATABASE authentik OWNER authentik;"
 '
 
 sudo systemctl restart postgresql
