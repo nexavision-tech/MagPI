@@ -25,7 +25,7 @@ sudo sed -i "s/#listen_addresses = 'localhost'/listen_addresses = '*'/g" /etc/po
 echo "host    all             all             172.16.0.0/12           scram-sha-256" | sudo tee -a /etc/postgresql/*/main/pg_hba.conf
 
 sudo -i -u postgres bash -c '
-psql -c "CREATE USER magpi_admin WITH PASSWORD '\''M@gP1e_DB_Secure'\'';"
+psql -c "CREATE USER magpi_admin WITH PASSWORD '\''YOUR_SECURE_PASSWORD'\'';"
 psql -c "CREATE DATABASE magpi_enterprise OWNER magpi_admin;"
 psql -d magpi_enterprise -c "CREATE EXTENSION postgis;"
 psql -d magpi_enterprise -c "CREATE EXTENSION postgis_raster;"

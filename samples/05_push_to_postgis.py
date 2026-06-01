@@ -11,7 +11,7 @@ DB_CONNECTION_URL = os.environ.get("MAGPI_DB_URL")
 if not DB_CONNECTION_URL:
     print("[ERROR] MAGPI_DB_URL environment variable is not set!")
     print("Please run this in your terminal before running the script:")
-    print("export MAGPI_DB_URL='postgresql://magpi_admin:M%40gP1e_DB_Secure@127.0.0.1:5432/magpi_enterprise'")
+    print("export MAGPI_DB_URL='postgresql://magpi_admin:YOUR_SECURE_PASSWORD@127.0.0.1:5432/magpi_enterprise'")
     print("(Note how the @ symbol in the password must be URL-encoded as %40!)")
     exit(1)
 
