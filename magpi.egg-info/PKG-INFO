@@ -18,10 +18,26 @@ Requires-Dist: rasterstats
 Requires-Dist: libpysal
 Requires-Dist: esda
 Requires-Dist: requests
+Requires-Dist: shapely
+Requires-Dist: pyproj
+Requires-Dist: pystac-client
+Requires-Dist: pystac
+Requires-Dist: openeo
+Provides-Extra: db
+Requires-Dist: sqlalchemy; extra == "db"
+Requires-Dist: geoalchemy2; extra == "db"
+Requires-Dist: psycopg2-binary; extra == "db"
+Provides-Extra: server
+Requires-Dist: flask; extra == "server"
+Requires-Dist: flask-cors; extra == "server"
+Provides-Extra: geoai
+Requires-Dist: torch; extra == "geoai"
+Requires-Dist: torchvision; extra == "geoai"
 Dynamic: author
 Dynamic: classifier
 Dynamic: description
 Dynamic: license-file
+Dynamic: provides-extra
 Dynamic: requires-dist
 Dynamic: requires-python
 Dynamic: summary

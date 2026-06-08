@@ -389,11 +389,10 @@ dependencies:
   - zstd=1.5.7=hb78ec9c_6
   - pip:
       - iniconfig==2.3.0
-      - magpi==1.0.0
       - pluggy==1.6.0
       - progress==1.6.1
       - pytest==9.0.3
       - requests-mock==1.12.1
       - sciencebasepy==2.0.22
       - tomli==2.4.1
-prefix: /home/gda/miniconda3/envs/magpi-env
+prefix: /mnt/data8tb/miniconda3/envs/magpi-env
