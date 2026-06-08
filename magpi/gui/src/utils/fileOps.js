@@ -8,7 +8,7 @@ export const saveProject = async (nodes, connections, crs, globalEnv, defaultNam
         connections: connections
     };
 
-    const response = await fetch(`http://${window.location.hostname}:8080/api/save_project`, {
+    const response = await fetch(`http://${window.location.hostname}:8282/api/save_project`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',

@@ -16,7 +16,7 @@ const FileNode = ({ node, level }) => {
     if (!isOpen && isGdb && !layers) {
       setIsLoading(true);
       try {
-        const res = await fetch(`http://${window.location.hostname}:8080/api/list_layers?file_path=${encodeURIComponent(node.path)}`);
+        const res = await fetch(`http://${window.location.hostname}:8282/api/list_layers?file_path=${encodeURIComponent(node.path)}`);
         const data = await res.json();
         if (data.status === 'success') {
           setLayers(data.layers);
@@ -133,7 +133,7 @@ export default function CatalogPane({ mapLayers = [], setMapLayers, activeWorksp
   const fetchCatalog = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch(`http://${window.location.hostname}:8080/api/list_files`);
+      const res = await fetch(`http://${window.location.hostname}:8282/api/list_files`);
       const data = await res.json();
       if (data.status === 'success') {
         setCatalog(data.catalog);

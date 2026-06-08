@@ -86,7 +86,7 @@ def execute_pipeline_background(job_id, payload):
         JOB_REGISTRY[job_id]['logs'].append(f"Error: {str(e)}")
         save_jobs()
 
-def LaunchCanvas(port=8080):
+def LaunchCanvas(port=8282):
     module_dir = os.path.dirname(os.path.abspath(__file__))
     gui_dir = os.path.join(module_dir, 'gui')
     

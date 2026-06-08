@@ -10,7 +10,7 @@ export default function FileBrowserModal({ isOpen, onClose, onSelect, initialPat
   const [error, setError] = useState(null);
 
   // The API bridge to the local Python Daemon (Default port 8080)
-  const API_URL = `http://${window.location.hostname}:8080/api/browse`;
+  const API_URL = `http://${window.location.hostname}:8282/api/browse`;
 
   const fetchDirectory = async (targetDir) => {
     setLoading(true);
