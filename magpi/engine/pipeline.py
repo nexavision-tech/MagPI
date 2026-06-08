@@ -36,6 +36,7 @@ class PipelineRunner:
             arcpy.env.scratchWorkspace = scratch
             arcpy.env.outputWorkspace = output
             arcpy.env.horizontalDatum = h_datum
+            arcpy.env.outputCoordinateSystem = h_datum.replace("EPSG:", "") if "EPSG" in h_datum else h_datum
             arcpy.env.verticalDatum = v_datum
             arcpy.env.overwriteOutput = True
             
