@@ -88,7 +88,7 @@ export default function App() {
   }, [nodes, nodeStatuses, selectedNodeId]);
 
   useEffect(() => {
-    fetch('http://localhost:8080/api/references')
+    fetch(`http://${window.location.hostname}:8080/api/references`)
       .then(res => res.json())
       .then(data => {
         if (data.status === 'success' && data.references) {
@@ -97,7 +97,7 @@ export default function App() {
       })
       .catch(err => console.error("Failed to load academic references", err));
       
-    fetch('http://localhost:8080/api/gis_servers')
+    fetch(`http://${window.location.hostname}:8080/api/gis_servers`)
       .then(res => res.json())
       .then(data => {
         if (data.status === 'success' && data.servers) {
@@ -113,7 +113,7 @@ export default function App() {
     if (activeJobId) {
       interval = setInterval(async () => {
         try {
-          const res = await fetch('http://localhost:8080/api/jobs');
+          const res = await fetch(`http://${window.location.hostname}:8080/api/jobs`);
           if (res.ok) {
             const jobs = await res.json();
             const job = jobs.find(j => j.id === activeJobId);
@@ -170,7 +170,7 @@ export default function App() {
   useEffect(() => {
       const checkActiveJobs = async () => {
           try {
-              const res = await fetch('http://localhost:8080/api/jobs');
+              const res = await fetch(`http://${window.location.hostname}:8080/api/jobs`);
               if (res.ok) {
                   setIsDaemonAlive(true);
                   const jobs = await res.json();
@@ -323,7 +323,7 @@ export default function App() {
     if (browserConfig.nodeId === "LOAD_PROJECT") {
         try {
             setLogs([{ type: 'info', msg: `Loading project from ${absolutePath}...` }]);
-            const response = await fetch(`http://localhost:8080/api/load_project?file=${encodeURIComponent(absolutePath)}`);
+            const response = await fetch(`http://${window.location.hostname}:8080/api/load_project?file=${encodeURIComponent(absolutePath)}`);
             const data = await response.json();
             if (response.ok && data.status === 'success') {
                 const pd = data.project_data;
@@ -536,7 +536,7 @@ export default function App() {
             crs,
             globalEnv
         };
-        const response = await fetch("http://localhost:8080/api/run_pipeline", { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        const response = await fetch(`http://${window.location.hostname}:8080/api/run_pipeline`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
         const data = await response.json();
         if (response.ok) {
             setLogs(prev => [...prev, { type: 'success', msg: `Pipeline Dispatched to Daemon. Job ID: ${data.job_id}` }]);
@@ -581,7 +581,7 @@ export default function App() {
     
     try {
         const payload = { nodes: subgraphNodes, connections: subgraphConnections, crs, globalEnv };
-        const response = await fetch("http://localhost:8080/api/run_pipeline", { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        const response = await fetch(`http://${window.location.hostname}:8080/api/run_pipeline`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
         const data = await response.json();
         if (response.ok) {
             setLogs(prev => [...prev, { type: 'success', msg: `Partial Pipeline Dispatched. Job ID: ${data.job_id}` }]);

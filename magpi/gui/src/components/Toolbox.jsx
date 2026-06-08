@@ -20,7 +20,7 @@ const GdbLayerSelector = ({ selectedNode, updateNodeParam }) => {
     const fetchLayers = async () => {
       setLoading(true);
       try {
-        const res = await fetch(`http://localhost:8080/api/list_layers?file_path=${encodeURIComponent(filePath)}`);
+        const res = await fetch(`http://${window.location.hostname}:8080/api/list_layers?file_path=${encodeURIComponent(filePath)}`);
         const data = await res.json();
         if (data.status === 'success') {
           setLayers(data.layers);
@@ -673,7 +673,7 @@ export default function Toolbox({
   const [communityCategories, setCommunityCategories] = useState([]);
 
   React.useEffect(() => {
-    fetch('http://localhost:8080/api/community_nodes')
+    fetch(`http://${window.location.hostname}:8080/api/community_nodes`)
       .then(r => r.json())
       .then(data => {
         if (data.status === 'success' && data.nodes && data.nodes.length > 0) {
@@ -707,7 +707,7 @@ export default function Toolbox({
     // Mark as fetching immediately to prevent duplicate calls
     setMetadata(prev => ({ ...prev, [nodeId]: { ...(prev[nodeId] || {}), fetching: true } }));
     try {
-      const response = await fetch(`http://localhost:8080/api/describe?file=${encodeURIComponent(filePath)}`);
+      const response = await fetch(`http://${window.location.hostname}:8080/api/describe?file=${encodeURIComponent(filePath)}`);
       const data = await response.json();
 
       if (response.ok) {
@@ -766,7 +766,7 @@ export default function Toolbox({
         date_range: date_range
       };
 
-      const response = await fetch(`http://localhost:8080/api/stac_query`, {
+      const response = await fetch(`http://${window.location.hostname}:8080/api/stac_query`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)

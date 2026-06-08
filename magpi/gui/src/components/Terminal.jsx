@@ -29,7 +29,7 @@ export default function Terminal({ showTerminal, setShowTerminal, logs, isProces
   // Fetch DB connections on tab open
   useEffect(() => {
       if (activeTab === 'db_studio') {
-          fetch('http://localhost:8080/api/db_connections')
+          fetch(`http://${window.location.hostname}:8080/api/db_connections`)
               .then(r => r.json())
               .then(data => setDbConnections(data.connections || []))
               .catch(e => setDbError("Failed to load connections."));
@@ -41,7 +41,7 @@ export default function Terminal({ showTerminal, setShowTerminal, logs, isProces
       if (selectedDb) {
           setIsLoadingDb(true);
           setDbError(null);
-          fetch(`http://localhost:8080/api/db_tables?connection=${encodeURIComponent(selectedDb)}`)
+          fetch(`http://${window.location.hostname}:8080/api/db_tables?connection=${encodeURIComponent(selectedDb)}`)
               .then(r => r.json())
               .then(data => {
                   if (data.error) setDbError(data.error);
@@ -80,7 +80,7 @@ export default function Terminal({ showTerminal, setShowTerminal, logs, isProces
         setIsLoadingData(true);
         setDataError(null);
         try {
-            const res = await fetch(`http://localhost:8080/api/vector_data?file=${encodeURIComponent(path)}&limit=${limit}&offset=${page * limit}`);
+            const res = await fetch(`http://${window.location.hostname}:8080/api/vector_data?file=${encodeURIComponent(path)}&limit=${limit}&offset=${page * limit}`);
             const data = await res.json();
             if (res.ok) {
                 setTableData(data);

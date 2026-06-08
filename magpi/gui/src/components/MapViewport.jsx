@@ -225,7 +225,7 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                         }
                     } else if (!cached || !cached.isFetching) {
                         setLoadedData(prev => ({ ...prev, [layer.id]: { isFetching: true } }));
-                        fetch(`http://localhost:8080/api/raster?file=${encodeURIComponent(layer.filePath)}&cmap=${layer.cmap}`)
+                        fetch(`http://${window.location.hostname}:8080/api/raster?file=${encodeURIComponent(layer.filePath)}&cmap=${layer.cmap}`)
                             .then(r => r.ok ? r.json() : null)
                             .then(data => {
                                 if (data && data.image) {
@@ -264,7 +264,7 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                         }
                     } else if (!cached || !cached.isFetching) {
                         setLoadedData(prev => ({ ...prev, [layer.id]: { isFetching: true } }));
-                        fetch(`http://localhost:8080/api/geojson?file=${encodeURIComponent(layer.filePath)}`)
+                        fetch(`http://${window.location.hostname}:8080/api/geojson?file=${encodeURIComponent(layer.filePath)}`)
                             .then(r => r.ok ? r.json() : null)
                             .then(data => {
                                 if (data) {
