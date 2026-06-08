@@ -133,7 +133,7 @@ export const TOOLBOX_CATEGORIES = [
         description: "Streams Cloud Optimized GeoTIFFs (COGs) from AWS Earth Search based on an AOI. Includes temporal filtering.",
         inputs: [{ id: 'extent', type: 'EXTENT', label: 'AOI' }],
         outputs: [{ id: 'raster', type: 'RASTER', label: 'RASTER' }],
-        params: { max_cloud_cover: 10, start_date: { value: "2023-01-01", type: "date" }, end_date: { value: "2023-12-31", type: "date" }, out_folder: "./sentinel_data", selected_items: "", band_b02: true, band_b03: true, band_b04: true, band_b08: true }
+        params: { max_cloud_cover: 10, start_date: { value: "2023-01-01", type: "date" }, end_date: { value: "2023-12-31", type: "date" }, out_folder: "./sentinel_data", selected_items: "", band_b01: false, band_b02: true, band_b03: true, band_b04: true, band_b05: false, band_b06: false, band_b07: false, band_b08: true, band_b8a: false, band_b09: false, band_b11: false, band_b12: false, band_aot: false, band_wvp: false, band_scl: false }
       },
       {
         id: 'wfs_sentinel1', name: "Sentinel-1 (SAR)", type: 'input', icon: <Satellite size={14} />, color: 'bg-cyan-700', border: 'border-cyan-500',
