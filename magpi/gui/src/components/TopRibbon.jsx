@@ -76,19 +76,21 @@ export default function TopRibbon({
         <div className="flex flex-col space-y-1.5">
           <div className="flex items-center justify-between">
              <span className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Global Environment</span>
-             <button onClick={onOpenEnvSettings} className="text-[10px] text-emerald-500 hover:text-emerald-400 font-bold uppercase tracking-widest flex items-center bg-slate-900 px-2 py-0.5 rounded border border-emerald-900/50 hover:border-emerald-500 transition-colors">
-                <Globe size={10} className="mr-1" /> Paths
-             </button>
           </div>
-          <div className="flex space-x-4">
+          <div className="flex space-x-4 items-center">
             
+            <button onClick={onOpenEnvSettings} className="text-xs text-white hover:text-white font-bold uppercase tracking-widest flex items-center bg-emerald-700 hover:bg-emerald-600 px-3 py-1.5 rounded shadow-inner transition-colors">
+                <Globe size={14} className="mr-2" /> DAEMON CONFIG
+            </button>
+
             <div className="flex items-center space-x-2 bg-slate-900 px-3 py-1.5 rounded text-sm border border-slate-700 shadow-inner hover:border-slate-500 transition-colors">
               <Globe size={14} className="text-blue-400" />
-              <span className="text-xs text-slate-500 uppercase font-bold mr-1">Datum:</span>
+              <span className="text-xs text-slate-500 uppercase font-bold mr-1">CRS (PROJ):</span>
               <select 
                 className="bg-transparent outline-none cursor-pointer text-slate-200 font-medium"
                 value={crs} onChange={(e) => setCrs(e.target.value)}
               >
+                <option value="Native">Native / Inherit (1:1 Pixels)</option>
                 <option value="EPSG:4326">WGS 84 (EPSG:4326)</option>
                 <option value="EPSG:6438">FL State Plane E (EPSG:6438)</option>
                 <option value="EPSG:3857">Web Mercator (EPSG:3857)</option>
@@ -97,14 +99,15 @@ export default function TopRibbon({
 
             <div className="flex items-center space-x-2 bg-slate-900 px-3 py-1.5 rounded text-sm border border-slate-700 shadow-inner hover:border-slate-500 transition-colors">
               <Globe size={14} className="text-teal-400" />
-              <span className="text-xs text-slate-500 uppercase font-bold mr-1">V-Datum:</span>
+              <span className="text-xs text-slate-500 uppercase font-bold mr-1">ELEVATION (Z):</span>
               <select 
-                className="bg-transparent outline-none cursor-pointer text-slate-200 font-medium w-36"
+                className="bg-transparent outline-none cursor-pointer text-slate-200 font-medium w-40"
                 value={globalEnv?.vertical_datum || 'EPSG:3855'} onChange={(e) => setGlobalEnv({...globalEnv, vertical_datum: e.target.value})}
               >
-                <option value="EPSG:3855">EGM2008</option>
+                <option value="EPSG:3855">EGM2008 (Geoid)</option>
                 <option value="EPSG:5703">NAVD88</option>
                 <option value="EPSG:4326">WGS 84 Ellipsoid</option>
+                <option value="SRTM_30M">SRTM 30m Global DEM</option>
               </select>
             </div>
 
@@ -116,6 +119,7 @@ export default function TopRibbon({
                 value={processingScope} onChange={(e) => setProcessingScope(e.target.value)}
               >
                 <option value="Local Python">Local Backend (Conda)</option>
+                <option value="PEP684">Local (PEP 684 Sub-Interpreters)</option>
                 <option value="Apache Airflow">Remote (Apache Airflow)</option>
               </select>
             </div>
