@@ -644,6 +644,7 @@ export default function App() {
             openFileBrowser={openFileBrowser}
             handleRunUpToNode={handleRunUpToNode}
             connections={connections}
+            nodes={nodes}
             masterReferences={masterReferences}
             masterGisServers={masterGisServers}
           />

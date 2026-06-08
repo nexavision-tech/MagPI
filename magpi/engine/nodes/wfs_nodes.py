@@ -9,7 +9,7 @@ logger = logging.getLogger("MagPI_WFSNodes")
 @register_node('wfs_sentinel2')
 class PullSentinel2Node(Node):
     def execute(self):
-        extents = self.inputs.get("in")
+        extents = self.inputs.get("extent") or self.inputs.get("in")
         if not isinstance(extents, list):
             extents = [extents]
             
@@ -47,7 +47,7 @@ class PullSentinel2Node(Node):
 @register_node('wfs_sentinel1')
 class PullSentinel1Node(Node):
     def execute(self):
-        extents = self.inputs.get("in")
+        extents = self.inputs.get("extent") or self.inputs.get("in")
         if not isinstance(extents, list):
             extents = [extents]
             
@@ -86,7 +86,7 @@ class PullSentinel1Node(Node):
 @register_node('wfs_copernicus')
 class WFSCopernicusNode(Node):
     def execute(self):
-        extents = self.inputs.get("in")
+        extents = self.inputs.get("extent") or self.inputs.get("in")
         if not isinstance(extents, list):
             extents = [extents]
             
@@ -114,7 +114,7 @@ class WFSCopernicusNode(Node):
 @register_node('wfs_arcgis_rest')
 class PullArcGISRestNode(Node):
     def execute(self):
-        extent = self.inputs.get("in")
+        extent = self.inputs.get("extent") or self.inputs.get("in")
         p = self.params
         
         url = p.get("service_url")
