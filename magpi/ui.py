@@ -95,6 +95,18 @@ def LaunchCanvas(port=8282):
 
     class MagPIAPIHandler(http.server.SimpleHTTPRequestHandler):
         def __init__(self, *args, **kwargs):
+            # Hardcode MIME types to bypass broken OS registries and prevent Vite module loading errors
+            if not hasattr(self, 'extensions_map'):
+                self.extensions_map = http.server.SimpleHTTPRequestHandler.extensions_map.copy()
+            self.extensions_map.update({
+                '.js': 'application/javascript',
+                '.jsx': 'application/javascript',
+                '.mjs': 'application/javascript',
+                '.css': 'text/css',
+                '.html': 'text/html',
+                '.svg': 'image/svg+xml'
+            })
+            
             if os.path.exists(gui_dir):
                 super().__init__(*args, directory=gui_dir, **kwargs)
             else:
