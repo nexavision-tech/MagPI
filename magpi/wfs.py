@@ -135,7 +135,7 @@ def QuerySTAC(extent, collection="sentinel-2-l2a", max_cloud_cover=10, date_rang
 
 # Backward compatibility wrapper
 def QuerySentinel2(extent, max_cloud_cover=10, date_range="2023-01-01/2023-12-31"):
-    return QuerySTAC(extent, "sentinel-2-l2a", max_cloud_cover, date_range, "https://earth-search.aws.element84.com/v1")
+    return QuerySTAC(extent, "sentinel-2-c1-l2a", max_cloud_cover, date_range, "https://earth-search.aws.element84.com/v1")
 
 def PullSTAC(extent, out_raster, collection="sentinel-2-l2a", catalog_url="https://earth-search.aws.element84.com/v1", max_cloud_cover=10, date_range="2023-01-01/2023-12-31", item_ids=None, bands=None):
     import logging
@@ -271,7 +271,7 @@ def PullSTAC(extent, out_raster, collection="sentinel-2-l2a", catalog_url="https
 
 # Backward compatibility wrapper
 def PullSentinel2(extent, out_raster, max_cloud_cover=10, date_range="2023-01-01/2023-12-31", item_ids=None, bands=None):
-    return PullSTAC(extent, out_raster, "sentinel-2-l2a", "https://earth-search.aws.element84.com/v1", max_cloud_cover, date_range, item_ids, bands)
+    return PullSTAC(extent, out_raster, "sentinel-2-c1-l2a", "https://earth-search.aws.element84.com/v1", max_cloud_cover, date_range, item_ids, bands)
 
 def PullSentinel1(extent, out_raster, date_range="2023-01-01/2023-12-31", item_ids=None):
     logger.info("Initializing Sentinel-1 SAR Pull (Planetary Computer STAC)...")
