@@ -1012,7 +1012,7 @@ export default function Toolbox({
                         selectedNode.id,
                         null,
                         selectedNode.params.max_cloud_cover,
-                        `${selectedNode.params.start_date.value}/${selectedNode.params.end_date.value}`
+                        `${selectedNode.params.start_date?.value || selectedNode.params.start_date}/${selectedNode.params.end_date?.value || selectedNode.params.end_date}`
                       )}
                       disabled={stacLoading}
                       className="w-full py-2 bg-cyan-900/40 hover:bg-cyan-600 text-cyan-300 hover:text-white text-xs font-bold rounded border border-cyan-800/50 hover:border-cyan-500 transition-all flex items-center justify-center mb-3 disabled:opacity-50"
