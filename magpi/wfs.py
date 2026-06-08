@@ -84,9 +84,17 @@ def GetCensusTracts(state_fips, county_fips, year=2020, out_feature_class=None):
         logger.error(f"Failed to retrieve Census Data: {e}")
         return Result(None, status=3)
 
-def QuerySentinel2(extent, max_cloud_cover=10, date_range="2023-01-01/2023-12-31"):
+def QuerySTAC(extent, collection="sentinel-2-l2a", max_cloud_cover=10, date_range="2023-01-01/2023-12-31", catalog_url="https://earth-search.aws.element84.com/v1"):
     try:
-        min_lon, min_lat, max_lon, max_lat = extent
+        from pystac_client import Client
+        import logging
+        logger = logging.getLogger("MagPI_WFS")
+        if hasattr(extent, 'XMin'): 
+            min_lon, min_lat, max_lon, max_lat = extent.XMin, extent.YMin, extent.XMax, extent.YMax
+        elif isinstance(extent, (list, tuple)) and len(extent) == 4:
+            min_lon, min_lat, max_lon, max_lat = map(float, extent)
+        else: 
+            min_lon, min_lat, max_lon, max_lat = map(float, str(extent).replace('[','').replace(']','').replace(',',' ').split())
         
         formatted_date = str(date_range).strip()
         if "T" not in formatted_date:
@@ -95,40 +103,60 @@ def QuerySentinel2(extent, max_cloud_cover=10, date_range="2023-01-01/2023-12-31
                 formatted_date = f"{start_d.strip()}T00:00:00Z/{end_d.strip()}T23:59:59Z"
             except Exception: pass 
             
-        search_url = "https://earth-search.aws.element84.com/v1/search"
-        payload = { "collections": ["sentinel-2-l2a"], "bbox": [min_lon, min_lat, max_lon, max_lat], "datetime": formatted_date, "query": {"eo:cloud_cover": {"lt": int(max_cloud_cover)}}, "limit": 20 }
-        response = requests.post(search_url, json=payload)
+        logger.info(f"Querying STAC Catalog: {catalog_url} for {collection}")
+        client = Client.open(catalog_url)
         
-        if not response.ok:
-            logger.error(f"AWS STAC API Error ({response.status_code}): {response.text}")
-            return []
+        query_params = {}
+        if max_cloud_cover and ("sentinel-2" in collection.lower() or "s2" in collection.lower()):
+            query_params["eo:cloud_cover"] = {"lt": int(max_cloud_cover)}
             
-        data = response.json()
+        search = client.search(
+            collections=[collection],
+            bbox=[min_lon, min_lat, max_lon, max_lat],
+            datetime=formatted_date,
+            query=query_params if query_params else None,
+            max_items=20
+        )
+        
+        items = list(search.items())
         results = []
-        for feature in data.get("features", []):
+        for item in items:
             results.append({
-                "id": feature["id"],
-                "date": feature["properties"].get("datetime", ""),
-                "cloud_cover": feature["properties"].get("eo:cloud_cover", 0)
+                "id": item.id,
+                "date": item.datetime.isoformat() if item.datetime else "",
+                "cloud_cover": item.properties.get("eo:cloud_cover", 0)
             })
         return results
     except Exception as e:
-        logger.error(f"Query Sentinel-2 failed: {e}")
+        import logging
+        logger = logging.getLogger("MagPI_WFS")
+        logger.error(f"Query STAC failed: {e}")
         return []
 
-def PullSentinel2(extent, out_raster, max_cloud_cover=10, date_range="2023-01-01/2023-12-31", item_ids=None, bands=None):
-    logger.info("Initializing MagPI Sovereign Data Pull (Sentinel-2 via AWS Earth Search)...")
+# Backward compatibility wrapper
+def QuerySentinel2(extent, max_cloud_cover=10, date_range="2023-01-01/2023-12-31"):
+    return QuerySTAC(extent, "sentinel-2-l2a", max_cloud_cover, date_range, "https://earth-search.aws.element84.com/v1")
+
+def PullSTAC(extent, out_raster, collection="sentinel-2-l2a", catalog_url="https://earth-search.aws.element84.com/v1", max_cloud_cover=10, date_range="2023-01-01/2023-12-31", item_ids=None, bands=None):
+    import logging
+    logger = logging.getLogger("MagPI_WFS")
+    logger.info(f"Initializing MagPI Sovereign Data Pull ({collection} via {catalog_url})...")
     try:
         from .env import env
+        from .objects import Result
+        import os
         out_raster = env.resolve_path(out_raster, intent="input")
         import rasterio
         from rasterio.windows import from_bounds
+        from pystac_client import Client
         
         if hasattr(extent, 'output'):
             extent = extent.output
             
         if hasattr(extent, 'XMin'): 
             min_lon, min_lat, max_lon, max_lat = extent.XMin, extent.YMin, extent.XMax, extent.YMax
+        elif isinstance(extent, (list, tuple)) and len(extent) == 4:
+            min_lon, min_lat, max_lon, max_lat = map(float, extent)
         elif isinstance(extent, str) and (extent.endswith('.shp') or extent.endswith('.geojson') or os.path.exists(extent)):
             import geopandas as gpd
             gdf = gpd.read_file(extent)
@@ -136,17 +164,15 @@ def PullSentinel2(extent, out_raster, max_cloud_cover=10, date_range="2023-01-01
                 gdf = gdf.to_crs("EPSG:4326")
             min_lon, min_lat, max_lon, max_lat = gdf.total_bounds
         else: 
-            min_lon, min_lat, max_lon, max_lat = map(float, str(extent).split())
+            min_lon, min_lat, max_lon, max_lat = map(float, str(extent).replace('[','').replace(']','').replace(',',' ').split())
 
-        search_url = "https://earth-search.aws.element84.com/v1/search"
-        payload = { "collections": ["sentinel-2-l2a"] }
+        client = Client.open(catalog_url)
         
         if item_ids and isinstance(item_ids, str):
             item_ids = [i.strip() for i in item_ids.split(',')]
             
         if item_ids:
-            payload["ids"] = item_ids
-            payload["limit"] = len(item_ids)
+            search = client.search(collections=[collection], ids=item_ids)
         else:
             formatted_date = str(date_range).strip()
             if "T" not in formatted_date:
@@ -154,26 +180,25 @@ def PullSentinel2(extent, out_raster, max_cloud_cover=10, date_range="2023-01-01
                     start_d, end_d = formatted_date.split('/')
                     formatted_date = f"{start_d.strip()}T00:00:00Z/{end_d.strip()}T23:59:59Z"
                 except Exception: pass 
-            payload["bbox"] = [min_lon, min_lat, max_lon, max_lat]
-            payload["datetime"] = formatted_date
-            payload["query"] = {"eo:cloud_cover": {"lt": int(max_cloud_cover)}}
-            payload["limit"] = 1
-
-        response = requests.post(search_url, json=payload)
-        
-        if not response.ok:
-            logger.error(f"AWS STAC API Error ({response.status_code}): {response.text}")
-            return Result(None, status=3)
             
-        data = response.json()
-        if not data.get("features"):
-            logger.error("No Sentinel-2 imagery found.")
+            query_params = {}
+            if max_cloud_cover and ("sentinel-2" in collection.lower() or "s2" in collection.lower()):
+                query_params["eo:cloud_cover"] = {"lt": int(max_cloud_cover)}
+                
+            search = client.search(
+                collections=[collection],
+                bbox=[min_lon, min_lat, max_lon, max_lat],
+                datetime=formatted_date,
+                query=query_params if query_params else None,
+                max_items=1
+            )
+
+        items = list(search.items())
+        if not items:
+            logger.error("No STAC imagery found.")
             return Result(None, status=3)
 
-        # In MagPI, PullSentinel2 returns a single raster. If multiple item_ids are passed, 
-        # this function gets called in a loop (list comprehension) per item_id by the code generator.
-        # So we just take the first feature.
-        best_scene = data["features"][0]
+        best_scene = items[0]
         
         if bands and isinstance(bands, str):
             band_keys = [b.strip().lower() for b in bands.split(',')]
@@ -182,12 +207,12 @@ def PullSentinel2(extent, out_raster, max_cloud_cover=10, date_range="2023-01-01
             
         band_urls = []
         for bk in band_keys:
-            if bk in best_scene["assets"]:
-                band_urls.append(best_scene["assets"][bk]["href"])
-            elif bk == "b02": band_urls.append(best_scene["assets"]["blue"]["href"])
-            elif bk == "b03": band_urls.append(best_scene["assets"]["green"]["href"])
-            elif bk == "b04": band_urls.append(best_scene["assets"]["red"]["href"])
-            elif bk == "b08": band_urls.append(best_scene["assets"]["nir"]["href"])
+            if bk in best_scene.assets:
+                band_urls.append(best_scene.assets[bk].href)
+            elif bk == "b02" and "blue" in best_scene.assets: band_urls.append(best_scene.assets["blue"].href)
+            elif bk == "b03" and "green" in best_scene.assets: band_urls.append(best_scene.assets["green"].href)
+            elif bk == "b04" and "red" in best_scene.assets: band_urls.append(best_scene.assets["red"].href)
+            elif bk == "b08" and "nir" in best_scene.assets: band_urls.append(best_scene.assets["nir"].href)
             else:
                 logger.warning(f"Band {bk} not found in asset, skipping.")
         
@@ -210,20 +235,15 @@ def PullSentinel2(extent, out_raster, max_cloud_cover=10, date_range="2023-01-01
                 from rasterio.enums import Resampling
                 from magpi.env import env
                 
-                # Check if global output coordinate system is defined
                 target_crs = f"EPSG:{env.outputCoordinateSystem}" if env.outputCoordinateSystem else src0.crs
                 if env.outputCoordinateSystem:
                     logger.info(f"Enforcing global Coregistration via WarpedVRT ({target_crs})")
                 
-                # Project the EPSG:4326 extent BBox into the Target CRS
                 target_bounds = transform_bounds('EPSG:4326', target_crs, min_lon, min_lat, max_lon, max_lat)
                 
-                # Wrap source in VRT to dynamically reproject it
                 with WarpedVRT(src0, crs=target_crs, resampling=Resampling.bilinear) as vrt:
-                    # Calculate the pixel window for the target BBox using the VRT's new transform
                     window = from_bounds(*target_bounds, vrt.transform).round_offsets().round_lengths()
                     
-                    # Prepare meta for output
                     out_meta = vrt.meta.copy()
                     out_meta.update({
                         "driver": "GTiff", 
@@ -237,15 +257,21 @@ def PullSentinel2(extent, out_raster, max_cloud_cover=10, date_range="2023-01-01
                         for i, url in enumerate(band_urls, start=1):
                             logger.info(f"Streaming Band {i} into unified grid...")
                             with rasterio.open(url) as src_band:
-                                # Apply the same VRT to all bands to guarantee perfect coregistration
                                 with WarpedVRT(src_band, crs=target_crs, resampling=Resampling.bilinear) as band_vrt:
                                     dest.write(band_vrt.read(1, window=window), i)
                             
-        logger.info(f"Saved {len(band_urls)}-Band Sentinel-2 chip to: {out_raster}")
+        logger.info(f"Saved {len(band_urls)}-Band STAC chip to: {out_raster}")
         return Result(out_raster)
     except Exception as e:
+        import logging
+        logger = logging.getLogger("MagPI_WFS")
         logger.error(f"Data pull failed: {e}")
+        from .objects import Result
         return Result(None, status=3)
+
+# Backward compatibility wrapper
+def PullSentinel2(extent, out_raster, max_cloud_cover=10, date_range="2023-01-01/2023-12-31", item_ids=None, bands=None):
+    return PullSTAC(extent, out_raster, "sentinel-2-l2a", "https://earth-search.aws.element84.com/v1", max_cloud_cover, date_range, item_ids, bands)
 
 def PullSentinel1(extent, out_raster, date_range="2023-01-01/2023-12-31", item_ids=None):
     logger.info("Initializing Sentinel-1 SAR Pull (Planetary Computer STAC)...")
