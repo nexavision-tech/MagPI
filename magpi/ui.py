@@ -88,7 +88,7 @@ def execute_pipeline_background(job_id, payload):
 
 def LaunchCanvas(port=8282):
     module_dir = os.path.dirname(os.path.abspath(__file__))
-    gui_dir = os.path.join(module_dir, 'gui')
+    gui_dir = os.path.join(module_dir, 'gui', 'dist')
     
     if not os.path.exists(gui_dir):
         logger.warning(f"GUI dir not found at {gui_dir}. Serving API only.")
