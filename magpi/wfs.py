@@ -224,6 +224,18 @@ def PullSTAC(extent, out_raster, collection="sentinel-2-l2a", catalog_url="https
             logger.warning(f"Geometric validation skipped: {str(e)}")
         # ---------------------------------------------
         
+        # STEP 2: Save metadata footprint as requested
+        if out_raster:
+            try:
+                import json
+                footprint_path = str(out_raster).replace('.tif', '_footprint.geojson')
+                with open(footprint_path, 'w') as f:
+                    json.dump(best_scene.to_dict(), f)
+                logger.info(f"Saved Sentinel-2 footprint GeoJSON to: {footprint_path}")
+            except Exception as e:
+                logger.warning(f"Failed to save scene footprint: {e}")
+        
+        
         if bands and isinstance(bands, str):
             band_keys = [b.strip().lower() for b in bands.split(',')]
         else:

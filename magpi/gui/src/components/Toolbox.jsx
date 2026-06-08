@@ -736,7 +736,7 @@ export default function Toolbox({
     setStacLoading(true);
     setStacError(null);
     try {
-      let parsedBbox = [-180, -90, 180, 90];
+      let parsedBbox = null;
 
       // Look for connected Spatial Extent nodes if none provided
       if (!bbox || bbox.length !== 4) {
@@ -744,21 +744,27 @@ export default function Toolbox({
         if (incomingEdges.length > 0) {
           const extentNodes = incomingEdges
             .map(edge => nodes.find(n => n.id === edge.from))
-            .filter(n => n && n.data && n.data.toolId === 'core_extent' && n.data.params);
+            .filter(n => n && n.toolId === 'core_extent' && n.params);
 
           if (extentNodes.length > 0) {
             let minX = 180, minY = 90, maxX = -180, maxY = -90;
             extentNodes.forEach(node => {
-              minX = Math.min(minX, parseFloat(node.data.params.xmin));
-              minY = Math.min(minY, parseFloat(node.data.params.ymin));
-              maxX = Math.max(maxX, parseFloat(node.data.params.xmax));
-              maxY = Math.max(maxY, parseFloat(node.data.params.ymax));
+              minX = Math.min(minX, parseFloat(node.params.xmin));
+              minY = Math.min(minY, parseFloat(node.params.ymin));
+              maxX = Math.max(maxX, parseFloat(node.params.xmax));
+              maxY = Math.max(maxY, parseFloat(node.params.ymax));
             });
             parsedBbox = [minX, minY, maxX, maxY];
           }
         }
       } else {
         parsedBbox = bbox;
+      }
+
+      if (!parsedBbox || parsedBbox.length !== 4) {
+        setStacError("No Spatial Extent connected! Please connect an AOI node first before searching the catalog.");
+        setStacLoading(false);
+        return;
       }
 
       const payload = {
