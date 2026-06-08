@@ -150,6 +150,10 @@ def PullSTAC(extent, out_raster, collection="sentinel-2-l2a", catalog_url="https
         from rasterio.windows import from_bounds
         from pystac_client import Client
         
+        if extent is None:
+            logger.error("No valid spatial extent provided.")
+            return Result(None, status=3)
+        
         if hasattr(extent, 'output'):
             extent = extent.output
             
