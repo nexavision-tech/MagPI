@@ -172,7 +172,12 @@ export const generatePythonScript = (nodes, connections, crs, processingScope, g
         else if (n.toolId === 'wfs_sentinel2') {
             let extraArgs = "";
             if (p.selected_items) extraArgs += `, item_ids="${p.selected_items}"`;
-            if (p.selected_bands) extraArgs += `, bands="${p.selected_bands}"`;
+            let selected_bands = [];
+            if (p.band_b02) selected_bands.push('B02');
+            if (p.band_b03) selected_bands.push('B03');
+            if (p.band_b04) selected_bands.push('B04');
+            if (p.band_b08) selected_bands.push('B08');
+            if (selected_bands.length > 0) extraArgs += `, bands="${selected_bands.join(',')}"`;
             
             if (inExtentVars.length > 1) {
                 const outFileNameBase = `s2_cloud_extract_${n.id.split('_')[1]}`;

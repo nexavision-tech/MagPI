@@ -230,16 +230,32 @@ export default function App() {
   }, [nodes, connections, globalEnv]);
 
   const handleAoiDrawn = useCallback((aoiData) => {
-    const newNode = { 
-      id: `node_${Date.now()}`, toolId: 'core_extent', name: 'Spatial Extent (AOI)', icon: 'core_extent', 
-      x: 400 + Math.random() * 50, y: 200 + Math.random() * 50, color: 'bg-yellow-600', border: 'border-yellow-500', 
-      params: { xmin: aoiData.xmin, ymin: aoiData.ymin, xmax: aoiData.xmax, ymax: aoiData.ymax } 
-    };
-    setNodes(prev => [...prev, newNode]);
-    setSelectedNodeId(newNode.id);
+    setNodes(prev => {
+        const extentNodes = prev.filter(n => n.toolId === 'core_extent');
+        let targetId = null;
+        if (selectedNodeId && prev.find(n => n.id === selectedNodeId && n.toolId === 'core_extent')) {
+            targetId = selectedNodeId;
+        } else if (extentNodes.length === 1) {
+            targetId = extentNodes[0].id;
+        }
+        
+        if (targetId) {
+            return prev.map(n => n.id === targetId ? {
+                ...n, params: { ...n.params, xmin: aoiData.xmin, ymin: aoiData.ymin, xmax: aoiData.xmax, ymax: aoiData.ymax }
+            } : n);
+        } else {
+            const newNode = { 
+              id: `node_${Date.now()}`, toolId: 'core_extent', name: 'Spatial Extent (AOI)', icon: 'core_extent', 
+              x: 400 + Math.random() * 50, y: 200 + Math.random() * 50, color: 'bg-yellow-600', border: 'border-yellow-500', 
+              params: { xmin: aoiData.xmin, ymin: aoiData.ymin, xmax: aoiData.xmax, ymax: aoiData.ymax } 
+            };
+            setSelectedNodeId(newNode.id);
+            return [...prev, newNode];
+        }
+    });
     setActiveRightTab('inspector');
     setActiveWorkspace('builder');
-  }, []);
+  }, [selectedNodeId]);
 
   const handleAoiImported = useCallback((bounds, filename) => {
     const newNode = { 
@@ -604,7 +620,6 @@ export default function App() {
             <button onClick={() => setActiveWorkspace('planar')} className={`px-6 py-2 text-xs font-bold uppercase tracking-widest rounded-t-lg transition-colors flex items-center border border-b-0 ${activeWorkspace === 'planar' ? 'bg-slate-800 text-purple-400 border-slate-600' : 'bg-transparent text-slate-500 border-transparent hover:bg-slate-800/50 hover:text-slate-300'}`}><Edit3 size={14} className="mr-2" /> Planar View</button>
             <button onClick={() => setActiveWorkspace('builder')} className={`px-6 py-2 text-xs font-bold uppercase tracking-widest rounded-t-lg transition-colors flex items-center border border-b-0 ml-1 ${activeWorkspace === 'builder' ? 'bg-slate-800 text-emerald-400 border-slate-600' : 'bg-transparent text-slate-500 border-transparent hover:bg-slate-800/50 hover:text-slate-300'}`}><Wrench size={14} className="mr-2" /> Model Builder</button>
             <button onClick={() => setActiveWorkspace('globe')} className={`px-6 py-2 text-xs font-bold uppercase tracking-widest rounded-t-lg transition-colors flex items-center border border-b-0 ml-1 ${activeWorkspace === 'globe' ? 'bg-slate-800 text-cyan-400 border-slate-600' : 'bg-transparent text-slate-500 border-transparent hover:bg-slate-800/50 hover:text-slate-300'}`}><MapIcon size={14} className="mr-2" /> Scene View</button>
-            <button onClick={() => setActiveWorkspace('plenum')} className={`px-6 py-2 text-xs font-bold uppercase tracking-widest rounded-t-lg transition-colors flex items-center border border-b-0 ml-1 ${activeWorkspace === 'plenum' ? 'bg-slate-800 text-blue-400 border-slate-600' : 'bg-transparent text-slate-500 border-transparent hover:bg-slate-800/50 hover:text-slate-300'}`}><Satellite size={14} className="mr-2" /> Plenum View</button>
             <button onClick={() => setActiveWorkspace('dbstudio')} className={`px-6 py-2 text-xs font-bold uppercase tracking-widest rounded-t-lg transition-colors flex items-center border border-b-0 ml-1 ${activeWorkspace === 'dbstudio' ? 'bg-slate-800 text-purple-400 border-slate-600' : 'bg-transparent text-slate-500 border-transparent hover:bg-slate-800/50 hover:text-slate-300'}`}><Database size={14} className="mr-2" /> DB Studio</button>
             <button onClick={() => setActiveWorkspace('tensor_brew')} className={`px-6 py-2 text-xs font-bold uppercase tracking-widest rounded-t-lg transition-colors flex items-center border border-b-0 ml-1 ${activeWorkspace === 'tensor_brew' ? 'bg-slate-800 text-indigo-400 border-slate-600' : 'bg-transparent text-slate-500 border-transparent hover:bg-slate-800/50 hover:text-slate-300'}`}><Layers size={14} className="mr-2" /> Tensor Brew</button>
             <button onClick={() => setActiveWorkspace('jobs')} className={`px-6 py-2 text-xs font-bold uppercase tracking-widest rounded-t-lg transition-colors flex items-center border border-b-0 ml-1 ${activeWorkspace === 'jobs' ? 'bg-slate-800 text-rose-400 border-slate-600' : 'bg-transparent text-slate-500 border-transparent hover:bg-slate-800/50 hover:text-slate-300'}`}><Activity size={14} className="mr-2" /> Job Manager</button>
@@ -628,7 +643,7 @@ export default function App() {
         <div className={activeWorkspace === 'builder' ? 'flex-1 relative opacity-100 z-10' : 'absolute inset-0 opacity-0 pointer-events-none -z-10'}>
             <NodeCanvas nodes={nodes} setNodes={setNodes} connections={connections} setConnections={setConnections} selectedNodeId={selectedNodeId} setSelectedNodeId={setSelectedNodeId} setActiveRightTab={setActiveRightTab} nodeStatuses={nodeStatuses} removeConnection={removeConnection} addNode={addNode} />
         </div>
-        <div className={`relative ${['globe', 'planar', 'plenum'].includes(activeWorkspace) ? 'flex-1 w-full min-w-0' : 'hidden'} flex-col shadow-[-10px_0_20px_rgba(0,0,0,0.3)] z-10 border-l border-r border-slate-800`}>
+        <div className={`relative ${['globe', 'planar'].includes(activeWorkspace) ? 'flex-1 w-full min-w-0' : 'hidden'} flex-col shadow-[-10px_0_20px_rgba(0,0,0,0.3)] z-10 border-l border-r border-slate-800`}>
             <MapViewport onAoiDrawn={handleAoiDrawn} onAoiImported={handleAoiImported} selectedNode={nodes.find(n => n.id === selectedNodeId)} activeWorkspace={activeWorkspace} nodes={nodes} nodeStatuses={nodeStatuses} connections={connections} globalEnv={globalEnv} mapLayers={mapLayers} />
         </div>
         <div className={`w-[320px] shrink-0 relative ${['builder', 'planar'].includes(activeWorkspace) ? 'flex' : 'hidden'} flex-col z-20`}>

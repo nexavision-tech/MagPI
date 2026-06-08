@@ -1,3 +1,4 @@
+import MiniMap from "./MiniMap";
 import React, { useState, useEffect } from 'react';
 import {
   Database, Layers, Cpu, Settings, Image as ImageIcon,
@@ -132,7 +133,7 @@ export const TOOLBOX_CATEGORIES = [
         description: "Streams Cloud Optimized GeoTIFFs (COGs) from AWS Earth Search based on an AOI. Includes temporal filtering.",
         inputs: [{ id: 'extent', type: 'EXTENT', label: 'AOI' }],
         outputs: [{ id: 'raster', type: 'RASTER', label: 'RASTER' }],
-        params: { max_cloud_cover: 10, start_date: { value: "2023-01-01", type: "date" }, end_date: { value: "2023-12-31", type: "date" }, out_folder: "./sentinel_data", selected_items: "", selected_bands: "B02,B03,B04,B08" }
+        params: { max_cloud_cover: 10, start_date: { value: "2023-01-01", type: "date" }, end_date: { value: "2023-12-31", type: "date" }, out_folder: "./sentinel_data", selected_items: "", band_b02: true, band_b03: true, band_b04: true, band_b08: true }
       },
       {
         id: 'wfs_sentinel1', name: "Sentinel-1 (SAR)", type: 'input', icon: <Satellite size={14} />, color: 'bg-cyan-700', border: 'border-cyan-500',
@@ -1089,15 +1090,13 @@ export default function Toolbox({
         )}
 
         {activeRightTab === 'explorer' && (
-          <div className="p-4 flex flex-col items-center justify-center h-full text-slate-500">
-            <div className="w-16 h-16 rounded-full bg-slate-900 border border-slate-700 flex items-center justify-center mb-4 shadow-inner">
-              <FolderOpen size={24} className="opacity-50 text-emerald-500" />
+          <div className="p-4 flex flex-col items-center h-full text-slate-500 w-full">
+            <div className="flex-1 w-full flex items-center justify-center min-h-[200px] mb-4">
+               <MiniMap />
             </div>
             <p className="text-sm font-bold text-slate-400 mb-2">Native OS Explorer</p>
-            <p className="text-xs text-center px-4">
-              To browse the local or remote filesystem, use the <strong className="text-emerald-500">Paths</strong> button in the Top Ribbon (Global Environment).
-              <br /><br />
-              All processed WFS and Tensor Brew layers will dynamically sync to the Live Viewport's Active Layers!
+            <p className="text-xs text-center">
+              All processed WFS and Tensor Brew layers sync to the Live Viewport's Active Layers!
             </p>
           </div>
         )}

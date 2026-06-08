@@ -194,6 +194,7 @@ def PullSTAC(extent, out_raster, collection="sentinel-2-l2a", catalog_url="https
                 bbox=[min_lon, min_lat, max_lon, max_lat],
                 datetime=formatted_date,
                 query=query_params if query_params else None,
+                sortby=[{"field": "eo:cloud_cover", "direction": "asc"}],
                 max_items=1
             )
 
@@ -203,6 +204,25 @@ def PullSTAC(extent, out_raster, collection="sentinel-2-l2a", catalog_url="https
             return Result(None, status=3)
 
         best_scene = items[0]
+        
+        # --- OMNI-OPTIMIZED GEOMETRIC VALIDATION ---
+        try:
+            from shapely.geometry import box
+            req_box = box(min_lon, min_lat, max_lon, max_lat)
+            scene_bbox = getattr(best_scene, 'bbox', None)
+            if scene_bbox and len(scene_bbox) == 4:
+                scene_box = box(scene_bbox[0], scene_bbox[1], scene_bbox[2], scene_bbox[3])
+                if not req_box.intersects(scene_box):
+                    logger.error(f"Geometric Mismatch: Requested map extent does not intersect STAC item {best_scene.id}")
+                    return Result(None, status=3)
+                # Restrict bounds to the actual intersection to prevent NoData pixel bloat
+                intersect_box = req_box.intersection(scene_box)
+                min_lon, min_lat, max_lon, max_lat = intersect_box.bounds
+        except ImportError:
+            logger.warning("shapely not installed. Skipping geometric validation.")
+        except Exception as e:
+            logger.warning(f"Geometric validation skipped: {str(e)}")
+        # ---------------------------------------------
         
         if bands and isinstance(bands, str):
             band_keys = [b.strip().lower() for b in bands.split(',')]
@@ -332,6 +352,25 @@ def PullSentinel1(extent, out_raster, date_range="2023-01-01/2023-12-31", item_i
             return Result(None, status=3)
             
         item = features[0]
+        
+        # --- OMNI-OPTIMIZED GEOMETRIC VALIDATION ---
+        try:
+            from shapely.geometry import box
+            req_box = box(min_lon, min_lat, max_lon, max_lat)
+            scene_bbox = item.get('bbox', None)
+            if scene_bbox and len(scene_bbox) == 4:
+                scene_box = box(scene_bbox[0], scene_bbox[1], scene_bbox[2], scene_bbox[3])
+                if not req_box.intersects(scene_box):
+                    logger.error(f"Geometric Mismatch: Requested map extent does not intersect SAR item {item.get('id')}")
+                    return Result(None, status=3)
+                intersect_box = req_box.intersection(scene_box)
+                min_lon, min_lat, max_lon, max_lat = intersect_box.bounds
+        except ImportError:
+            pass
+        except Exception as e:
+            logger.warning(f"Geometric validation skipped: {str(e)}")
+        # ---------------------------------------------
+        
         # Get VV and VH polarizations
         assets = item.get('assets', {})
         band_urls = []
