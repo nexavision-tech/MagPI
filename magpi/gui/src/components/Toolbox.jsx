@@ -743,15 +743,15 @@ export default function Toolbox({
         if (incomingEdges.length > 0) {
           const extentNodes = incomingEdges
             .map(edge => nodes.find(n => n.id === edge.from))
-            .filter(n => n && n.toolId === 'core_extent' && n.params);
+            .filter(n => n && n.data && n.data.toolId === 'core_extent' && n.data.params);
 
           if (extentNodes.length > 0) {
             let minX = 180, minY = 90, maxX = -180, maxY = -90;
             extentNodes.forEach(node => {
-              minX = Math.min(minX, parseFloat(node.params.xmin));
-              minY = Math.min(minY, parseFloat(node.params.ymin));
-              maxX = Math.max(maxX, parseFloat(node.params.xmax));
-              maxY = Math.max(maxY, parseFloat(node.params.ymax));
+              minX = Math.min(minX, parseFloat(node.data.params.xmin));
+              minY = Math.min(minY, parseFloat(node.data.params.ymin));
+              maxX = Math.max(maxX, parseFloat(node.data.params.xmax));
+              maxY = Math.max(maxY, parseFloat(node.data.params.ymax));
             });
             parsedBbox = [minX, minY, maxX, maxY];
           }

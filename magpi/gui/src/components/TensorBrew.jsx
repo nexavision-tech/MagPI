@@ -112,7 +112,7 @@ export default function TensorBrew({ activeWorkspace }) {
          setCompileOutput(prev => prev + "[ERROR] " + data.stderr);
       }
     } catch (e) {
-      setCompileOutput(prev => prev + `[NETWORK ERROR] Could not connect to MagPI Daemon at 8080. Is it running? (${e.message})`);
+      setCompileOutput(prev => prev + `[NETWORK ERROR] Could not connect to MagPI Daemon at 8282. Is it running? (${e.message})`);
     }
     
     setIsCompiling(false);

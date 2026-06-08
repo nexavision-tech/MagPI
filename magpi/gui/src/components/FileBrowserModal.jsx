@@ -9,7 +9,7 @@ export default function FileBrowserModal({ isOpen, onClose, onSelect, initialPat
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // The API bridge to the local Python Daemon (Default port 8080)
+  // The API bridge to the local Python Daemon (Default port 8282)
   const API_URL = `http://${window.location.hostname}:8282/api/browse`;
 
   const fetchDirectory = async (targetDir) => {
@@ -18,7 +18,7 @@ export default function FileBrowserModal({ isOpen, onClose, onSelect, initialPat
     try {
       const response = await fetch(`${API_URL}?dir=${encodeURIComponent(targetDir)}`);
       if (!response.ok) {
-        throw new Error("Failed to connect to MagPI Daemon on port 8080.");
+        throw new Error("Failed to connect to MagPI Daemon on port 8282.");
       }
       const data = await response.json();
       

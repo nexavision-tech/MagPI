@@ -135,7 +135,7 @@ export default function App() {
                         else if (l.includes('[WARNING]')) type = 'warn';
                         return { type, msg: l.replace(/\[.*?\]:\s?/, '') };
                     });
-                    setLogs([{ type: 'info', msg: 'Initiating Daemon Link on port 8080...' }, { type: 'info', msg: `Pipeline Dispatched to Daemon. Job ID: ${job.id}` }, ...parsedLogs]);
+                    setLogs([{ type: 'info', msg: 'Initiating Daemon Link on port 8282...' }, { type: 'info', msg: `Pipeline Dispatched to Daemon. Job ID: ${job.id}` }, ...parsedLogs]);
                 }
                 
                 if (job.status === 'Finished' || job.status === 'Failed') {
@@ -528,7 +528,7 @@ export default function App() {
     const processingStates = {};
     nodes.forEach(n => processingStates[n.id] = 'processing');
     setNodeStatuses(processingStates);
-    setLogs([{ type: 'info', msg: 'Initiating Daemon Link on port 8080...' }, { type: 'info', msg: 'Transmitting payload to OS kernel...' }]);
+    setLogs([{ type: 'info', msg: 'Initiating Daemon Link on port 8282...' }, { type: 'info', msg: 'Transmitting payload to OS kernel...' }]);
     try {
         const payload = {
             nodes,
