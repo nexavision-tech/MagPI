@@ -173,10 +173,21 @@ export const generatePythonScript = (nodes, connections, crs, processingScope, g
             let extraArgs = "";
             if (p.selected_items) extraArgs += `, item_ids="${p.selected_items}"`;
             let selected_bands = [];
+            if (p.band_b01) selected_bands.push('B01');
             if (p.band_b02) selected_bands.push('B02');
             if (p.band_b03) selected_bands.push('B03');
             if (p.band_b04) selected_bands.push('B04');
+            if (p.band_b05) selected_bands.push('B05');
+            if (p.band_b06) selected_bands.push('B06');
+            if (p.band_b07) selected_bands.push('B07');
             if (p.band_b08) selected_bands.push('B08');
+            if (p.band_b8a) selected_bands.push('B8A');
+            if (p.band_b09) selected_bands.push('B09');
+            if (p.band_b11) selected_bands.push('B11');
+            if (p.band_b12) selected_bands.push('B12');
+            if (p.band_aot) selected_bands.push('AOT');
+            if (p.band_wvp) selected_bands.push('WVP');
+            if (p.band_scl) selected_bands.push('SCL');
             if (selected_bands.length > 0) extraArgs += `, bands="${selected_bands.join(',')}"`;
             
             if (inExtentVars.length > 1) {

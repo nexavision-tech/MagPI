@@ -88,11 +88,22 @@ def QuerySTAC(extent, collection="sentinel-2-l2a", max_cloud_cover=10, date_rang
     try:
         from pystac_client import Client
         import logging
+        if isinstance(extent, dict):
+            if "extent" in extent and extent["extent"] and len(extent["extent"]) == 4:
+                extent = extent["extent"]
+            elif "path_out" in extent:
+                extent = extent["path_out"]
         logger = logging.getLogger("MagPI_WFS")
         if hasattr(extent, 'XMin'): 
             min_lon, min_lat, max_lon, max_lat = extent.XMin, extent.YMin, extent.XMax, extent.YMax
         elif isinstance(extent, (list, tuple)) and len(extent) == 4:
             min_lon, min_lat, max_lon, max_lat = map(float, extent)
+        elif isinstance(extent, str) and (extent.endswith('.shp') or extent.endswith('.geojson') or os.path.exists(extent)):
+            import geopandas as gpd
+            gdf = gpd.read_file(extent)
+            if gdf.crs and not gdf.crs.is_geographic:
+                gdf = gdf.to_crs("EPSG:4326")
+            min_lon, min_lat, max_lon, max_lat = gdf.total_bounds
         else: 
             min_lon, min_lat, max_lon, max_lat = map(float, str(extent).replace('[','').replace(']','').replace(',',' ').split())
         
@@ -157,6 +168,11 @@ def PullSTAC(extent, out_raster, collection="sentinel-2-l2a", catalog_url="https
         if hasattr(extent, 'output'):
             extent = extent.output
             
+        if isinstance(extent, dict):
+            if "extent" in extent and extent["extent"] and len(extent["extent"]) == 4:
+                extent = extent["extent"]
+            elif "path_out" in extent:
+                extent = extent["path_out"]
         if hasattr(extent, 'XMin'): 
             min_lon, min_lat, max_lon, max_lat = extent.XMin, extent.YMin, extent.XMax, extent.YMax
         elif isinstance(extent, (list, tuple)) and len(extent) == 4:

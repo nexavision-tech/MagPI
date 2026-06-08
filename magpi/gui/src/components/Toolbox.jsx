@@ -755,14 +755,22 @@ export default function Toolbox({
               maxY = Math.max(maxY, parseFloat(node.params.ymax));
             });
             parsedBbox = [minX, minY, maxX, maxY];
+          } else {
+            // Check for vector file nodes if no core_extent is found
+            const fileNodes = incomingEdges
+              .map(edge => nodes.find(n => n.id === edge.from))
+              .filter(n => n && n.params && n.params.file_path);
+            if (fileNodes.length > 0) {
+              parsedBbox = fileNodes[0].params.file_path; // Send the file path string to the backend to parse
+            }
           }
         }
       } else {
         parsedBbox = bbox;
       }
 
-      if (!parsedBbox || parsedBbox.length !== 4) {
-        setStacError("No Spatial Extent connected! Please connect an AOI node first before searching the catalog.");
+      if (!parsedBbox || (Array.isArray(parsedBbox) && parsedBbox.length !== 4)) {
+        setStacError("No Spatial Extent connected! Please connect an AOI or Vector node first before searching the catalog.");
         setStacLoading(false);
         return;
       }
