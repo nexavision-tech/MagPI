@@ -343,9 +343,14 @@ def PullSTAC(extent, out_raster, collection="sentinel-2-l2a", catalog_url="https
                             for i, url in enumerate(band_urls, start=1):
                                 logger.info(f"Streaming Band {i} into unified grid...")
                                 with rasterio.open(url) as src_band:
-                                    with WarpedVRT(src_band, crs=target_crs, transform=out_meta['transform'], width=out_meta['width'], height=out_meta['height'], resampling=Resampling.bilinear) as band_vrt:
-                                        dest.write(band_vrt.read(1), i)
-                                        dest.set_band_description(i, resolved_names[i-1])
+                                    if src_band.gcps and len(src_band.gcps[0]) > 0:
+                                        with WarpedVRT(src_band, crs=target_crs, resampling=Resampling.bilinear) as band_vrt:
+                                            dest.write(band_vrt.read(1, window=window), i)
+                                            dest.set_band_description(i, resolved_names[i-1])
+                                    else:
+                                        with WarpedVRT(src_band, crs=target_crs, transform=out_meta['transform'], width=out_meta['width'], height=out_meta['height'], resampling=Resampling.bilinear) as band_vrt:
+                                            dest.write(band_vrt.read(1), i)
+                                            dest.set_band_description(i, resolved_names[i-1])
                                 
             logger.info(f"Saved {len(band_urls)}-Band STAC chip to: {current_out_raster}")
             downloaded_rasters.append(current_out_raster)
