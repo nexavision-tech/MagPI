@@ -330,7 +330,8 @@ def PullSTAC(extent, out_raster, collection="sentinel-2-l2a", catalog_url="https
                             "count": len(band_urls), 
                             "height": window.height, 
                             "width": window.width, 
-                            "transform": vrt.window_transform(window)
+                            "transform": vrt.window_transform(window),
+                            "nodata": 0
                         })
                         
                         with rasterio.open(current_out_raster, "w", **out_meta) as dest:
