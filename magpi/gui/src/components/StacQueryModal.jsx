@@ -15,6 +15,7 @@ export default function StacQueryModal({ isOpen, onClose, selectedNode, nodes, c
   const [groupedResults, setGroupedResults] = useState({});
   const [activeDate, setActiveDate] = useState(null);
   const [hoveredScene, setHoveredScene] = useState(null);
+  const [resolvedBbox, setResolvedBbox] = useState(null);
   
   const [parsedBbox, setParsedBbox] = useState(null);
 
@@ -68,6 +69,15 @@ export default function StacQueryModal({ isOpen, onClose, selectedNode, nodes, c
         mapInstance.current.invalidateSize();
       }
     }, 100);
+
+    return () => {
+      if (mapInstance.current) {
+        mapInstance.current.remove();
+        mapInstance.current = null;
+        footprintsLayer.current = null;
+        aoiLayer.current = null;
+      }
+    };
   }, [isOpen]);
 
   const queryStac = async () => {
@@ -121,13 +131,9 @@ export default function StacQueryModal({ isOpen, onClose, selectedNode, nodes, c
         if (sortedDates.length > 0) setActiveDate(sortedDates[0]);
         
         // Draw AOI using the resolved bbox from the backend
-        const resolvedBbox = data.parsed_bbox || (Array.isArray(parsedBbox) ? parsedBbox : null);
-        
-        if (resolvedBbox && resolvedBbox.length === 4) {
-          if (aoiLayer.current) mapInstance.current.removeLayer(aoiLayer.current);
-          const bounds = [[resolvedBbox[1], resolvedBbox[0]], [resolvedBbox[3], resolvedBbox[2]]];
-          aoiLayer.current = window.L.rectangle(bounds, { color: "#10b981", weight: 2, fillOpacity: 0.1, dashArray: '5, 5' }).addTo(mapInstance.current);
-          mapInstance.current.fitBounds(bounds, { padding: [150, 150] });
+        const resolved = data.parsed_bbox || (Array.isArray(parsedBbox) ? parsedBbox : null);
+        if (resolved && resolved.length === 4) {
+          setResolvedBbox(resolved);
         }
       } else {
         setError(data.error || "Failed to query STAC.");
@@ -145,6 +151,25 @@ export default function StacQueryModal({ isOpen, onClose, selectedNode, nodes, c
       queryStac();
     }
   }, [isOpen, parsedBbox]);
+
+  // Draw AOI when map remounts or bbox is resolved
+  useEffect(() => {
+    if (!mapInstance.current || !resolvedBbox || resolvedBbox.length !== 4) return;
+    
+    if (aoiLayer.current) {
+      mapInstance.current.removeLayer(aoiLayer.current);
+    }
+    
+    const bounds = [[resolvedBbox[1], resolvedBbox[0]], [resolvedBbox[3], resolvedBbox[2]]];
+    aoiLayer.current = window.L.rectangle(bounds, { color: "#10b981", weight: 2, fillOpacity: 0.1, dashArray: '5, 5' }).addTo(mapInstance.current);
+    
+    // Slight delay to ensure the container is fully sized before fitting
+    setTimeout(() => {
+      if (mapInstance.current) {
+        mapInstance.current.fitBounds(bounds, { padding: [150, 150] });
+      }
+    }, 150);
+  }, [resolvedBbox, isOpen]);
 
   // Draw footprints when activeDate or selectedItems change
   useEffect(() => {
@@ -181,14 +206,14 @@ export default function StacQueryModal({ isOpen, onClose, selectedNode, nodes, c
         layer.on({
           mouseover: () => setHoveredScene(feature.id),
           mouseout: () => setHoveredScene(null),
-          click: () => toggleSelection(feature.id)
+          click: () => addSelection(feature.id)
         });
-        // Tooltip
-        layer.bindTooltip(`<b>${feature.id}</b><br/>Cloud Cover: ${feature.properties.cloud_cover.toFixed(1)}%`, { sticky: true });
+        // Popup
+        layer.bindPopup(`<div class="text-slate-800 text-xs"><b>${feature.id}</b><br/>Cloud Cover: ${feature.properties.cloud_cover.toFixed(1)}%</div>`);
       }
     }).addTo(mapInstance.current);
 
-  }, [activeDate, groupedResults, selectedNode?.params.selected_items, hoveredScene]);
+  }, [activeDate, groupedResults, selectedNode?.params.selected_items, hoveredScene, isOpen]);
 
   const toggleSelection = (id) => {
     let current = selectedNode?.params.selected_items ? selectedNode?.params.selected_items.split(',').map(s => s.trim()).filter(Boolean) : [];
@@ -197,6 +222,20 @@ export default function StacQueryModal({ isOpen, onClose, selectedNode, nodes, c
     } else {
       current.push(id);
     }
+    updateNodeParam(selectedNode.id, 'selected_items', current.join(','));
+  };
+
+  const addSelection = (id) => {
+    let current = selectedNode?.params.selected_items ? selectedNode?.params.selected_items.split(',').map(s => s.trim()).filter(Boolean) : [];
+    if (!current.includes(id)) {
+      current.push(id);
+      updateNodeParam(selectedNode.id, 'selected_items', current.join(','));
+    }
+  };
+
+  const removeSelection = (id) => {
+    let current = selectedNode?.params.selected_items ? selectedNode?.params.selected_items.split(',').map(s => s.trim()).filter(Boolean) : [];
+    current = current.filter(x => x !== id);
     updateNodeParam(selectedNode.id, 'selected_items', current.join(','));
   };
 
@@ -212,6 +251,14 @@ export default function StacQueryModal({ isOpen, onClose, selectedNode, nodes, c
           [Math.max(...lats), Math.max(...lngs)]
         ];
         mapInstance.current.fitBounds(bounds, { padding: [150, 150] });
+        
+        if (footprintsLayer.current) {
+          footprintsLayer.current.eachLayer(layer => {
+            if (layer.feature && layer.feature.id === id) {
+              layer.openPopup();
+            }
+          });
+        }
       } catch (e) {}
     }
   };
@@ -350,7 +397,7 @@ export default function StacQueryModal({ isOpen, onClose, selectedNode, nodes, c
                       onMouseLeave={() => setHoveredScene(null)}
                       className="p-2 rounded bg-slate-800 border border-slate-700 hover:border-cyan-500 cursor-pointer flex flex-col group transition-colors relative"
                     >
-                      <button onClick={(e) => { e.stopPropagation(); toggleSelection(id); }} className="absolute top-1 right-1 p-1 hover:bg-slate-700 rounded text-slate-400 hover:text-red-400">
+                      <button onClick={(e) => { e.stopPropagation(); removeSelection(id); }} className="absolute top-1 right-1 p-1 hover:bg-slate-700 rounded text-slate-400 hover:text-red-400">
                         <X size={12} />
                       </button>
                       <div className="flex items-center justify-between mb-1 pr-6">
