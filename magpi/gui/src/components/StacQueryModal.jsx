@@ -80,7 +80,7 @@ export default function StacQueryModal({ isOpen, onClose, selectedNode, nodes, c
     setGroupedResults({});
     setActiveDate(null);
 
-    const date_range = `${selectedNode.params.start_date?.value || selectedNode.params.start_date}/${selectedNode.params.end_date?.value || selectedNode.params.end_date}`;
+    const date_range = `${selectedNode?.params.start_date?.value || selectedNode?.params.start_date}/${selectedNode?.params.end_date?.value || selectedNode?.params.end_date}`;
 
     try {
       const response = await fetch(`http://${window.location.hostname}:8282/api/stac_query`, {
@@ -88,7 +88,7 @@ export default function StacQueryModal({ isOpen, onClose, selectedNode, nodes, c
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           bbox: parsedBbox,
-          max_cloud_cover: selectedNode.params.max_cloud_cover,
+          max_cloud_cover: selectedNode?.params.max_cloud_cover,
           date_range: date_range
         })
       });
@@ -145,7 +145,7 @@ export default function StacQueryModal({ isOpen, onClose, selectedNode, nodes, c
       mapInstance.current.removeLayer(footprintsLayer.current);
     }
 
-    const selectedIds = selectedNode.params.selected_items ? selectedNode.params.selected_items.split(',').map(s => s.trim()).filter(Boolean) : [];
+    const selectedIds = selectedNode?.params.selected_items ? selectedNode?.params.selected_items.split(',').map(s => s.trim()).filter(Boolean) : [];
 
     const geojsonData = {
       type: "FeatureCollection",
@@ -179,10 +179,10 @@ export default function StacQueryModal({ isOpen, onClose, selectedNode, nodes, c
       }
     }).addTo(mapInstance.current);
 
-  }, [activeDate, groupedResults, selectedNode.params.selected_items, hoveredScene]);
+  }, [activeDate, groupedResults, selectedNode?.params.selected_items, hoveredScene]);
 
   const toggleSelection = (id) => {
-    let current = selectedNode.params.selected_items ? selectedNode.params.selected_items.split(',').map(s => s.trim()).filter(Boolean) : [];
+    let current = selectedNode?.params.selected_items ? selectedNode?.params.selected_items.split(',').map(s => s.trim()).filter(Boolean) : [];
     if (current.includes(id)) {
       current = current.filter(x => x !== id);
     } else {
@@ -193,7 +193,7 @@ export default function StacQueryModal({ isOpen, onClose, selectedNode, nodes, c
 
   if (!isOpen) return null;
 
-  const selectedIds = selectedNode.params.selected_items ? selectedNode.params.selected_items.split(',').map(s => s.trim()).filter(Boolean) : [];
+  const selectedIds = selectedNode?.params.selected_items ? selectedNode?.params.selected_items.split(',').map(s => s.trim()).filter(Boolean) : [];
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-fadeIn">
