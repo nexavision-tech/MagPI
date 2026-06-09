@@ -486,7 +486,18 @@ export default function NodeCanvas({
     setConnections((eds) => eds.filter(c => {
         return !edgesToDelete.find(e => e.source === c.from && e.target === c.to);
     }));
-  }, [setConnections]);
+
+    setNodes((nds) => nds.map(n => {
+        const edgeToThis = edgesToDelete.find(e => e.target === n.id);
+        if (edgeToThis && (n.toolId === 'wfs_sentinel2' || n.toolId === 'wfs_copernicus' || n.toolId === 'wfs_landsat')) {
+            return {
+                ...n,
+                params: { ...n.params, selected_items: "" }
+            };
+        }
+        return n;
+    }));
+  }, [setConnections, setNodes]);
 
   const onReconnect = useCallback((oldEdge, newConnection) => {
     setConnections((eds) => {
