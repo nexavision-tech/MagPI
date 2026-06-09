@@ -126,7 +126,7 @@ def QuerySTAC(extent, collection="sentinel-2-l2a", max_cloud_cover=10, date_rang
             bbox=[min_lon, min_lat, max_lon, max_lat],
             datetime=formatted_date,
             query=query_params if query_params else None,
-            max_items=20
+            max_items=100
         )
         
         items = list(search.items())
@@ -135,7 +135,9 @@ def QuerySTAC(extent, collection="sentinel-2-l2a", max_cloud_cover=10, date_rang
             results.append({
                 "id": item.id,
                 "date": item.datetime.isoformat() if item.datetime else "",
-                "cloud_cover": item.properties.get("eo:cloud_cover", 0)
+                "cloud_cover": item.properties.get("eo:cloud_cover", 0),
+                "geometry": item.geometry,
+                "bbox": item.bbox
             })
         return results
     except Exception as e:

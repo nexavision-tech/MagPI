@@ -1,4 +1,5 @@
 import MiniMap from "./MiniMap";
+import StacQueryModal from "./StacQueryModal";
 import React, { useState, useEffect } from 'react';
 import {
   Database, Layers, Cpu, Settings, Image as ImageIcon,
@@ -667,6 +668,8 @@ export default function Toolbox({
   const [metadata, setMetadata] = useState({});
   const [loadingMeta, setLoadingMeta] = useState(false);
 
+  const [stacModalOpen, setStacModalOpen] = useState(false);
+
   const [stacResults, setStacResults] = useState([]);
   const [stacLoading, setStacLoading] = useState(false);
   const [stacError, setStacError] = useState(null);
@@ -1012,7 +1015,7 @@ export default function Toolbox({
                 {selectedNode.toolId === 'wfs_sentinel2' && (
                   <div className="bg-slate-900 p-4 rounded-lg border border-slate-700 shadow-inner mt-4 animate-fadeIn">
                     <h4 className="text-[10px] uppercase tracking-widest text-cyan-400 font-bold mb-3 flex items-center">
-                      <Search size={12} className="mr-2" /> STAC Catalog Query
+                      <Search size={12} className="mr-2" /> STAC Catalog Explorer
                     </h4>
 
                     {connections.filter(c => c.to === selectedNode.id).length > 1 && (
@@ -1023,55 +1026,19 @@ export default function Toolbox({
                     )}
 
                     <button
-                      onClick={() => fetchStacCatalog(
-                        selectedNode.id,
-                        null,
-                        selectedNode.params.max_cloud_cover,
-                        `${selectedNode.params.start_date?.value || selectedNode.params.start_date}/${selectedNode.params.end_date?.value || selectedNode.params.end_date}`
-                      )}
-                      disabled={stacLoading}
-                      className="w-full py-2 bg-cyan-900/40 hover:bg-cyan-600 text-cyan-300 hover:text-white text-xs font-bold rounded border border-cyan-800/50 hover:border-cyan-500 transition-all flex items-center justify-center mb-3 disabled:opacity-50"
+                      onClick={() => setStacModalOpen(true)}
+                      className="w-full py-2 bg-cyan-900/40 hover:bg-cyan-600 text-cyan-300 hover:text-white text-xs font-bold rounded border border-cyan-800/50 hover:border-cyan-500 transition-all flex items-center justify-center mb-1 shadow-lg"
                     >
-                      {stacLoading ? <Loader2 size={14} className="animate-spin mr-2" /> : <Search size={14} className="mr-2" />}
-                      {stacLoading ? "Querying AWS..." : "Query Catalog"}
+                      <MapIcon size={14} className="mr-2" />
+                      Open STAC Explorer
                     </button>
-
-                    {stacError && (
-                      <div className="bg-red-900/20 p-3 rounded border border-red-800/50 flex items-start text-xs text-red-400 mt-2 mb-2">
-                        <AlertCircle size={14} className="mr-2 mt-0.5 shrink-0" />
-                        <span className="leading-tight">{stacError}</span>
-                      </div>
-                    )}
-
-                    {stacResults && stacResults.length > 0 && (
-                      <div className="mt-3">
-                        <label className="block text-[10px] font-bold text-slate-400 mb-2 uppercase tracking-wide">Available Scenes</label>
-                        <div className="max-h-48 overflow-y-auto space-y-1 pr-1 custom-scrollbar">
-                          {stacResults.map(res => {
-                            const isSelected = selectedNode.params.selected_items && selectedNode.params.selected_items.includes(res.id);
-                            return (
-                              <div key={res.id}
-                                className={`p-2 rounded border cursor-pointer transition-colors flex items-center justify-between ${isSelected ? 'bg-cyan-900/40 border-cyan-500' : 'bg-slate-800 border-slate-700 hover:border-slate-500'}`}
-                                onClick={() => {
-                                  let current = selectedNode.params.selected_items ? selectedNode.params.selected_items.split(',').map(s => s.trim()).filter(Boolean) : [];
-                                  if (isSelected) current = current.filter(id => id !== res.id);
-                                  else current.push(res.id);
-                                  updateNodeParam(selectedNode.id, 'selected_items', current.join(','));
-                                }}>
-                                <div className="flex flex-col">
-                                  <span className="text-[10px] font-mono text-slate-300">{res.date.split('T')[0]}</span>
-                                  <span className="text-[9px] text-slate-500 truncate w-36">{res.id}</span>
-                                </div>
-                                <div className="flex items-center">
-                                  <span className={`text-[10px] mr-2 ${res.cloud_cover < 10 ? 'text-emerald-400' : res.cloud_cover < 30 ? 'text-yellow-400' : 'text-red-400'}`}>{res.cloud_cover.toFixed(1)}% ☁</span>
-                                  <div className={`w-3 h-3 rounded-sm flex items-center justify-center border ${isSelected ? 'bg-cyan-500 border-cyan-400' : 'bg-slate-900 border-slate-600'}`}>
-                                    {isSelected && <Check size={8} className="text-white" />}
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
+                    
+                    {selectedNode.params.selected_items && (
+                      <div className="mt-3 bg-slate-800/50 p-2 rounded border border-slate-700">
+                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Selected Tiles ({selectedNode.params.selected_items.split(',').filter(Boolean).length}):</span>
+                         <span className="text-[10px] text-cyan-400 break-all font-mono">
+                           {selectedNode.params.selected_items}
+                         </span>
                       </div>
                     )}
                   </div>
@@ -1115,6 +1082,15 @@ export default function Toolbox({
           </div>
         )}
       </div>
+
+      <StacQueryModal 
+        isOpen={stacModalOpen} 
+        onClose={() => setStacModalOpen(false)} 
+        selectedNode={selectedNode}
+        nodes={nodes}
+        connections={connections}
+        updateNodeParam={updateNodeParam}
+      />
     </div>
   );
 }
