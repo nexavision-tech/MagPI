@@ -286,46 +286,75 @@ export default function CatalogPane({ mapLayers = [], setMapLayers, activeWorksp
                               <span className="text-[9px] text-slate-400 w-6 text-right shrink-0">{layer.opacity}%</span>
                           </div>
                           
-                          {layer.isBase === false && (
-                              <div className="flex items-center space-x-2">
-                                  {layer.name.includes('.tif') || layer.name.includes('Raster') || layer.name.includes('Extract') ? (
-                                      <>
-                                          <span className="text-[9px] text-slate-500 uppercase tracking-widest w-12 shrink-0">Colormap</span>
-                                          <select 
-                                              className="flex-1 bg-slate-800 text-[10px] text-slate-300 border border-slate-700 rounded px-1 py-0.5 outline-none"
-                                              value={layer.cmap || 'viridis'}
-                                              onChange={(e) => {
-                                                  if (setMapLayers) {
-                                                      setMapLayers(prev => prev.map(l => l.id === layer.id ? { ...l, cmap: e.target.value } : l));
-                                                  }
-                                              }}
-                                          >
-                                              <option value="viridis">Viridis</option>
-                                              <option value="plasma">Plasma</option>
-                                              <option value="inferno">Inferno</option>
-                                              <option value="magma">Magma</option>
-                                              <option value="cividis">Cividis</option>
-                                              <option value="gray">Gray</option>
-                                              <option value="terrain">Terrain</option>
-                                          </select>
-                                      </>
-                                  ) : (
-                                      <>
-                                          <span className="text-[9px] text-slate-500 uppercase tracking-widest w-12 shrink-0">Color</span>
-                                          <input 
-                                              type="color"
-                                              className="w-full h-6 rounded cursor-pointer bg-slate-800 border-none p-0"
-                                              value={layer.vectorColor || '#32d74b'}
-                                              onChange={(e) => {
-                                                  if (setMapLayers) {
-                                                      setMapLayers(prev => prev.map(l => l.id === layer.id ? { ...l, vectorColor: e.target.value } : l));
-                                                  }
-                                              }}
-                                          />
-                                      </>
-                                  )}
-                              </div>
-                          )}
+                          {layer.isBase === false && (() => {
+                              const node = nodes.find(n => n.id === layer.id);
+                              if (node && node.toolId === 'core_extent') {
+                                  return (
+                                      <div className="flex flex-col space-y-1 mt-2 border-t border-slate-700/50 pt-2">
+                                          <span className="text-[9px] text-slate-500 uppercase tracking-widest shrink-0">Spatial Coordinates (AOI)</span>
+                                          <div className="grid grid-cols-2 gap-1 mt-1">
+                                              <div className="flex items-center space-x-1">
+                                                  <span className="text-[9px] text-slate-400 w-2 shrink-0">W</span>
+                                                  <input type="number" step="0.001" className="flex-1 bg-slate-800 text-[10px] text-slate-300 border border-slate-700 rounded px-1 py-0.5 outline-none" value={node.params.xmin || ''} onChange={(e) => setNodes && setNodes(prev => prev.map(n => n.id === layer.id ? { ...n, params: { ...n.params, xmin: parseFloat(e.target.value) } } : n))} />
+                                              </div>
+                                              <div className="flex items-center space-x-1">
+                                                  <span className="text-[9px] text-slate-400 w-2 shrink-0">S</span>
+                                                  <input type="number" step="0.001" className="flex-1 bg-slate-800 text-[10px] text-slate-300 border border-slate-700 rounded px-1 py-0.5 outline-none" value={node.params.ymin || ''} onChange={(e) => setNodes && setNodes(prev => prev.map(n => n.id === layer.id ? { ...n, params: { ...n.params, ymin: parseFloat(e.target.value) } } : n))} />
+                                              </div>
+                                              <div className="flex items-center space-x-1">
+                                                  <span className="text-[9px] text-slate-400 w-2 shrink-0">E</span>
+                                                  <input type="number" step="0.001" className="flex-1 bg-slate-800 text-[10px] text-slate-300 border border-slate-700 rounded px-1 py-0.5 outline-none" value={node.params.xmax || ''} onChange={(e) => setNodes && setNodes(prev => prev.map(n => n.id === layer.id ? { ...n, params: { ...n.params, xmax: parseFloat(e.target.value) } } : n))} />
+                                              </div>
+                                              <div className="flex items-center space-x-1">
+                                                  <span className="text-[9px] text-slate-400 w-2 shrink-0">N</span>
+                                                  <input type="number" step="0.001" className="flex-1 bg-slate-800 text-[10px] text-slate-300 border border-slate-700 rounded px-1 py-0.5 outline-none" value={node.params.ymax || ''} onChange={(e) => setNodes && setNodes(prev => prev.map(n => n.id === layer.id ? { ...n, params: { ...n.params, ymax: parseFloat(e.target.value) } } : n))} />
+                                              </div>
+                                          </div>
+                                      </div>
+                                  );
+                              }
+
+                              return (
+                                  <div className="flex items-center space-x-2">
+                                      {layer.name.includes('.tif') || layer.name.includes('Raster') || layer.name.includes('Extract') ? (
+                                          <>
+                                              <span className="text-[9px] text-slate-500 uppercase tracking-widest w-12 shrink-0">Colormap</span>
+                                              <select 
+                                                  className="flex-1 bg-slate-800 text-[10px] text-slate-300 border border-slate-700 rounded px-1 py-0.5 outline-none"
+                                                  value={layer.cmap || 'viridis'}
+                                                  onChange={(e) => {
+                                                      if (setMapLayers) {
+                                                          setMapLayers(prev => prev.map(l => l.id === layer.id ? { ...l, cmap: e.target.value } : l));
+                                                      }
+                                                  }}
+                                              >
+                                                  <option value="viridis">Viridis</option>
+                                                  <option value="plasma">Plasma</option>
+                                                  <option value="inferno">Inferno</option>
+                                                  <option value="magma">Magma</option>
+                                                  <option value="cividis">Cividis</option>
+                                                  <option value="gray">Gray</option>
+                                                  <option value="terrain">Terrain</option>
+                                              </select>
+                                          </>
+                                      ) : (
+                                          <>
+                                              <span className="text-[9px] text-slate-500 uppercase tracking-widest w-12 shrink-0">Color</span>
+                                              <input 
+                                                  type="color"
+                                                  className="w-full h-6 rounded cursor-pointer bg-slate-800 border-none p-0"
+                                                  value={layer.vectorColor || '#32d74b'}
+                                                  onChange={(e) => {
+                                                      if (setMapLayers) {
+                                                          setMapLayers(prev => prev.map(l => l.id === layer.id ? { ...l, vectorColor: e.target.value } : l));
+                                                      }
+                                                  }}
+                                              />
+                                          </>
+                                      )}
+                                  </div>
+                              );
+                          })()}
                       </div>
                   )}
               </div>

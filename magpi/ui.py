@@ -942,8 +942,7 @@ def LaunchCanvas(port=8282):
                                     tree.append({"name": entry.name, "path": entry.path, "type": "gdb", "is_dir": False})
                                 else:
                                     children = build_tree(entry.path)
-                                    if children or entry.path.endswith('magpi_workspace') or entry.path.endswith('magpi_output'):
-                                        tree.append({"name": entry.name, "path": entry.path, "type": "folder", "is_dir": True, "children": children})
+                                    tree.append({"name": entry.name, "path": entry.path, "type": "folder", "is_dir": True, "children": children})
                             else:
                                 ext = os.path.splitext(entry.name)[1].lower()
                                 if ext in ['.shp', '.geojson', '.gpkg', '.sqlite', '.db', '.tif', '.tiff', '.vrt', '.img', '.nc']:

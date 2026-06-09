@@ -201,6 +201,39 @@ export default function App() {
     setTimeout(() => window.dispatchEvent(new Event('resize')), 100);
   }, [activeWorkspace]);
 
+  useEffect(() => {
+    const handleMapDrop = (e) => {
+        const data = e.detail;
+        if (!data || !data.id) return;
+        
+        const newNode = {
+            id: `node_${Date.now()}`,
+            toolId: data.id,
+            name: data.name,
+            icon: data.icon,
+            x: 400 + Math.random() * 50,
+            y: 200 + Math.random() * 50,
+            color: data.color || 'bg-slate-600',
+            border: data.border || 'border-slate-500',
+            params: { ...data.defaultParams }
+        };
+
+        if (data.droppedFilePath) {
+             const key = Object.keys(newNode.params).find(k => k.includes('file') || k.includes('path') || k.includes('image'));
+             if (key) {
+                 newNode.params[key] = data.droppedFilePath;
+             }
+        }
+        
+        setNodes(prev => [...prev, newNode]);
+        setSelectedNodeId(newNode.id);
+        setActiveRightTab('inspector');
+    };
+    
+    window.addEventListener('magpi-map-drop', handleMapDrop);
+    return () => window.removeEventListener('magpi-map-drop', handleMapDrop);
+  }, []);
+
   // --- AUTO-SAVE ENGINE (Prevents Losing Work!) ---
   useEffect(() => {
     // Load from LocalStorage on initial boot
