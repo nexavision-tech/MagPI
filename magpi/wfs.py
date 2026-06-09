@@ -220,115 +220,137 @@ def PullSTAC(extent, out_raster, collection="sentinel-2-l2a", catalog_url="https
             logger.error("No STAC imagery found.")
             return Result(None, status=3)
 
-        best_scene = items[0]
-        
-        # --- OMNI-OPTIMIZED GEOMETRIC VALIDATION ---
-        try:
-            from shapely.geometry import box
-            req_box = box(min_lon, min_lat, max_lon, max_lat)
-            scene_bbox = getattr(best_scene, 'bbox', None)
-            if scene_bbox and len(scene_bbox) == 4:
-                scene_box = box(scene_bbox[0], scene_bbox[1], scene_bbox[2], scene_bbox[3])
-                if not req_box.intersects(scene_box):
-                    logger.error(f"Geometric Mismatch: Requested map extent does not intersect STAC item {best_scene.id}")
-                    return Result(None, status=3)
-                # Restrict bounds to the actual intersection to prevent NoData pixel bloat
-                intersect_box = req_box.intersection(scene_box)
-                min_lon, min_lat, max_lon, max_lat = intersect_box.bounds
-        except ImportError:
-            logger.warning("shapely not installed. Skipping geometric validation.")
-        except Exception as e:
-            logger.warning(f"Geometric validation skipped: {str(e)}")
-        # ---------------------------------------------
-        
-        # STEP 2: Save metadata footprint as requested
-        if out_raster:
-            try:
-                import json
-                footprint_path = str(out_raster).replace('.tif', '_footprint.geojson')
-                with open(footprint_path, 'w') as f:
-                    json.dump(best_scene.to_dict(), f)
-                logger.info(f"Saved Sentinel-2 footprint GeoJSON to: {footprint_path}")
-            except Exception as e:
-                logger.warning(f"Failed to save scene footprint: {e}")
-        
-        
-        if bands and isinstance(bands, str):
-            band_keys = [b.strip().lower() for b in bands.split(',')]
-        else:
-            band_keys = ["red", "green", "blue", "nir"]
+        downloaded_rasters = []
+        for s_idx, best_scene in enumerate(items):
+            current_out_raster = out_raster
+            if len(items) > 1:
+                # Append the item ID to the filename so they don't overwrite
+                name, ext = os.path.splitext(out_raster)
+                current_out_raster = f"{name}_{best_scene.id}{ext}"
+                
+            logger.info(f"Processing STAC Item {s_idx+1}/{len(items)}: {best_scene.id}")
             
-        band_urls = []
-        resolved_names = []
-        for bk in band_keys:
-            if bk in best_scene.assets:
-                band_urls.append(best_scene.assets[bk].href)
-                resolved_names.append(bk.upper())
-            elif bk == "b01" and "coastal" in best_scene.assets: band_urls.append(best_scene.assets["coastal"].href); resolved_names.append("B01 (Coastal Aerosol) - 443nm")
-            elif bk == "b02" and "blue" in best_scene.assets: band_urls.append(best_scene.assets["blue"].href); resolved_names.append("B02 (Blue) - 490nm")
-            elif bk == "b03" and "green" in best_scene.assets: band_urls.append(best_scene.assets["green"].href); resolved_names.append("B03 (Green) - 560nm")
-            elif bk == "b04" and "red" in best_scene.assets: band_urls.append(best_scene.assets["red"].href); resolved_names.append("B04 (Red) - 665nm")
-            elif bk == "b05" and "rededge1" in best_scene.assets: band_urls.append(best_scene.assets["rededge1"].href); resolved_names.append("B05 (Red Edge 1) - 705nm")
-            elif bk == "b06" and "rededge2" in best_scene.assets: band_urls.append(best_scene.assets["rededge2"].href); resolved_names.append("B06 (Red Edge 2) - 740nm")
-            elif bk == "b07" and "rededge3" in best_scene.assets: band_urls.append(best_scene.assets["rededge3"].href); resolved_names.append("B07 (Red Edge 3) - 783nm")
-            elif bk == "b08" and "nir" in best_scene.assets: band_urls.append(best_scene.assets["nir"].href); resolved_names.append("B08 (NIR) - 842nm")
-            elif bk == "b8a" and "nir08" in best_scene.assets: band_urls.append(best_scene.assets["nir08"].href); resolved_names.append("B8A (Narrow NIR) - 865nm")
-            elif bk == "b09" and "nir09" in best_scene.assets: band_urls.append(best_scene.assets["nir09"].href); resolved_names.append("B09 (Water Vapour) - 945nm")
-            elif bk == "b11" and "swir16" in best_scene.assets: band_urls.append(best_scene.assets["swir16"].href); resolved_names.append("B11 (SWIR 1) - 1610nm")
-            elif bk == "b12" and "swir22" in best_scene.assets: band_urls.append(best_scene.assets["swir22"].href); resolved_names.append("B12 (SWIR 2) - 2202nm")
-            elif bk == "aot" and "aot" in best_scene.assets: band_urls.append(best_scene.assets["aot"].href); resolved_names.append("AOT (Aerosol Optical Thickness)")
-            elif bk == "wvp" and "wvp" in best_scene.assets: band_urls.append(best_scene.assets["wvp"].href); resolved_names.append("WVP (Water Vapour)")
-            elif bk == "scl" and "scl" in best_scene.assets: band_urls.append(best_scene.assets["scl"].href); resolved_names.append("SCL (Scene Classification)")
+            # --- OMNI-OPTIMIZED GEOMETRIC VALIDATION ---
+            try:
+                from shapely.geometry import box
+                req_box = box(min_lon, min_lat, max_lon, max_lat)
+                scene_bbox = getattr(best_scene, 'bbox', None)
+                if scene_bbox and len(scene_bbox) == 4:
+                    scene_box = box(scene_bbox[0], scene_bbox[1], scene_bbox[2], scene_bbox[3])
+                    if not req_box.intersects(scene_box):
+                        logger.error(f"Geometric Mismatch: Requested map extent does not intersect STAC item {best_scene.id}")
+                        continue
+                    # Restrict bounds to the actual intersection to prevent NoData pixel bloat
+                    intersect_box = req_box.intersection(scene_box)
+                    item_min_lon, item_min_lat, item_max_lon, item_max_lat = intersect_box.bounds
+                else:
+                    item_min_lon, item_min_lat, item_max_lon, item_max_lat = min_lon, min_lat, max_lon, max_lat
+            except ImportError:
+                logger.warning("shapely not installed. Skipping geometric validation.")
+                item_min_lon, item_min_lat, item_max_lon, item_max_lat = min_lon, min_lat, max_lon, max_lat
+            except Exception as e:
+                logger.warning(f"Geometric validation skipped: {str(e)}")
+                item_min_lon, item_min_lat, item_max_lon, item_max_lat = min_lon, min_lat, max_lon, max_lat
+            # ---------------------------------------------
+            
+            # STEP 2: Save metadata footprint as requested
+            if current_out_raster:
+                try:
+                    import json
+                    footprint_path = str(current_out_raster).replace('.tif', '_footprint.geojson')
+                    with open(footprint_path, 'w') as f:
+                        json.dump(best_scene.to_dict(), f)
+                    logger.info(f"Saved footprint GeoJSON to: {footprint_path}")
+                except Exception as e:
+                    logger.warning(f"Failed to save scene footprint: {e}")
+            
+            if bands and isinstance(bands, str):
+                band_keys = [b.strip().lower() for b in bands.split(',')]
             else:
-                logger.warning(f"Band {bk} not found in asset, skipping.")
-        
-        if not band_urls:
-            logger.error("No valid bands selected.")
+                band_keys = ["red", "green", "blue", "nir"]
+                
+            band_urls = []
+            resolved_names = []
+            for bk in band_keys:
+                if bk in best_scene.assets:
+                    band_urls.append(best_scene.assets[bk].href)
+                    resolved_names.append(bk.upper())
+                elif bk == "b01" and "coastal" in best_scene.assets: band_urls.append(best_scene.assets["coastal"].href); resolved_names.append("B01 (Coastal Aerosol) - 443nm")
+                elif bk == "b02" and "blue" in best_scene.assets: band_urls.append(best_scene.assets["blue"].href); resolved_names.append("B02 (Blue) - 490nm")
+                elif bk == "b03" and "green" in best_scene.assets: band_urls.append(best_scene.assets["green"].href); resolved_names.append("B03 (Green) - 560nm")
+                elif bk == "b04" and "red" in best_scene.assets: band_urls.append(best_scene.assets["red"].href); resolved_names.append("B04 (Red) - 665nm")
+                elif bk == "b05" and "rededge1" in best_scene.assets: band_urls.append(best_scene.assets["rededge1"].href); resolved_names.append("B05 (Red Edge 1) - 705nm")
+                elif bk == "b06" and "rededge2" in best_scene.assets: band_urls.append(best_scene.assets["rededge2"].href); resolved_names.append("B06 (Red Edge 2) - 740nm")
+                elif bk == "b07" and "rededge3" in best_scene.assets: band_urls.append(best_scene.assets["rededge3"].href); resolved_names.append("B07 (Red Edge 3) - 783nm")
+                elif bk == "b08" and "nir" in best_scene.assets: band_urls.append(best_scene.assets["nir"].href); resolved_names.append("B08 (NIR) - 842nm")
+                elif bk == "b8a" and "nir08" in best_scene.assets: band_urls.append(best_scene.assets["nir08"].href); resolved_names.append("B8A (Narrow NIR) - 865nm")
+                elif bk == "b09" and "nir09" in best_scene.assets: band_urls.append(best_scene.assets["nir09"].href); resolved_names.append("B09 (Water Vapour) - 945nm")
+                elif bk == "b11" and "swir16" in best_scene.assets: band_urls.append(best_scene.assets["swir16"].href); resolved_names.append("B11 (SWIR 1) - 1610nm")
+                elif bk == "b12" and "swir22" in best_scene.assets: band_urls.append(best_scene.assets["swir22"].href); resolved_names.append("B12 (SWIR 2) - 2202nm")
+                elif bk == "aot" and "aot" in best_scene.assets: band_urls.append(best_scene.assets["aot"].href); resolved_names.append("AOT (Aerosol Optical Thickness)")
+                elif bk == "wvp" and "wvp" in best_scene.assets: band_urls.append(best_scene.assets["wvp"].href); resolved_names.append("WVP (Water Vapour)")
+                elif bk == "scl" and "scl" in best_scene.assets: band_urls.append(best_scene.assets["scl"].href); resolved_names.append("SCL (Scene Classification)")
+                else:
+                    logger.warning(f"Band {bk} not found in asset, skipping.")
+            
+            if not band_urls:
+                logger.error(f"No valid bands selected for {best_scene.id}.")
+                continue
+            
+            with rasterio.Env(
+                GDAL_DISABLE_READDIR_ON_OPEN="EMPTY_DIR",
+                GDAL_HTTP_MERGE_CONSECUTIVE_RANGES="YES",
+                GDAL_HTTP_MULTIPLEX="YES",
+                GDAL_HTTP_VERSION="2",
+                VSI_CACHE="TRUE",
+                VSI_CACHE_SIZE="100000000",
+                CPL_VSIL_CURL_ALLOWED_EXTENSIONS="tif"
+            ):
+                with rasterio.open(band_urls[0]) as src0:
+                    from rasterio.warp import transform_bounds
+                    from rasterio.vrt import WarpedVRT
+                    from rasterio.enums import Resampling
+                    from magpi.env import env
+                    
+                    target_crs = f"EPSG:{env.outputCoordinateSystem}" if env.outputCoordinateSystem else src0.crs
+                    
+                    target_bounds = transform_bounds('EPSG:4326', target_crs, item_min_lon, item_min_lat, item_max_lon, item_max_lat)
+                    
+                    with WarpedVRT(src0, crs=target_crs, resampling=Resampling.bilinear) as vrt:
+                        window = from_bounds(*target_bounds, vrt.transform).round_offsets().round_lengths()
+                        
+                        out_meta = vrt.meta.copy()
+                        out_meta.update({
+                            "driver": "GTiff", 
+                            "count": len(band_urls), 
+                            "height": window.height, 
+                            "width": window.width, 
+                            "transform": vrt.window_transform(window)
+                        })
+                        
+                        with rasterio.open(current_out_raster, "w", **out_meta) as dest:
+                            for i, url in enumerate(band_urls, start=1):
+                                logger.info(f"Streaming Band {i} into unified grid...")
+                                with rasterio.open(url) as src_band:
+                                    with WarpedVRT(src_band, crs=target_crs, resampling=Resampling.bilinear) as band_vrt:
+                                        dest.write(band_vrt.read(1, window=window), i)
+                                        dest.set_band_description(i, resolved_names[i-1])
+                                
+            logger.info(f"Saved {len(band_urls)}-Band STAC chip to: {current_out_raster}")
+            downloaded_rasters.append(current_out_raster)
+            
+        if not downloaded_rasters:
             return Result(None, status=3)
-        
-        with rasterio.Env(
-            GDAL_DISABLE_READDIR_ON_OPEN="EMPTY_DIR",
-            GDAL_HTTP_MERGE_CONSECUTIVE_RANGES="YES",
-            GDAL_HTTP_MULTIPLEX="YES",
-            GDAL_HTTP_VERSION="2",
-            VSI_CACHE="TRUE",
-            VSI_CACHE_SIZE="100000000",
-            CPL_VSIL_CURL_ALLOWED_EXTENSIONS="tif"
-        ):
-            with rasterio.open(band_urls[0]) as src0:
-                from rasterio.warp import transform_bounds
-                from rasterio.vrt import WarpedVRT
-                from rasterio.enums import Resampling
-                from magpi.env import env
-                
-                target_crs = f"EPSG:{env.outputCoordinateSystem}" if env.outputCoordinateSystem else src0.crs
-                if env.outputCoordinateSystem:
-                    logger.info(f"Enforcing global Coregistration via WarpedVRT ({target_crs})")
-                
-                target_bounds = transform_bounds('EPSG:4326', target_crs, min_lon, min_lat, max_lon, max_lat)
-                
-                with WarpedVRT(src0, crs=target_crs, resampling=Resampling.bilinear) as vrt:
-                    window = from_bounds(*target_bounds, vrt.transform).round_offsets().round_lengths()
-                    
-                    out_meta = vrt.meta.copy()
-                    out_meta.update({
-                        "driver": "GTiff", 
-                        "count": len(band_urls), 
-                        "height": window.height, 
-                        "width": window.width, 
-                        "transform": vrt.window_transform(window)
-                    })
-                    
-                    with rasterio.open(out_raster, "w", **out_meta) as dest:
-                        for i, url in enumerate(band_urls, start=1):
-                            logger.info(f"Streaming Band {i} into unified grid...")
-                            with rasterio.open(url) as src_band:
-                                with WarpedVRT(src_band, crs=target_crs, resampling=Resampling.bilinear) as band_vrt:
-                                    dest.write(band_vrt.read(1, window=window), i)
-                                    dest.set_band_description(i, resolved_names[i-1])
-                            
-        logger.info(f"Saved {len(band_urls)}-Band STAC chip to: {out_raster}")
-        return Result(out_raster)
+            
+        # Return the list of downloaded rasters (or single if only one)
+        if len(downloaded_rasters) == 1:
+            return Result(downloaded_rasters[0])
+        else:
+            # Result objects can wrap a list in their path attribute natively in MagPI
+            res = Result(downloaded_rasters[0])
+            res.path = downloaded_rasters # Overwrite with list
+            res.output = downloaded_rasters
+            return res
     except Exception as e:
         import logging
         logger = logging.getLogger("MagPI_WFS")
