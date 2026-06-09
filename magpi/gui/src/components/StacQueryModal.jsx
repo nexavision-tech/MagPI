@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Search, Check, Loader2, Calendar, Map as MapIcon, Cloud, MousePointer2 } from 'lucide-react';
+import { X, Search, Check, Loader2, Calendar, Map as MapIcon, Cloud, MousePointer2, Layers } from 'lucide-react';
 
 export default function StacQueryModal({ isOpen, onClose, selectedNode, nodes, connections, updateNodeParam }) {
   const mapRef = useRef(null);
@@ -11,6 +11,7 @@ export default function StacQueryModal({ isOpen, onClose, selectedNode, nodes, c
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [results, setResults] = useState([]);
+  const [sceneCache, setSceneCache] = useState({});
   const [groupedResults, setGroupedResults] = useState({});
   const [activeDate, setActiveDate] = useState(null);
   const [hoveredScene, setHoveredScene] = useState(null);
@@ -97,6 +98,11 @@ export default function StacQueryModal({ isOpen, onClose, selectedNode, nodes, c
 
       if (response.ok && data.results) {
         setResults(data.results);
+        setSceneCache(prev => {
+          const updated = { ...prev };
+          data.results.forEach(r => updated[r.id] = r);
+          return updated;
+        });
         
         // Group by Date
         const grouped = {};
@@ -192,6 +198,22 @@ export default function StacQueryModal({ isOpen, onClose, selectedNode, nodes, c
       current.push(id);
     }
     updateNodeParam(selectedNode.id, 'selected_items', current.join(','));
+  };
+
+  const zoomToFeature = (id) => {
+    const scene = sceneCache[id] || results.find(r => r.id === id);
+    if (scene && scene.geometry && scene.geometry.coordinates) {
+      try {
+        const coords = scene.geometry.coordinates[0];
+        const lats = coords.map(c => c[1]);
+        const lngs = coords.map(c => c[0]);
+        const bounds = [
+          [Math.min(...lats), Math.min(...lngs)],
+          [Math.max(...lats), Math.max(...lngs)]
+        ];
+        mapInstance.current.fitBounds(bounds, { padding: [150, 150] });
+      } catch (e) {}
+    }
   };
 
   if (!isOpen) return null;
@@ -307,21 +329,54 @@ export default function StacQueryModal({ isOpen, onClose, selectedNode, nodes, c
                 </>
               )}
             </div>
-
-            {/* Bottom Queue Footer */}
-            <div className="p-4 bg-slate-800 border-t border-slate-700">
-               <div className="flex items-center justify-between mb-3">
-                 <span className="text-sm font-bold text-slate-300">Selected Queue</span>
-                 <span className="text-sm font-bold text-cyan-400 bg-cyan-900/40 px-2 py-0.5 rounded">{selectedIds.length}</span>
-               </div>
-               <button 
-                 onClick={onClose}
-                 className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded shadow-lg transition-colors flex items-center justify-center"
-               >
-                 <Check size={16} className="mr-2"/> Confirm & Close
-               </button>
-            </div>
             
+            {/* Bottom Half: Layer Manager */}
+            <div className="flex-[2] border-t-[3px] border-slate-950 bg-slate-800 flex flex-col min-h-0 shadow-inner">
+              <div className="p-3 bg-slate-800 border-b border-slate-700 flex items-center justify-between shrink-0 shadow-md z-10">
+                <span className="text-xs font-bold text-slate-300 uppercase tracking-widest flex items-center"><Layers size={14} className="mr-2 text-cyan-400"/> Layer Manager</span>
+                <span className="text-[10px] font-bold text-cyan-400 bg-cyan-900/40 px-2 py-0.5 rounded border border-cyan-800">{selectedIds.length} Selected</span>
+              </div>
+              
+              <div className="flex-1 overflow-y-auto p-3 space-y-2 custom-scrollbar bg-slate-900/50">
+                {selectedIds.length === 0 && <span className="text-xs text-slate-500 italic block text-center mt-4">No scenes selected</span>}
+                {selectedIds.map(id => {
+                  const scene = sceneCache[id] || results.find(r => r.id === id);
+                  const cloudCover = scene ? scene.properties?.cloud_cover || scene.cloud_cover : null;
+                  return (
+                    <div 
+                      key={id}
+                      onClick={() => zoomToFeature(id)}
+                      onMouseEnter={() => setHoveredScene(id)}
+                      onMouseLeave={() => setHoveredScene(null)}
+                      className="p-2 rounded bg-slate-800 border border-slate-700 hover:border-cyan-500 cursor-pointer flex flex-col group transition-colors relative"
+                    >
+                      <button onClick={(e) => { e.stopPropagation(); toggleSelection(id); }} className="absolute top-1 right-1 p-1 hover:bg-slate-700 rounded text-slate-400 hover:text-red-400">
+                        <X size={12} />
+                      </button>
+                      <div className="flex items-center justify-between mb-1 pr-6">
+                        <span className="text-xs font-mono font-bold text-cyan-400 truncate" title={id}>{id.split('_').slice(-2).join('_')}</span>
+                        {cloudCover !== null && (
+                          <div className={`flex items-center text-[9px] font-bold px-1 py-0.5 rounded ${cloudCover < 10 ? 'bg-emerald-900/50 text-emerald-400' : cloudCover < 30 ? 'bg-yellow-900/50 text-yellow-400' : 'bg-red-900/50 text-red-400'}`}>
+                            <Cloud size={8} className="mr-1" /> {cloudCover.toFixed(1)}%
+                          </div>
+                        )}
+                      </div>
+                      <span className="text-[9px] text-slate-500 truncate">{id}</span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Bottom Queue Footer */}
+              <div className="p-4 bg-slate-800 border-t border-slate-700 shrink-0">
+                 <button 
+                   onClick={onClose}
+                   className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded shadow-lg transition-colors flex items-center justify-center"
+                 >
+                   <Check size={16} className="mr-2"/> Confirm & Close
+                 </button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
