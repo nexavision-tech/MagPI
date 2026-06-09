@@ -94,6 +94,7 @@ def QuerySTAC(extent, collection="sentinel-2-l2a", max_cloud_cover=10, date_rang
             elif "path_out" in extent:
                 extent = extent["path_out"]
         logger = logging.getLogger("MagPI_WFS")
+        parsed_geojson = None
         if hasattr(extent, 'XMin'): 
             min_lon, min_lat, max_lon, max_lat = extent.XMin, extent.YMin, extent.XMax, extent.YMax
         elif isinstance(extent, (list, tuple)) and len(extent) == 4:
@@ -104,6 +105,8 @@ def QuerySTAC(extent, collection="sentinel-2-l2a", max_cloud_cover=10, date_rang
             if gdf.crs and not gdf.crs.is_geographic:
                 gdf = gdf.to_crs("EPSG:4326")
             min_lon, min_lat, max_lon, max_lat = gdf.total_bounds
+            import json
+            parsed_geojson = json.loads(gdf.to_json())
         else: 
             min_lon, min_lat, max_lon, max_lat = map(float, str(extent).replace('[','').replace(']','').replace(',',' ').split())
         
@@ -141,13 +144,14 @@ def QuerySTAC(extent, collection="sentinel-2-l2a", max_cloud_cover=10, date_rang
             })
         return {
             "results": results,
-            "parsed_bbox": [min_lon, min_lat, max_lon, max_lat]
+            "parsed_bbox": [min_lon, min_lat, max_lon, max_lat],
+            "parsed_geojson": parsed_geojson
         }
     except Exception as e:
         import logging
         logger = logging.getLogger("MagPI_WFS")
         logger.error(f"Query STAC failed: {e}")
-        return {"results": [], "parsed_bbox": None}
+        return {"results": [], "parsed_bbox": None, "parsed_geojson": None}
 
 # Backward compatibility wrapper
 def QuerySentinel2(extent, max_cloud_cover=10, date_range="2023-01-01/2023-12-31"):
