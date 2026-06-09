@@ -37,6 +37,7 @@ class PipelineRunner:
             arcpy.env.outputWorkspace = output
             arcpy.env.horizontalDatum = h_datum
             arcpy.env.verticalDatum = v_datum
+            arcpy.env.outputCoordinateSystem = h_datum.replace('EPSG:', '') if h_datum.startswith('EPSG:') else h_datum
             arcpy.env.overwriteOutput = True
             
             # Ensure directories exist

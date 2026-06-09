@@ -83,33 +83,7 @@ export default function TopRibbon({
                 <Globe size={14} className="mr-2" /> DAEMON CONFIG
             </button>
 
-            <div className="flex items-center space-x-2 bg-slate-900 px-3 py-1.5 rounded text-sm border border-slate-700 shadow-inner hover:border-slate-500 transition-colors">
-              <Globe size={14} className="text-blue-400" />
-              <span className="text-xs text-slate-500 uppercase font-bold mr-1">CRS (PROJ):</span>
-              <select 
-                className="bg-transparent outline-none cursor-pointer text-slate-200 font-medium"
-                value={crs} onChange={(e) => setCrs(e.target.value)}
-              >
-                <option value="Native">Native / Inherit (1:1 Pixels)</option>
-                <option value="EPSG:4326">WGS 84 (EPSG:4326)</option>
-                <option value="EPSG:6438">FL State Plane E (EPSG:6438)</option>
-                <option value="EPSG:3857">Web Mercator (EPSG:3857)</option>
-              </select>
-            </div>
 
-            <div className="flex items-center space-x-2 bg-slate-900 px-3 py-1.5 rounded text-sm border border-slate-700 shadow-inner hover:border-slate-500 transition-colors">
-              <Globe size={14} className="text-teal-400" />
-              <span className="text-xs text-slate-500 uppercase font-bold mr-1">ELEVATION (Z):</span>
-              <select 
-                className="bg-transparent outline-none cursor-pointer text-slate-200 font-medium w-40"
-                value={globalEnv?.vertical_datum || 'EPSG:3855'} onChange={(e) => setGlobalEnv({...globalEnv, vertical_datum: e.target.value})}
-              >
-                <option value="EPSG:3855">EGM2008 (Geoid)</option>
-                <option value="EPSG:5703">NAVD88</option>
-                <option value="EPSG:4326">WGS 84 Ellipsoid</option>
-                <option value="SRTM_30M">SRTM 30m Global DEM</option>
-              </select>
-            </div>
 
             <div className="flex items-center space-x-2 bg-slate-900 px-3 py-1.5 rounded text-sm border border-slate-700 shadow-inner hover:border-slate-500 transition-colors">
               <Cpu size={14} className="text-purple-400" />
