@@ -219,14 +219,18 @@ def LaunchCanvas(port=8282):
                     payload = json.loads(post_data.decode('utf-8'))
                     logger.info("Received STAC Query Request from Canvas.")
                     
-                    # Call python stac query wrapper
-                    from magpi.wfs import QuerySentinel2
-                    
                     bbox = payload.get('bbox', [-180, -90, 180, 90])
                     date_range = payload.get('date_range', '2023-01-01/2023-12-31')
-                    max_cloud_cover = payload.get('max_cloud_cover', 20)
+                    sensor = payload.get('sensor', 'wfs_sentinel2')
                     
-                    res_obj = QuerySentinel2(bbox, max_cloud_cover, date_range)
+                    if sensor == 'wfs_sentinel1':
+                        from magpi.wfs import QuerySentinel1
+                        res_obj = QuerySentinel1(bbox, date_range)
+                    else:
+                        from magpi.wfs import QuerySentinel2
+                        max_cloud_cover = payload.get('max_cloud_cover', 20)
+                        res_obj = QuerySentinel2(bbox, max_cloud_cover, date_range)
+                        
                     if isinstance(res_obj, dict) and "results" in res_obj:
                         payload = res_obj
                     else:

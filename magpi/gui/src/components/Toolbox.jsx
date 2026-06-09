@@ -1012,7 +1012,7 @@ export default function Toolbox({
                   </div>
                 )}
 
-                {selectedNode.toolId === 'wfs_sentinel2' && (
+                {['wfs_sentinel2', 'wfs_sentinel1'].includes(selectedNode.toolId) && (
                   <div className="bg-slate-900 p-4 rounded-lg border border-slate-700 shadow-inner mt-4 animate-fadeIn">
                     <h4 className="text-[10px] uppercase tracking-widest text-cyan-400 font-bold mb-3 flex items-center">
                       <Search size={12} className="mr-2" /> STAC Catalog Explorer

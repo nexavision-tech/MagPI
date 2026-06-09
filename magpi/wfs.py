@@ -153,6 +153,9 @@ def QuerySTAC(extent, collection="sentinel-2-l2a", max_cloud_cover=10, date_rang
 def QuerySentinel2(extent, max_cloud_cover=10, date_range="2023-01-01/2023-12-31"):
     return QuerySTAC(extent, "sentinel-2-c1-l2a", max_cloud_cover, date_range, "https://earth-search.aws.element84.com/v1")
 
+def QuerySentinel1(extent, date_range="2023-01-01/2023-12-31"):
+    return QuerySTAC(extent, "sentinel-1-rtc", None, date_range, "https://planetarycomputer.microsoft.com/api/stac/v1")
+
 def PullSTAC(extent, out_raster, collection="sentinel-2-l2a", catalog_url="https://earth-search.aws.element84.com/v1", max_cloud_cover=10, date_range="2023-01-01/2023-12-31", item_ids=None, bands=None):
     import logging
     logger = logging.getLogger("MagPI_WFS")

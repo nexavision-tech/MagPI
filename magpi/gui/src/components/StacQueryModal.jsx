@@ -101,7 +101,8 @@ export default function StacQueryModal({ isOpen, onClose, selectedNode, nodes, c
         body: JSON.stringify({
           bbox: parsedBbox,
           max_cloud_cover: selectedNode?.params.max_cloud_cover,
-          date_range: date_range
+          date_range: date_range,
+          sensor: selectedNode?.toolId
         })
       });
       const data = await response.json();
@@ -209,7 +210,9 @@ export default function StacQueryModal({ isOpen, onClose, selectedNode, nodes, c
           click: () => addSelection(feature.id)
         });
         // Popup
-        layer.bindPopup(`<div class="text-slate-800 text-xs"><b>${feature.id}</b><br/>Cloud Cover: ${feature.properties.cloud_cover.toFixed(1)}%</div>`);
+        const hasCloudCover = feature.properties.cloud_cover !== undefined && feature.properties.cloud_cover !== null && feature.properties.cloud_cover !== 0;
+        const cloudCoverText = hasCloudCover ? `Cloud Cover: ${feature.properties.cloud_cover.toFixed(1)}%` : `Sensor: SAR (Active Radar)`;
+        layer.bindPopup(`<div class="text-slate-800 text-xs"><b>${feature.id}</b><br/>${cloudCoverText}</div>`);
       }
     }).addTo(mapInstance.current);
 
@@ -365,9 +368,15 @@ export default function StacQueryModal({ isOpen, onClose, selectedNode, nodes, c
                         
                         <div className="flex items-center justify-between mb-1">
                           <span className="text-xs font-mono font-bold text-slate-200 truncate pr-6" title={scene.id}>{scene.id.split('_').slice(-2).join('_')}</span>
-                          <div className={`flex items-center text-[10px] font-bold px-1.5 py-0.5 rounded ${scene.cloud_cover < 10 ? 'bg-emerald-900/50 text-emerald-400' : scene.cloud_cover < 30 ? 'bg-yellow-900/50 text-yellow-400' : 'bg-red-900/50 text-red-400'}`}>
-                            <Cloud size={10} className="mr-1" /> {scene.cloud_cover.toFixed(1)}%
-                          </div>
+                          {(scene.cloud_cover !== undefined && scene.cloud_cover !== null && scene.cloud_cover !== 0) ? (
+                            <div className={`flex items-center text-[10px] font-bold px-1.5 py-0.5 rounded ${scene.cloud_cover < 10 ? 'bg-emerald-900/50 text-emerald-400' : scene.cloud_cover < 30 ? 'bg-yellow-900/50 text-yellow-400' : 'bg-red-900/50 text-red-400'}`}>
+                              <Cloud size={10} className="mr-1" /> {scene.cloud_cover.toFixed(1)}%
+                            </div>
+                          ) : (
+                            <div className="flex items-center text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-900/50 text-purple-400">
+                              <MapIcon size={10} className="mr-1" /> SAR
+                            </div>
+                          )}
                         </div>
                         <span className="text-[10px] text-slate-500 truncate">{scene.id}</span>
                       </div>
@@ -401,14 +410,20 @@ export default function StacQueryModal({ isOpen, onClose, selectedNode, nodes, c
                         <X size={12} />
                       </button>
                       <div className="flex items-center justify-between mb-1 pr-6">
-                        <span className="text-xs font-mono font-bold text-cyan-400 truncate" title={id}>{id.split('_').slice(-2).join('_')}</span>
-                        {cloudCover !== null && (
-                          <div className={`flex items-center text-[9px] font-bold px-1 py-0.5 rounded ${cloudCover < 10 ? 'bg-emerald-900/50 text-emerald-400' : cloudCover < 30 ? 'bg-yellow-900/50 text-yellow-400' : 'bg-red-900/50 text-red-400'}`}>
-                            <Cloud size={8} className="mr-1" /> {cloudCover.toFixed(1)}%
-                          </div>
+                        <span className="text-xs font-mono font-bold text-cyan-300 truncate" title={scene ? scene.id : id}>{scene ? scene.id.split('_').slice(-2).join('_') : id}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-[10px]">
+                        <span className="text-slate-500 truncate mr-2">{scene ? scene.date.split('T')[0] : 'Unknown Date'}</span>
+                        {(cloudCover !== undefined && cloudCover !== null && cloudCover !== 0) ? (
+                          <span className="text-slate-400 flex items-center shrink-0">
+                            <Cloud size={10} className="mr-1" /> {cloudCover.toFixed(1)}%
+                          </span>
+                        ) : (
+                          <span className="text-purple-400 flex items-center shrink-0">
+                            <MapIcon size={10} className="mr-1" /> SAR
+                          </span>
                         )}
                       </div>
-                      <span className="text-[9px] text-slate-500 truncate">{id}</span>
                     </div>
                   );
                 })}
