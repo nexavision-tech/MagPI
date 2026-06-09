@@ -259,21 +259,26 @@ def PullSTAC(extent, out_raster, collection="sentinel-2-l2a", catalog_url="https
             band_keys = ["red", "green", "blue", "nir"]
             
         band_urls = []
+        resolved_names = []
         for bk in band_keys:
             if bk in best_scene.assets:
                 band_urls.append(best_scene.assets[bk].href)
-            elif bk == "b01" and "coastal" in best_scene.assets: band_urls.append(best_scene.assets["coastal"].href)
-            elif bk == "b02" and "blue" in best_scene.assets: band_urls.append(best_scene.assets["blue"].href)
-            elif bk == "b03" and "green" in best_scene.assets: band_urls.append(best_scene.assets["green"].href)
-            elif bk == "b04" and "red" in best_scene.assets: band_urls.append(best_scene.assets["red"].href)
-            elif bk == "b05" and "rededge1" in best_scene.assets: band_urls.append(best_scene.assets["rededge1"].href)
-            elif bk == "b06" and "rededge2" in best_scene.assets: band_urls.append(best_scene.assets["rededge2"].href)
-            elif bk == "b07" and "rededge3" in best_scene.assets: band_urls.append(best_scene.assets["rededge3"].href)
-            elif bk == "b08" and "nir" in best_scene.assets: band_urls.append(best_scene.assets["nir"].href)
-            elif bk == "b8a" and "nir08" in best_scene.assets: band_urls.append(best_scene.assets["nir08"].href)
-            elif bk == "b09" and "nir09" in best_scene.assets: band_urls.append(best_scene.assets["nir09"].href)
-            elif bk == "b11" and "swir16" in best_scene.assets: band_urls.append(best_scene.assets["swir16"].href)
-            elif bk == "b12" and "swir22" in best_scene.assets: band_urls.append(best_scene.assets["swir22"].href)
+                resolved_names.append(bk.upper())
+            elif bk == "b01" and "coastal" in best_scene.assets: band_urls.append(best_scene.assets["coastal"].href); resolved_names.append("B01 (Coastal Aerosol) - 443nm")
+            elif bk == "b02" and "blue" in best_scene.assets: band_urls.append(best_scene.assets["blue"].href); resolved_names.append("B02 (Blue) - 490nm")
+            elif bk == "b03" and "green" in best_scene.assets: band_urls.append(best_scene.assets["green"].href); resolved_names.append("B03 (Green) - 560nm")
+            elif bk == "b04" and "red" in best_scene.assets: band_urls.append(best_scene.assets["red"].href); resolved_names.append("B04 (Red) - 665nm")
+            elif bk == "b05" and "rededge1" in best_scene.assets: band_urls.append(best_scene.assets["rededge1"].href); resolved_names.append("B05 (Red Edge 1) - 705nm")
+            elif bk == "b06" and "rededge2" in best_scene.assets: band_urls.append(best_scene.assets["rededge2"].href); resolved_names.append("B06 (Red Edge 2) - 740nm")
+            elif bk == "b07" and "rededge3" in best_scene.assets: band_urls.append(best_scene.assets["rededge3"].href); resolved_names.append("B07 (Red Edge 3) - 783nm")
+            elif bk == "b08" and "nir" in best_scene.assets: band_urls.append(best_scene.assets["nir"].href); resolved_names.append("B08 (NIR) - 842nm")
+            elif bk == "b8a" and "nir08" in best_scene.assets: band_urls.append(best_scene.assets["nir08"].href); resolved_names.append("B8A (Narrow NIR) - 865nm")
+            elif bk == "b09" and "nir09" in best_scene.assets: band_urls.append(best_scene.assets["nir09"].href); resolved_names.append("B09 (Water Vapour) - 945nm")
+            elif bk == "b11" and "swir16" in best_scene.assets: band_urls.append(best_scene.assets["swir16"].href); resolved_names.append("B11 (SWIR 1) - 1610nm")
+            elif bk == "b12" and "swir22" in best_scene.assets: band_urls.append(best_scene.assets["swir22"].href); resolved_names.append("B12 (SWIR 2) - 2202nm")
+            elif bk == "aot" and "aot" in best_scene.assets: band_urls.append(best_scene.assets["aot"].href); resolved_names.append("AOT (Aerosol Optical Thickness)")
+            elif bk == "wvp" and "wvp" in best_scene.assets: band_urls.append(best_scene.assets["wvp"].href); resolved_names.append("WVP (Water Vapour)")
+            elif bk == "scl" and "scl" in best_scene.assets: band_urls.append(best_scene.assets["scl"].href); resolved_names.append("SCL (Scene Classification)")
             else:
                 logger.warning(f"Band {bk} not found in asset, skipping.")
         
@@ -320,6 +325,7 @@ def PullSTAC(extent, out_raster, collection="sentinel-2-l2a", catalog_url="https
                             with rasterio.open(url) as src_band:
                                 with WarpedVRT(src_band, crs=target_crs, resampling=Resampling.bilinear) as band_vrt:
                                     dest.write(band_vrt.read(1, window=window), i)
+                                    dest.set_band_description(i, resolved_names[i-1])
                             
         logger.info(f"Saved {len(band_urls)}-Band STAC chip to: {out_raster}")
         return Result(out_raster)
