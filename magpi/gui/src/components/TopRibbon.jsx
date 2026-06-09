@@ -5,7 +5,7 @@ export default function TopRibbon({
   globalEnv, setGlobalEnv, crs, setCrs, 
   processingScope, setProcessingScope, 
   onGenerate, onSave, onLoad, onClear, onAutoLayout, onOpenEnvSettings, onImportENVI,
-  isDaemonAlive
+  isDaemonAlive, projectName
 }) {
   const hiddenFileInput = React.useRef(null);
   return (
@@ -17,7 +17,22 @@ export default function TopRibbon({
           <span className="font-black text-emerald-500 tracking-widest text-sm flex items-center">
             <Compass size={16} className="mr-2" /> MAGPI
           </span>
-          <span className="bg-slate-800 px-2 py-0.5 rounded border border-slate-700">Project: Local_Daemon_Active</span>
+          <span className="bg-slate-800 px-2 py-0.5 rounded border border-slate-700">Project: {projectName || "Untitled_1"}</span>
+          <button onClick={onOpenEnvSettings} className="text-[10px] text-slate-300 hover:text-white font-bold uppercase tracking-widest flex items-center bg-slate-800 hover:bg-slate-700 px-2 py-0.5 rounded border border-slate-700 transition-colors">
+              <Globe size={12} className="mr-1" /> DAEMON CONFIG
+          </button>
+          <div className="flex items-center space-x-2 bg-slate-900 px-2 py-0.5 rounded text-[10px] border border-slate-700">
+            <Cpu size={12} className="text-purple-400" />
+            <span className="text-slate-500 uppercase font-bold">Engine:</span>
+            <select 
+              className="bg-transparent outline-none cursor-pointer text-slate-300 font-medium"
+              value={processingScope} onChange={(e) => setProcessingScope(e.target.value)}
+            >
+              <option value="Local Python">Local Backend (Conda)</option>
+              <option value="PEP684">Local (PEP 684)</option>
+              <option value="Apache Airflow">Remote (Airflow)</option>
+            </select>
+          </div>
         </div>
         <div className="flex items-center space-x-3">
           {/* RSS Feed Link */}
@@ -71,36 +86,6 @@ export default function TopRibbon({
             <span className="text-[10px] mt-1 font-medium">Clear</span>
           </button>
         </div>
-
-        {/* Environment Variables Group */}
-        <div className="flex flex-col space-y-1.5">
-          <div className="flex items-center justify-between">
-             <span className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Global Environment</span>
-          </div>
-          <div className="flex space-x-4 items-center">
-            
-            <button onClick={onOpenEnvSettings} className="text-xs text-white hover:text-white font-bold uppercase tracking-widest flex items-center bg-emerald-700 hover:bg-emerald-600 px-3 py-1.5 rounded shadow-inner transition-colors">
-                <Globe size={14} className="mr-2" /> DAEMON CONFIG
-            </button>
-
-
-
-            <div className="flex items-center space-x-2 bg-slate-900 px-3 py-1.5 rounded text-sm border border-slate-700 shadow-inner hover:border-slate-500 transition-colors">
-              <Cpu size={14} className="text-purple-400" />
-              <span className="text-xs text-slate-500 uppercase font-bold mr-1">Engine:</span>
-              <select 
-                className="bg-transparent outline-none cursor-pointer text-slate-200 font-medium"
-                value={processingScope} onChange={(e) => setProcessingScope(e.target.value)}
-              >
-                <option value="Local Python">Local Backend (Conda)</option>
-                <option value="PEP684">Local (PEP 684 Sub-Interpreters)</option>
-                <option value="Apache Airflow">Remote (Apache Airflow)</option>
-              </select>
-            </div>
-
-          </div>
-        </div>
-
       </div>
     </div>
   );

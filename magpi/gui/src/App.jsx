@@ -45,6 +45,7 @@ export default function App() {
   const [nodeStatuses, setNodeStatuses] = useState({});
   const [activeJobId, setActiveJobId] = useState(null);
   const [isDaemonAlive, setIsDaemonAlive] = useState(false);
+  const [projectName, setProjectName] = useState('Untitled_1');
   const [masterReferences, setMasterReferences] = useState({});
   const [masterGisServers, setMasterGisServers] = useState([]);
   const [mapLayers, setMapLayers] = useState([
@@ -179,7 +180,6 @@ export default function App() {
                       setActiveJobId(activeJob.id);
                       setIsProcessing(true);
                       setLogs(prev => [...prev, { type: 'success', msg: `Reconnected to running Daemon Job: ${activeJob.id}` }]);
-                      setShowTerminal(true);
                   }
               } else {
                   setIsDaemonAlive(false);
@@ -332,7 +332,11 @@ export default function App() {
   };
 
   const openFileBrowser = (nodeId, paramKey, currentPath) => {
-    setBrowserConfig({ isOpen: true, nodeId, paramKey, initialPath: currentPath || "." });
+    let defaultPath = currentPath;
+    if (!defaultPath || defaultPath === "." || defaultPath === "./") {
+        defaultPath = globalEnv?.workspace || ".";
+    }
+    setBrowserConfig({ isOpen: true, nodeId, paramKey, initialPath: defaultPath });
   };
 
   const handleFileSelected = async (absolutePath) => {
@@ -347,7 +351,8 @@ export default function App() {
                 if (pd.connections) setConnections(pd.connections);
                 if (pd.crs) setCrs(pd.crs);
                 if (pd.globalEnv) setGlobalEnv(pd.globalEnv);
-                setLogs([{ type: 'success', msg: `Project loaded successfully. Rehydrated ${pd.nodes.length} nodes.` }]);
+                setProjectName(file.name.replace(/\.[^/.]+$/, ""));
+                setLogs([{ type: 'success', msg: `Project loaded successfully. Rehydrated ${pd.nodes?.length || 0} nodes.` }]);
                 setNodeStatuses({});
                 setShowTerminal(true);
             } else {
@@ -397,12 +402,12 @@ export default function App() {
   const selectedNode = nodes.find(n => n.id === selectedNodeId);
 
   const handleSave = async () => {
-    const projectName = prompt("Enter project name:", "magpi_project");
-    if (!projectName) return;
-    
+    const pName = prompt("Enter project name:", projectName);
+    if (!pName) return;
+    setProjectName(pName);
     try {
-        await saveProject(nodes, connections, crs, globalEnv, projectName);
-        setLogs([{ type: 'success', msg: `Project successfully saved to workspace as ${projectName}.mpjx` }]);
+        await saveProject(nodes, connections, crs, globalEnv, pName);
+        setLogs([{ type: 'success', msg: `Project successfully saved to workspace as ${pName}.mpjx` }]);
     } catch (e) {
         setLogs([{ type: 'error', msg: `Failed to save project: ${e.message}` }]);
         setShowTerminal(true);
@@ -615,7 +620,7 @@ export default function App() {
   return (
     <div className="absolute inset-0 w-full h-full flex flex-col bg-slate-900 text-slate-200 font-sans overflow-hidden select-none">
       <div className="flex-none z-40 shadow-md">
-        <TopRibbon globalEnv={globalEnv} setGlobalEnv={setGlobalEnv} crs={crs} setCrs={setCrs} processingScope={processingScope} setProcessingScope={setProcessingScope} onGenerate={handleGenerate} onSave={handleSave} onLoad={handleLoad} onClear={handleClear} onAutoLayout={handleAutoLayout} onOpenEnvSettings={() => setShowEnvSettings(true)} onImportENVI={handleImportENVI} isDaemonAlive={isDaemonAlive} />
+        <TopRibbon globalEnv={globalEnv} setGlobalEnv={setGlobalEnv} crs={crs} setCrs={setCrs} processingScope={processingScope} setProcessingScope={setProcessingScope} onGenerate={handleGenerate} onSave={handleSave} onLoad={handleLoad} onClear={handleClear} onAutoLayout={handleAutoLayout} onOpenEnvSettings={() => setShowEnvSettings(true)} onImportENVI={handleImportENVI} isDaemonAlive={isDaemonAlive} projectName={projectName} />
         <div className="flex bg-slate-900 border-b border-slate-700 px-4 pt-2">
             <button onClick={() => setActiveWorkspace('planar')} className={`px-6 py-2 text-xs font-bold uppercase tracking-widest rounded-t-lg transition-colors flex items-center border border-b-0 ${activeWorkspace === 'planar' ? 'bg-slate-800 text-purple-400 border-slate-600' : 'bg-transparent text-slate-500 border-transparent hover:bg-slate-800/50 hover:text-slate-300'}`}><Edit3 size={14} className="mr-2" /> Planar View</button>
             <button onClick={() => setActiveWorkspace('builder')} className={`px-6 py-2 text-xs font-bold uppercase tracking-widest rounded-t-lg transition-colors flex items-center border border-b-0 ml-1 ${activeWorkspace === 'builder' ? 'bg-slate-800 text-emerald-400 border-slate-600' : 'bg-transparent text-slate-500 border-transparent hover:bg-slate-800/50 hover:text-slate-300'}`}><Wrench size={14} className="mr-2" /> Model Builder</button>
