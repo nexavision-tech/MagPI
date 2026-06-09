@@ -157,6 +157,7 @@ def PullSTAC(extent, out_raster, collection="sentinel-2-l2a", catalog_url="https
         from .objects import Result
         import os
         out_raster = env.resolve_path(out_raster, intent="input")
+        print(f"DEBUG MAGPI WFS: extent is type {type(extent)}, value: {extent}")
         import rasterio
         from rasterio.windows import from_bounds
         from pystac_client import Client
@@ -261,10 +262,18 @@ def PullSTAC(extent, out_raster, collection="sentinel-2-l2a", catalog_url="https
         for bk in band_keys:
             if bk in best_scene.assets:
                 band_urls.append(best_scene.assets[bk].href)
+            elif bk == "b01" and "coastal" in best_scene.assets: band_urls.append(best_scene.assets["coastal"].href)
             elif bk == "b02" and "blue" in best_scene.assets: band_urls.append(best_scene.assets["blue"].href)
             elif bk == "b03" and "green" in best_scene.assets: band_urls.append(best_scene.assets["green"].href)
             elif bk == "b04" and "red" in best_scene.assets: band_urls.append(best_scene.assets["red"].href)
+            elif bk == "b05" and "rededge1" in best_scene.assets: band_urls.append(best_scene.assets["rededge1"].href)
+            elif bk == "b06" and "rededge2" in best_scene.assets: band_urls.append(best_scene.assets["rededge2"].href)
+            elif bk == "b07" and "rededge3" in best_scene.assets: band_urls.append(best_scene.assets["rededge3"].href)
             elif bk == "b08" and "nir" in best_scene.assets: band_urls.append(best_scene.assets["nir"].href)
+            elif bk == "b8a" and "nir08" in best_scene.assets: band_urls.append(best_scene.assets["nir08"].href)
+            elif bk == "b09" and "nir09" in best_scene.assets: band_urls.append(best_scene.assets["nir09"].href)
+            elif bk == "b11" and "swir16" in best_scene.assets: band_urls.append(best_scene.assets["swir16"].href)
+            elif bk == "b12" and "swir22" in best_scene.assets: band_urls.append(best_scene.assets["swir22"].href)
             else:
                 logger.warning(f"Band {bk} not found in asset, skipping.")
         
