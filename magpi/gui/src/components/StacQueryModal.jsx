@@ -118,17 +118,8 @@ export default function StacQueryModal({ isOpen, onClose, selectedNode, nodes, c
         
         if (resolvedBbox && resolvedBbox.length === 4) {
           if (aoiLayer.current) mapInstance.current.removeLayer(aoiLayer.current);
-          
-          if (data.parsed_geojson) {
-             aoiLayer.current = window.L.geoJSON(data.parsed_geojson, {
-               style: { color: "#10b981", weight: 2, fillOpacity: 0.1, dashArray: '5, 5' }
-             }).addTo(mapInstance.current);
-          } else {
-             const bounds = [[resolvedBbox[1], resolvedBbox[0]], [resolvedBbox[3], resolvedBbox[2]]];
-             aoiLayer.current = window.L.rectangle(bounds, { color: "#10b981", weight: 2, fillOpacity: 0.1, dashArray: '5, 5' }).addTo(mapInstance.current);
-          }
-          
           const bounds = [[resolvedBbox[1], resolvedBbox[0]], [resolvedBbox[3], resolvedBbox[2]]];
+          aoiLayer.current = window.L.rectangle(bounds, { color: "#10b981", weight: 2, fillOpacity: 0.1, dashArray: '5, 5' }).addTo(mapInstance.current);
           mapInstance.current.fitBounds(bounds, { padding: [50, 50] });
         }
       } else {
