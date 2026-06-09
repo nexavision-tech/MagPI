@@ -199,6 +199,25 @@ export const generatePythonScript = (nodes, connections, crs, processingScope, g
                 funcCall = `${outVar} = arcpy.wfs.PullSentinel2(${inExtentVar}, "${outFileName}", max_cloud_cover=${p.max_cloud_cover}, date_range="${p.start_date}/${p.end_date}"${extraArgs})`;
             }
         }
+        else if (n.toolId === 'wfs_sentinel1') {
+            let extraArgs = "";
+            if (p.selected_items) extraArgs += `, item_ids="${p.selected_items}"`;
+            let selected_bands = [];
+            if (p.band_vv) selected_bands.push('VV');
+            if (p.band_vh) selected_bands.push('VH');
+            if (p.band_hh) selected_bands.push('HH');
+            if (p.band_hv) selected_bands.push('HV');
+            if (selected_bands.length > 0) extraArgs += `, bands="${selected_bands.join(',')}"`;
+            
+            const outFolderPrefix = p.out_folder ? `${p.out_folder.replace(/\/$/, '')}/` : '';
+            if (inExtentVars.length > 1) {
+                const outFileNameBase = `${outFolderPrefix}s1_sar_extract_${n.id.split('_')[1]}`;
+                funcCall = `${outVar} = []\nfor i, ext in enumerate([${inExtentVars.join(', ')}]):\n    ${outVar}.append(arcpy.wfs.PullSentinel1(ext, f"${outFileNameBase}_{i}.tif", date_range="${p.start_date}/${p.end_date}"${extraArgs}))`;
+            } else {
+                const outFileName = `${outFolderPrefix}s1_sar_extract_${n.id.split('_')[1]}.tif`;
+                funcCall = `${outVar} = arcpy.wfs.PullSentinel1(${inExtentVar}, "${outFileName}", date_range="${p.start_date}/${p.end_date}"${extraArgs})`;
+            }
+        }
         else if (n.toolId === 'wfs_copernicus') {
             const outFolderPrefix = p.out_folder ? `${p.out_folder.replace(/\/$/, '')}/` : '';
             if (inExtentVars.length > 1) {

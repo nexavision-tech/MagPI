@@ -79,6 +79,12 @@ class PullSentinel1Node(Node):
         
         item_ids = p.get('selected_items', None)
         
+        selected_bands = []
+        for band in ['vv', 'vh', 'hh', 'hv']:
+            if p.get(f'band_{band}'):
+                selected_bands.append(band.upper())
+        bands = ",".join(selected_bands) if selected_bands else None
+        
         if item_ids:
             logger.info(f"Pulling Sentinel-1 SAR data using explicitly selected Item IDs: {item_ids}")
         else:
@@ -101,7 +107,7 @@ class PullSentinel1Node(Node):
                 from magpi.objects import Result
                 res = Result(out_path)
             else:
-                res = PullSentinel1(extent, out_filename, date_range=date_range, item_ids=item_ids)
+                res = PullSentinel1(extent, out_filename, date_range=date_range, item_ids=item_ids, bands=bands)
                 if hasattr(res, 'status') and res.status == 3:
                     raise Exception(f"PullSentinel1 failed for extent {i}")
             self.output.append(res)

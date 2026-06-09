@@ -136,6 +136,7 @@ def QuerySTAC(extent, collection="sentinel-2-l2a", max_cloud_cover=10, date_rang
                 "id": item.id,
                 "date": item.datetime.isoformat() if item.datetime else "",
                 "cloud_cover": item.properties.get("eo:cloud_cover", 0),
+                "polarizations": item.properties.get("sar:polarizations", []),
                 "geometry": item.geometry,
                 "bbox": item.bbox
             })
@@ -154,7 +155,7 @@ def QuerySentinel2(extent, max_cloud_cover=10, date_range="2023-01-01/2023-12-31
     return QuerySTAC(extent, "sentinel-2-c1-l2a", max_cloud_cover, date_range, "https://earth-search.aws.element84.com/v1")
 
 def QuerySentinel1(extent, date_range="2023-01-01/2023-12-31"):
-    return QuerySTAC(extent, "sentinel-1-rtc", None, date_range, "https://planetarycomputer.microsoft.com/api/stac/v1")
+    return QuerySTAC(extent, "sentinel-1-grd", None, date_range, "https://earth-search.aws.element84.com/v1")
 
 def PullSTAC(extent, out_raster, collection="sentinel-2-l2a", catalog_url="https://earth-search.aws.element84.com/v1", max_cloud_cover=10, date_range="2023-01-01/2023-12-31", item_ids=None, bands=None):
     import logging
@@ -312,7 +313,8 @@ def PullSTAC(extent, out_raster, collection="sentinel-2-l2a", catalog_url="https
                 GDAL_HTTP_VERSION="2",
                 VSI_CACHE="TRUE",
                 VSI_CACHE_SIZE="100000000",
-                CPL_VSIL_CURL_ALLOWED_EXTENSIONS="tif"
+                CPL_VSIL_CURL_ALLOWED_EXTENSIONS="tif,tiff",
+                AWS_NO_SIGN_REQUEST="YES"
             ):
                 with rasterio.open(band_urls[0]) as src0:
                     from rasterio.warp import transform_bounds
@@ -371,130 +373,10 @@ def PullSTAC(extent, out_raster, collection="sentinel-2-l2a", catalog_url="https
 def PullSentinel2(extent, out_raster, max_cloud_cover=10, date_range="2023-01-01/2023-12-31", item_ids=None, bands=None):
     return PullSTAC(extent, out_raster, "sentinel-2-c1-l2a", "https://earth-search.aws.element84.com/v1", max_cloud_cover, date_range, item_ids, bands)
 
-def PullSentinel1(extent, out_raster, date_range="2023-01-01/2023-12-31", item_ids=None):
-    logger.info("Initializing Sentinel-1 SAR Pull (Planetary Computer STAC)...")
-    try:
-        from .env import env
-        out_raster = env.resolve_path(out_raster, intent="input")
-        import rasterio
-        from rasterio.windows import from_bounds
-        
-        if hasattr(extent, 'output'):
-            extent = extent.output
-            
-        if hasattr(extent, 'XMin'): 
-            min_lon, min_lat, max_lon, max_lat = extent.XMin, extent.YMin, extent.XMax, extent.YMax
-        elif isinstance(extent, str) and (extent.endswith('.shp') or extent.endswith('.geojson') or os.path.exists(extent)):
-            import geopandas as gpd
-            gdf = gpd.read_file(extent)
-            if gdf.crs and not gdf.crs.is_geographic:
-                gdf = gdf.to_crs("EPSG:4326")
-            min_lon, min_lat, max_lon, max_lat = gdf.total_bounds
-        else: 
-            min_lon, min_lat, max_lon, max_lat = map(float, str(extent).split())
-
-        search_url = "https://planetarycomputer.microsoft.com/api/stac/v1/search"
-        payload = { "collections": ["sentinel-1-rtc"] }
-        
-        if item_ids and isinstance(item_ids, str):
-            item_ids = [i.strip() for i in item_ids.split(',')]
-            
-        if item_ids:
-            payload["ids"] = item_ids
-            payload["limit"] = len(item_ids)
-        else:
-            formatted_date = str(date_range).strip()
-            if "T" not in formatted_date:
-                try:
-                    start_d, end_d = formatted_date.split('/')
-                    formatted_date = f"{start_d.strip()}T00:00:00Z/{end_d.strip()}T23:59:59Z"
-                except Exception: pass 
-                
-            payload["bbox"] = [min_lon, min_lat, max_lon, max_lat]
-            payload["datetime"] = formatted_date
-            payload["limit"] = 1
-        
-        response = requests.post(search_url, json=payload)
-        if not response.ok:
-            logger.error(f"PC STAC API Error: {response.text}")
-            return Result(None, status=3)
-            
-        stac_data = response.json()
-        features = stac_data.get('features', [])
-        if not features:
-            logger.warning(f"No Sentinel-1 SAR data found for {date_range}")
-            return Result(None, status=3)
-            
-        item = features[0]
-        
-        # --- OMNI-OPTIMIZED GEOMETRIC VALIDATION ---
-        try:
-            from shapely.geometry import box
-            req_box = box(min_lon, min_lat, max_lon, max_lat)
-            scene_bbox = item.get('bbox', None)
-            if scene_bbox and len(scene_bbox) == 4:
-                scene_box = box(scene_bbox[0], scene_bbox[1], scene_bbox[2], scene_bbox[3])
-                if not req_box.intersects(scene_box):
-                    logger.error(f"Geometric Mismatch: Requested map extent does not intersect SAR item {item.get('id')}")
-                    return Result(None, status=3)
-                intersect_box = req_box.intersection(scene_box)
-                min_lon, min_lat, max_lon, max_lat = intersect_box.bounds
-        except ImportError:
-            pass
-        except Exception as e:
-            logger.warning(f"Geometric validation skipped: {str(e)}")
-        # ---------------------------------------------
-        
-        # Get VV and VH polarizations
-        assets = item.get('assets', {})
-        band_urls = []
-        if 'vv' in assets: band_urls.append(assets['vv']['href'])
-        if 'vh' in assets: band_urls.append(assets['vh']['href'])
-        
-        if not band_urls:
-            logger.warning("Sentinel-1 item found, but missing VV/VH assets.")
-            return Result(None, status=3)
-            
-        # Optional: For Planetary Computer, you usually need a SAS token.
-        # We will attempt to fetch a SAS token anonymously
-        token_res = requests.get("https://planetarycomputer.microsoft.com/api/sas/v1/token/sentinel-1-rtc")
-        if token_res.ok:
-            sas_token = token_res.json().get('token', '')
-            band_urls = [f"{url}?{sas_token}" for url in band_urls]
-
-        # Use Rasterio to window read and merge
-        with rasterio.Env(GDAL_DISABLE_READDIR_ON_OPEN="EMPTY_DIR", CPL_VSIL_CURL_ALLOWED_EXTENSIONS="tif,tiff"):
-            with rasterio.open(band_urls[0]) as src0:
-                from rasterio.warp import transform_bounds
-                from rasterio.vrt import WarpedVRT
-                from rasterio.enums import Resampling
-                
-                target_crs = f"EPSG:{env.outputCoordinateSystem}" if env.outputCoordinateSystem else src0.crs
-                target_bounds = transform_bounds('EPSG:4326', target_crs, min_lon, min_lat, max_lon, max_lat)
-                
-                with WarpedVRT(src0, crs=target_crs, resampling=Resampling.bilinear) as vrt:
-                    window = from_bounds(*target_bounds, vrt.transform).round_offsets().round_lengths()
-                    out_meta = vrt.meta.copy()
-                    out_meta.update({
-                        "driver": "GTiff", 
-                        "count": len(band_urls), 
-                        "height": window.height, 
-                        "width": window.width, 
-                        "transform": vrt.window_transform(window)
-                    })
-                    
-                    with rasterio.open(out_raster, "w", **out_meta) as dest:
-                        for i, url in enumerate(band_urls, start=1):
-                            logger.info(f"Streaming SAR Polarization {i} into grid...")
-                            with rasterio.open(url) as src_band:
-                                with WarpedVRT(src_band, crs=target_crs, resampling=Resampling.bilinear) as band_vrt:
-                                    dest.write(band_vrt.read(1, window=window), i)
-                                    
-        logger.info(f"Saved Sentinel-1 SAR chip to: {out_raster}")
-        return Result(out_raster)
-    except Exception as e:
-        logger.error(f"SAR Data pull failed: {e}")
-        return Result(None, status=3)
+def PullSentinel1(extent, out_raster, date_range="2023-01-01/2023-12-31", item_ids=None, bands=None):
+    if bands is None:
+        bands = "vv,vh"
+    return PullSTAC(extent, out_raster, "sentinel-1-grd", "https://earth-search.aws.element84.com/v1", None, date_range, item_ids, bands)
 
 def PullUSGSElevation(extent, out_raster, resolution_width=1000, resolution_height=1000):
     logger.info("Initializing Z-Axis Data Pull (USGS 3DEP WCS)...")

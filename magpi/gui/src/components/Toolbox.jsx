@@ -141,7 +141,7 @@ export const TOOLBOX_CATEGORIES = [
         description: "Streams Synthetic Aperture Radar (SAR) imagery via Planetary Computer. Perfect for cloud penetration.",
         inputs: [{ id: 'extent', type: 'EXTENT', label: 'AOI' }],
         outputs: [{ id: 'raster', type: 'RASTER', label: 'SAR' }],
-        params: { start_date: { value: "2023-01-01", type: "date" }, end_date: { value: "2023-12-31", type: "date" }, selected_items: "" }
+        params: { start_date: { value: "2023-01-01", type: "date" }, end_date: { value: "2023-12-31", type: "date" }, out_folder: "./sentinel_data", selected_items: "", band_vv: true, band_vh: true, band_hh: false, band_hv: false }
       },
       {
         id: 'wfs_elevation', name: "Pull USGS DEM", type: 'input', icon: <Layers size={14} />, color: 'bg-cyan-700', border: 'border-cyan-500',

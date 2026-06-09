@@ -211,8 +211,14 @@ export default function StacQueryModal({ isOpen, onClose, selectedNode, nodes, c
         });
         // Popup
         const hasCloudCover = feature.properties.cloud_cover !== undefined && feature.properties.cloud_cover !== null && feature.properties.cloud_cover !== 0;
-        const cloudCoverText = hasCloudCover ? `Cloud Cover: ${feature.properties.cloud_cover.toFixed(1)}%` : `Sensor: SAR (Active Radar)`;
-        layer.bindPopup(`<div class="text-slate-800 text-xs"><b>${feature.id}</b><br/>${cloudCoverText}</div>`);
+        const pols = feature.properties.polarizations;
+        const hasPols = Array.isArray(pols) && pols.length > 0;
+        
+        let metaText = `Sensor: SAR (Active Radar)`;
+        if (hasCloudCover) metaText = `Cloud Cover: ${feature.properties.cloud_cover.toFixed(1)}%`;
+        else if (hasPols) metaText = `Polarizations: ${pols.join(', ')}`;
+        
+        layer.bindPopup(`<div class="text-slate-800 text-xs"><b>${feature.id}</b><br/>${metaText}</div>`);
       }
     }).addTo(mapInstance.current);
 
@@ -373,8 +379,18 @@ export default function StacQueryModal({ isOpen, onClose, selectedNode, nodes, c
                               <Cloud size={10} className="mr-1" /> {scene.cloud_cover.toFixed(1)}%
                             </div>
                           ) : (
-                            <div className="flex items-center text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-900/50 text-purple-400">
-                              <MapIcon size={10} className="mr-1" /> SAR
+                            <div className="flex items-center space-x-1">
+                              {Array.isArray(scene.polarizations) && scene.polarizations.length > 0 ? (
+                                scene.polarizations.map(pol => (
+                                  <div key={pol} className="flex items-center text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-900/50 text-purple-400 border border-purple-800/50">
+                                    {pol}
+                                  </div>
+                                ))
+                              ) : (
+                                <div className="flex items-center text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-900/50 text-purple-400">
+                                  <MapIcon size={10} className="mr-1" /> SAR
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>
@@ -419,9 +435,19 @@ export default function StacQueryModal({ isOpen, onClose, selectedNode, nodes, c
                             <Cloud size={10} className="mr-1" /> {cloudCover.toFixed(1)}%
                           </span>
                         ) : (
-                          <span className="text-purple-400 flex items-center shrink-0">
-                            <MapIcon size={10} className="mr-1" /> SAR
-                          </span>
+                          <div className="flex items-center space-x-1 shrink-0">
+                            {scene && Array.isArray(scene.polarizations) && scene.polarizations.length > 0 ? (
+                              scene.polarizations.map(pol => (
+                                <span key={pol} className="text-purple-400 font-bold bg-purple-900/30 px-1 py-0.5 rounded border border-purple-800/30 text-[9px]">
+                                  {pol}
+                                </span>
+                              ))
+                            ) : (
+                              <span className="text-purple-400 flex items-center">
+                                <MapIcon size={10} className="mr-1" /> SAR
+                              </span>
+                            )}
+                          </div>
                         )}
                       </div>
                     </div>
