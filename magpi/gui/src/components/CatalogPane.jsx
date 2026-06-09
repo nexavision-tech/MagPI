@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useReactFlow } from '@xyflow/react';
-import { Folder, Database, File, ChevronRight, ChevronDown, RefreshCw, Box, Map, Image as ImageIcon, Layers, Eye, EyeOff, Network, Target } from 'lucide-react';
+import { Folder, Database, File, ChevronRight, ChevronDown, RefreshCw, Box, Map, Image as ImageIcon, Layers, Eye, EyeOff, Network, Target, FolderOpen } from 'lucide-react';
 import { TOOLBOX_CATEGORIES } from './Toolbox';
 
 const FileNode = ({ node, level }) => {
@@ -120,7 +120,7 @@ const FileNode = ({ node, level }) => {
   );
 };
 
-export default function CatalogPane({ mapLayers = [], setMapLayers, activeWorkspace, nodes = [], setSelectedNodeId }) {
+export default function CatalogPane({ mapLayers = [], setMapLayers, activeWorkspace, nodes = [], setSelectedNodeId, openFileBrowser }) {
   const [catalog, setCatalog] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const reactFlow = useReactFlow();
@@ -158,9 +158,14 @@ export default function CatalogPane({ mapLayers = [], setMapLayers, activeWorksp
             <Database size={14} className="mr-2" />
             Catalog Browser
           </h2>
-          <button onClick={fetchCatalog} className="p-1 hover:bg-slate-700 rounded transition-colors text-slate-400 hover:text-emerald-400" title="Refresh Catalog">
-            <RefreshCw size={12} className={isLoading ? "animate-spin" : ""} />
-          </button>
+          <div className="flex space-x-1">
+            <button onClick={() => openFileBrowser('env', 'workspace', null)} className="p-1 hover:bg-slate-700 rounded transition-colors text-slate-400 hover:text-emerald-400" title="Change Workspace Directory">
+              <FolderOpen size={12} />
+            </button>
+            <button onClick={fetchCatalog} className="p-1 hover:bg-slate-700 rounded transition-colors text-slate-400 hover:text-emerald-400" title="Refresh Catalog">
+              <RefreshCw size={12} className={isLoading ? "animate-spin" : ""} />
+            </button>
+          </div>
         </div>
         
         <div className="p-2 border-b border-slate-800 text-[10px] text-slate-400 uppercase tracking-widest text-center bg-slate-900 shadow-inner font-semibold">

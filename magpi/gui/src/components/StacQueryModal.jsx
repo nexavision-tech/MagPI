@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Search, Check, Loader2, Calendar, Map as MapIcon, Cloud, MousePointer2 } from 'lucide-react';
 
 export default function StacQueryModal({ isOpen, onClose, selectedNode, nodes, connections, updateNodeParam }) {
@@ -120,7 +121,7 @@ export default function StacQueryModal({ isOpen, onClose, selectedNode, nodes, c
           if (aoiLayer.current) mapInstance.current.removeLayer(aoiLayer.current);
           const bounds = [[resolvedBbox[1], resolvedBbox[0]], [resolvedBbox[3], resolvedBbox[2]]];
           aoiLayer.current = window.L.rectangle(bounds, { color: "#10b981", weight: 2, fillOpacity: 0.1, dashArray: '5, 5' }).addTo(mapInstance.current);
-          mapInstance.current.fitBounds(bounds, { padding: [50, 50] });
+          mapInstance.current.fitBounds(bounds, { padding: [150, 150] });
         }
       } else {
         setError(data.error || "Failed to query STAC.");
@@ -197,8 +198,8 @@ export default function StacQueryModal({ isOpen, onClose, selectedNode, nodes, c
 
   const selectedIds = selectedNode?.params.selected_items ? selectedNode?.params.selected_items.split(',').map(s => s.trim()).filter(Boolean) : [];
 
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-fadeIn">
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-fadeIn">
       <div className="bg-slate-900 w-[90vw] h-[90vh] rounded-xl border border-slate-700 shadow-2xl flex flex-col overflow-hidden">
         
         {/* Header */}
@@ -324,6 +325,7 @@ export default function StacQueryModal({ isOpen, onClose, selectedNode, nodes, c
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

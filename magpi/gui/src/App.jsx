@@ -642,6 +642,7 @@ export default function App() {
                 activeWorkspace={activeWorkspace}
                 nodes={nodes}
                 setSelectedNodeId={setSelectedNodeId}
+                openFileBrowser={openFileBrowser}
             />
           </div>
 
