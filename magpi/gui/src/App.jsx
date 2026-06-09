@@ -235,8 +235,6 @@ export default function App() {
         let targetId = null;
         if (selectedNodeId && prev.find(n => n.id === selectedNodeId && n.toolId === 'core_extent')) {
             targetId = selectedNodeId;
-        } else if (extentNodes.length === 1) {
-            targetId = extentNodes[0].id;
         }
         
         if (targetId) {
@@ -640,6 +638,7 @@ export default function App() {
                 setMapLayers={setMapLayers} 
                 activeWorkspace={activeWorkspace}
                 nodes={nodes}
+                setNodes={setNodes}
                 setSelectedNodeId={setSelectedNodeId}
                 openFileBrowser={openFileBrowser}
                 globalEnv={globalEnv}

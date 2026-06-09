@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useReactFlow } from '@xyflow/react';
-import { Folder, Database, File, ChevronRight, ChevronDown, RefreshCw, Box, Map, Image as ImageIcon, Layers, Eye, EyeOff, Network, Target, FolderOpen, Search } from 'lucide-react';
+import { Folder, Database, File, ChevronRight, ChevronDown, RefreshCw, Box, Map, Image as ImageIcon, Layers, Eye, EyeOff, Network, Target, FolderOpen, Search, Trash2 } from 'lucide-react';
 import { TOOLBOX_CATEGORIES } from './Toolbox';
 
 const FileNode = ({ node, level }) => {
@@ -120,7 +120,7 @@ const FileNode = ({ node, level }) => {
   );
 };
 
-export default function CatalogPane({ mapLayers = [], setMapLayers, activeWorkspace, nodes = [], setSelectedNodeId, openFileBrowser, globalEnv }) {
+export default function CatalogPane({ mapLayers = [], setMapLayers, activeWorkspace, nodes = [], setNodes, setSelectedNodeId, openFileBrowser, globalEnv }) {
   const [catalog, setCatalog] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [expandedLayers, setExpandedLayers] = useState({});
@@ -134,7 +134,10 @@ export default function CatalogPane({ mapLayers = [], setMapLayers, activeWorksp
   const fetchCatalog = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch(`http://${window.location.hostname}:8282/api/list_files`);
+      const qs = new URLSearchParams();
+      if (globalEnv?.workspace_dir) qs.append('workspace', globalEnv.workspace_dir);
+      if (globalEnv?.output_dir) qs.append('output', globalEnv.output_dir);
+      const res = await fetch(`http://${window.location.hostname}:8282/api/list_files?${qs.toString()}`);
       const data = await res.json();
       if (data.status === 'success') {
         setCatalog(data.catalog);
@@ -246,8 +249,20 @@ export default function CatalogPane({ mapLayers = [], setMapLayers, activeWorksp
                                   }
                               }}
                               className="text-slate-400 hover:text-white"
+                              title="Toggle Visibility"
                           >
                               {layer.visible ? <Eye size={12} className="text-emerald-400" /> : <EyeOff size={12} className="text-slate-600" />}
+                          </button>
+                          <button
+                              onClick={() => {
+                                  if (setNodes) {
+                                      setNodes(prev => prev.filter(n => n.id !== layer.id));
+                                  }
+                              }}
+                              className="text-slate-400 hover:text-red-400"
+                              title="Delete Layer"
+                          >
+                              <Trash2 size={12} />
                           </button>
                       </div>
                   </div>

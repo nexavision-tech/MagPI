@@ -952,17 +952,17 @@ def LaunchCanvas(port=8282):
                         pass
                     return sorted(tree, key=lambda x: (not x.get('is_dir', False), x['name']))
 
-                base_dir = os.getcwd()
-                
-                workspace_path = os.path.join(base_dir, 'magpi_workspace')
-                output_path = os.path.join(base_dir, 'magpi_output')
-                test_data_path = os.path.join(base_dir, 'test_data')
+                from urllib.parse import parse_qs
+                params = parse_qs(query)
+                workspace_path = params.get('workspace', [os.path.join(os.getcwd(), 'magpi_workspace')])[0]
+                output_path = params.get('output', [os.path.join(os.getcwd(), 'magpi_output')])[0]
+                test_data_path = os.path.join(os.getcwd(), 'test_data')
                 
                 catalog = []
                 if os.path.exists(workspace_path):
-                    catalog.append({"name": "magpi_workspace", "path": workspace_path, "type": "folder", "is_dir": True, "children": build_tree(workspace_path)})
+                    catalog.append({"name": os.path.basename(workspace_path), "path": workspace_path, "type": "folder", "is_dir": True, "children": build_tree(workspace_path)})
                 if os.path.exists(output_path):
-                    catalog.append({"name": "magpi_output", "path": output_path, "type": "folder", "is_dir": True, "children": build_tree(output_path)})
+                    catalog.append({"name": os.path.basename(output_path), "path": output_path, "type": "folder", "is_dir": True, "children": build_tree(output_path)})
                 if os.path.exists(test_data_path):
                     catalog.append({"name": "test_data", "path": test_data_path, "type": "folder", "is_dir": True, "children": build_tree(test_data_path)})
 
