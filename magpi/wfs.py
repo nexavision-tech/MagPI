@@ -211,7 +211,7 @@ def PullSTAC(extent, out_raster, collection="sentinel-2-l2a", catalog_url="https
                 bbox=[min_lon, min_lat, max_lon, max_lat],
                 datetime=formatted_date,
                 query=query_params if query_params else None,
-                sortby=[{"field": "eo:cloud_cover", "direction": "asc"}],
+                sortby=[{"field": "properties.eo:cloud_cover", "direction": "asc"}],
                 max_items=1
             )
 

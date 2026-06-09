@@ -97,7 +97,15 @@ export const generateAirflowDAG = (nodes, connections, crs, globalEnv) => {
             funcCall = `        # Airflow injects {{ ds }} (Execution Date) into kwargs dynamically\n        # Fallback to visual canvas date if run manually outside Airflow scheduler\n        return kwargs.get('ds', "${p.date}")`;
         }
         else if (n.toolId === 'wfs_sentinel2') {
-            funcCall = `        out_path = os.path.join(SCRATCH_DIR, "s2_cloud_extract_${n.id.split('_')[1]}.tif")\n        result = arcpy.wfs.PullSentinel2(${primaryInVar}, out_path, max_cloud_cover=${p.max_cloud_cover}, date_range="${p.start_date}/${p.end_date}")\n        return result.path`;
+            let extraArgs = "";
+            if (p.selected_items) extraArgs += `, item_ids="${p.selected_items}"`;
+            let selected_bands = [];
+            ['b01','b02','b03','b04','b05','b06','b07','b08','b8a','b09','b11','b12','aot','wvp','scl'].forEach(b => {
+                if (p[`band_${b}`]) selected_bands.push(b.toUpperCase());
+            });
+            if (selected_bands.length > 0) extraArgs += `, bands="${selected_bands.join(',')}"`;
+            
+            funcCall = `        out_path = os.path.join(SCRATCH_DIR, "s2_cloud_extract_${n.id.split('_')[1]}.tif")\n        result = arcpy.wfs.PullSentinel2(${primaryInVar}, out_path, max_cloud_cover=${p.max_cloud_cover}, date_range="${p.start_date}/${p.end_date}"${extraArgs})\n        return result.path`;
         }
         else if (n.toolId === 'ia_ndvi') {
             funcCall = `        result = arcpy.ia.NDVI(${primaryInVar}, nir_band_id=${p.nir_band}, red_band_id=${p.red_band})\n        return result.path`;

@@ -10,14 +10,34 @@ logger = logging.getLogger("MagPI_WFSNodes")
 class PullSentinel2Node(Node):
     def execute(self):
         extents = self.inputs.get("extent") or self.inputs.get("in")
-        if not isinstance(extents, list):
+        if extents is None:
+            logger.info("DEBUG MAGPI WFS: extents is None (No connection detected).")
+        else:
+            logger.info(f"DEBUG MAGPI WFS: extents is type {type(extents)}")
+            if isinstance(extents, list):
+                for idx, item in enumerate(extents):
+                    logger.info(f"DEBUG MAGPI WFS: extents[{idx}] is type {type(item)} -> {str(item)[:100]}")
+            else:
+                logger.info(f"DEBUG MAGPI WFS: extents value is type {type(extents)} -> {str(extents)[:100]}")
+                
+        # If extents is a flat list of 4 floats (a single bbox), we must wrap it so the loop treats it as one extent!
+        if not isinstance(extents, list) or (isinstance(extents, list) and len(extents) == 4 and all(isinstance(x, (int, float)) for x in extents)):
             extents = [extents]
             
         p = self.params
-        date_range = f"{p.get('start_date', '2023-01-01')}/{p.get('end_date', '2023-12-31')}"
+        date_range = f"{p.get('start_date', 'today')}/{p.get('end_date', 'today')}"
         max_cc = p.get('max_cloud_cover', 10)
         item_ids = p.get('selected_items', None)
-        bands = p.get('selected_bands', None)
+        
+        # Parse band boolean flags from UI
+        selected_bands = []
+        for band in ['b01','b02','b03','b04','b05','b06',
+                     'b07','b08','b8a','b09','b11','b12',
+                     'aot','wvp','scl']:
+                     
+            if p.get(f'band_{band}'):
+                selected_bands.append(band.upper())
+        bands = ",".join(selected_bands) if selected_bands else None
         
         if item_ids:
             logger.info(f"Pulling Sentinel-2 data using explicitly selected Item IDs: {item_ids}")
