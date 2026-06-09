@@ -49,6 +49,9 @@ class PullSentinel2Node(Node):
         for i, extent in enumerate(extents):
             suffix = f"_{i}" if len(extents) > 1 else ""
             out_filename = f"s2_cloud_extract_{self.id.split('_')[1] if '_' in self.id else '1'}{suffix}.tif"
+            out_folder = p.get('out_folder')
+            if out_folder:
+                out_filename = os.path.join(out_folder, out_filename)
             out_path = os.path.join(os.environ.get('MAGPI_OUTPUT', '.'), out_filename)
             
             if os.path.exists(out_path):
@@ -88,6 +91,9 @@ class PullSentinel1Node(Node):
         for i, extent in enumerate(extents):
             suffix = f"_{i}" if len(extents) > 1 else ""
             out_filename = f"s1_sar_extract_{self.id.split('_')[1] if '_' in self.id else '1'}{suffix}.tif"
+            out_folder = p.get('out_folder')
+            if out_folder:
+                out_filename = os.path.join(out_folder, out_filename)
             out_path = os.path.join(os.environ.get('MAGPI_OUTPUT', '.'), out_filename)
             
             if os.path.exists(out_path):
@@ -123,6 +129,9 @@ class WFSCopernicusNode(Node):
         for i, extent in enumerate(extents):
             suffix = f"_{i}" if len(extents) > 1 else ""
             out_feature_class = f"copernicus_metadata{suffix}.json"
+            out_folder = p.get('out_folder')
+            if out_folder:
+                out_feature_class = os.path.join(out_folder, out_feature_class)
             res = PullCopernicusData(extent, out_feature_class, collection, product_type, start_date, end_date, cdse_token)
             if hasattr(res, 'status') and res.status == 3:
                 raise Exception(f"PullCopernicusData failed for extent {i}")

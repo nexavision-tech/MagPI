@@ -190,20 +190,22 @@ export const generatePythonScript = (nodes, connections, crs, processingScope, g
             if (p.band_scl) selected_bands.push('SCL');
             if (selected_bands.length > 0) extraArgs += `, bands="${selected_bands.join(',')}"`;
             
+            const outFolderPrefix = p.out_folder ? `${p.out_folder.replace(/\/$/, '')}/` : '';
             if (inExtentVars.length > 1) {
-                const outFileNameBase = `s2_cloud_extract_${n.id.split('_')[1]}`;
+                const outFileNameBase = `${outFolderPrefix}s2_cloud_extract_${n.id.split('_')[1]}`;
                 funcCall = `${outVar} = []\nfor i, ext in enumerate([${inExtentVars.join(', ')}]):\n    ${outVar}.append(arcpy.wfs.PullSentinel2(ext, f"${outFileNameBase}_{i}.tif", max_cloud_cover=${p.max_cloud_cover}, date_range="${p.start_date}/${p.end_date}"${extraArgs}))`;
             } else {
-                const outFileName = `s2_cloud_extract_${n.id.split('_')[1]}.tif`;
+                const outFileName = `${outFolderPrefix}s2_cloud_extract_${n.id.split('_')[1]}.tif`;
                 funcCall = `${outVar} = arcpy.wfs.PullSentinel2(${inExtentVar}, "${outFileName}", max_cloud_cover=${p.max_cloud_cover}, date_range="${p.start_date}/${p.end_date}"${extraArgs})`;
             }
         }
         else if (n.toolId === 'wfs_copernicus') {
+            const outFolderPrefix = p.out_folder ? `${p.out_folder.replace(/\/$/, '')}/` : '';
             if (inExtentVars.length > 1) {
-                const outFileNameBase = `copernicus_extract_${n.id.split('_')[1]}`;
+                const outFileNameBase = `${outFolderPrefix}copernicus_extract_${n.id.split('_')[1]}`;
                 funcCall = `${outVar} = []\nfor i, ext in enumerate([${inExtentVars.join(', ')}]):\n    ${outVar}.append(arcpy.wfs.PullCopernicusData(ext, f"${outFileNameBase}_{i}.json", collection="${p.collection}", product_type="${p.product_type}", start_date="${p.start_date}", end_date="${p.end_date}", cdse_token="${p.cdse_token}"))`;
             } else {
-                const outFileName = `copernicus_extract_${n.id.split('_')[1]}.json`;
+                const outFileName = `${outFolderPrefix}copernicus_extract_${n.id.split('_')[1]}.json`;
                 funcCall = `${outVar} = arcpy.wfs.PullCopernicusData(${inExtentVar}, "${outFileName}", collection="${p.collection}", product_type="${p.product_type}", start_date="${p.start_date}", end_date="${p.end_date}", cdse_token="${p.cdse_token}")`;
             }
         }
