@@ -139,12 +139,15 @@ def QuerySTAC(extent, collection="sentinel-2-l2a", max_cloud_cover=10, date_rang
                 "geometry": item.geometry,
                 "bbox": item.bbox
             })
-        return results
+        return {
+            "results": results,
+            "parsed_bbox": [min_lon, min_lat, max_lon, max_lat]
+        }
     except Exception as e:
         import logging
         logger = logging.getLogger("MagPI_WFS")
         logger.error(f"Query STAC failed: {e}")
-        return []
+        return {"results": [], "parsed_bbox": None}
 
 # Backward compatibility wrapper
 def QuerySentinel2(extent, max_cloud_cover=10, date_range="2023-01-01/2023-12-31"):

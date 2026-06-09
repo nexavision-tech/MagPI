@@ -226,12 +226,16 @@ def LaunchCanvas(port=8282):
                     date_range = payload.get('date_range', '2023-01-01/2023-12-31')
                     max_cloud_cover = payload.get('max_cloud_cover', 20)
                     
-                    results = QuerySentinel2(bbox, max_cloud_cover, date_range)
+                    res_obj = QuerySentinel2(bbox, max_cloud_cover, date_range)
+                    if isinstance(res_obj, dict) and "results" in res_obj:
+                        payload = res_obj
+                    else:
+                        payload = {"results": res_obj}
                     
                     self.send_response(200)
                     self.send_header('Content-type', 'application/json')
                     self.end_headers()
-                    self.wfile.write(json.dumps({"results": results}).encode('utf-8'))
+                    self.wfile.write(json.dumps(payload).encode('utf-8'))
                 except Exception as e:
                     logger.error(f"STAC Query API failed: {e}")
                     self.send_response(500)
