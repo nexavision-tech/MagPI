@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useReactFlow } from '@xyflow/react';
-import { Folder, Database, File, ChevronRight, ChevronDown, RefreshCw, Box, Map, Image as ImageIcon, Layers, Eye, EyeOff, Network, Target, FolderOpen } from 'lucide-react';
+import { Folder, Database, File, ChevronRight, ChevronDown, RefreshCw, Box, Map, Image as ImageIcon, Layers, Eye, EyeOff, Network, Target, FolderOpen, Search } from 'lucide-react';
 import { TOOLBOX_CATEGORIES } from './Toolbox';
 
 const FileNode = ({ node, level }) => {
@@ -120,9 +120,10 @@ const FileNode = ({ node, level }) => {
   );
 };
 
-export default function CatalogPane({ mapLayers = [], setMapLayers, activeWorkspace, nodes = [], setSelectedNodeId, openFileBrowser }) {
+export default function CatalogPane({ mapLayers = [], setMapLayers, activeWorkspace, nodes = [], setSelectedNodeId, openFileBrowser, globalEnv }) {
   const [catalog, setCatalog] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [expandedLayers, setExpandedLayers] = useState({});
   const reactFlow = useReactFlow();
 
   const handleNodeClick = (node) => {
@@ -147,7 +148,7 @@ export default function CatalogPane({ mapLayers = [], setMapLayers, activeWorksp
 
   useEffect(() => {
     fetchCatalog();
-  }, []);
+  }, [globalEnv?.workspace_dir]);
 
   return (
     <div className="w-72 border-r border-slate-800 flex flex-col bg-slate-900 h-full shrink-0 relative z-20 shadow-[2px_0_10px_rgba(0,0,0,0.5)]">
@@ -180,7 +181,7 @@ export default function CatalogPane({ mapLayers = [], setMapLayers, activeWorksp
       </div>
 
       {/* Bottom Half: Map Layers or Node Navigator */}
-      <div className="h-[40%] min-h-[250px] border-t border-slate-700 flex flex-col bg-slate-900 shadow-[0_-5px_15px_rgba(0,0,0,0.2)]">
+      <div className={`${activeWorkspace === 'planar' ? 'h-[60%] min-h-[400px]' : 'h-[40%] min-h-[250px]'} border-t border-slate-700 flex flex-col bg-slate-900 shadow-[0_-5px_15px_rgba(0,0,0,0.2)] transition-all duration-300`}>
         {activeWorkspace === 'builder' ? (
             <>
                 <div className="p-3 border-b border-slate-800 flex justify-between items-center bg-slate-800 shadow-md z-10 shrink-0">
@@ -214,44 +215,106 @@ export default function CatalogPane({ mapLayers = [], setMapLayers, activeWorksp
                 </h2>
                 </div>
         <div className="flex-1 overflow-y-auto p-2 custom-scrollbar space-y-1">
-          {mapLayers.map(layer => (
+          {mapLayers.map(layer => {
+              const isExpanded = expandedLayers[layer.id];
+              return (
               <div key={layer.id} className={`p-2 rounded-md ${layer.selected ? 'bg-cyan-900/40 border border-cyan-700/50' : 'bg-slate-800/60 border border-transparent'} hover:bg-slate-700/60 transition-colors flex flex-col`}>
                   <div className="flex items-center justify-between mb-1">
+                      <button 
+                          onClick={() => setExpandedLayers(prev => ({ ...prev, [layer.id]: !prev[layer.id] }))}
+                          className="mr-1 text-slate-400 hover:text-emerald-400 shrink-0"
+                      >
+                          {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                      </button>
                       <span className="text-[11px] font-medium text-slate-200 truncate flex-1" title={layer.name}>
                           {layer.name}
                       </span>
-                      <button 
-                          onClick={() => {
-                              if (setMapLayers) {
-                                  setMapLayers(prev => prev.map(l => l.id === layer.id ? { ...l, visible: !l.visible } : l));
-                              }
-                          }}
-                          className="ml-2 text-slate-400 hover:text-white"
-                      >
-                          {layer.visible ? <Eye size={12} className="text-emerald-400" /> : <EyeOff size={12} className="text-slate-600" />}
-                      </button>
-                  </div>
-                  
-                  {layer.visible && (
-                      <div className="flex items-center space-x-2">
-                          <span className="text-[9px] text-slate-500">Opacity</span>
-                          <input 
-                              type="range" 
-                              min="0" max="100" 
-                              value={layer.opacity}
-                              onChange={(e) => {
-                                  const newOpacity = parseInt(e.target.value);
+                      <div className="flex items-center ml-2 shrink-0 space-x-1">
+                          <button 
+                              onClick={() => {
+                                  window.dispatchEvent(new CustomEvent('magpi-zoom-layer', { detail: { layerId: layer.id } }));
+                              }}
+                              className="text-slate-400 hover:text-cyan-400"
+                              title="Zoom to Layer"
+                          >
+                              <Search size={12} />
+                          </button>
+                          <button 
+                              onClick={() => {
                                   if (setMapLayers) {
-                                      setMapLayers(prev => prev.map(l => l.id === layer.id ? { ...l, opacity: newOpacity } : l));
+                                      setMapLayers(prev => prev.map(l => l.id === layer.id ? { ...l, visible: !l.visible } : l));
                                   }
                               }}
-                              className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer" 
-                          />
-                          <span className="text-[9px] text-slate-400 w-6 text-right">{layer.opacity}%</span>
+                              className="text-slate-400 hover:text-white"
+                          >
+                              {layer.visible ? <Eye size={12} className="text-emerald-400" /> : <EyeOff size={12} className="text-slate-600" />}
+                          </button>
+                      </div>
+                  </div>
+                  
+                  {isExpanded && layer.visible && (
+                      <div className="mt-2 pl-5 space-y-3 bg-slate-900/50 p-2 rounded border border-slate-700/50">
+                          <div className="flex items-center space-x-2">
+                              <span className="text-[9px] text-slate-500 uppercase tracking-widest w-12 shrink-0">Opacity</span>
+                              <input 
+                                  type="range" 
+                                  min="0" max="100" 
+                                  value={layer.opacity}
+                                  onChange={(e) => {
+                                      const newOpacity = parseInt(e.target.value);
+                                      if (setMapLayers) {
+                                          setMapLayers(prev => prev.map(l => l.id === layer.id ? { ...l, opacity: newOpacity } : l));
+                                      }
+                                  }}
+                                  className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer" 
+                              />
+                              <span className="text-[9px] text-slate-400 w-6 text-right shrink-0">{layer.opacity}%</span>
+                          </div>
+                          
+                          {layer.isBase === false && (
+                              <div className="flex items-center space-x-2">
+                                  {layer.name.includes('.tif') || layer.name.includes('Raster') || layer.name.includes('Extract') ? (
+                                      <>
+                                          <span className="text-[9px] text-slate-500 uppercase tracking-widest w-12 shrink-0">Colormap</span>
+                                          <select 
+                                              className="flex-1 bg-slate-800 text-[10px] text-slate-300 border border-slate-700 rounded px-1 py-0.5 outline-none"
+                                              value={layer.cmap || 'viridis'}
+                                              onChange={(e) => {
+                                                  if (setMapLayers) {
+                                                      setMapLayers(prev => prev.map(l => l.id === layer.id ? { ...l, cmap: e.target.value } : l));
+                                                  }
+                                              }}
+                                          >
+                                              <option value="viridis">Viridis</option>
+                                              <option value="plasma">Plasma</option>
+                                              <option value="inferno">Inferno</option>
+                                              <option value="magma">Magma</option>
+                                              <option value="cividis">Cividis</option>
+                                              <option value="gray">Gray</option>
+                                              <option value="terrain">Terrain</option>
+                                          </select>
+                                      </>
+                                  ) : (
+                                      <>
+                                          <span className="text-[9px] text-slate-500 uppercase tracking-widest w-12 shrink-0">Color</span>
+                                          <input 
+                                              type="color"
+                                              className="w-full h-6 rounded cursor-pointer bg-slate-800 border-none p-0"
+                                              value={layer.vectorColor || '#32d74b'}
+                                              onChange={(e) => {
+                                                  if (setMapLayers) {
+                                                      setMapLayers(prev => prev.map(l => l.id === layer.id ? { ...l, vectorColor: e.target.value } : l));
+                                                  }
+                                              }}
+                                          />
+                                      </>
+                                  )}
+                              </div>
+                          )}
                       </div>
                   )}
               </div>
-          ))}
+          )})}
         </div>
             </>
         )}

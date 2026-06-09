@@ -1,8 +1,8 @@
 import React from 'react';
-import { Compass, Server, Code, Save, Globe, Cpu, FolderUp, Trash2, Rss, Map as MapIcon, Layers, XCircle } from 'lucide-react';
+import { Compass, Server, Code, Save, Globe, Cpu, FolderUp, Trash2, Rss, Map as MapIcon, Layers, XCircle, Edit, Crosshair, ClipboardCheck, Network } from 'lucide-react';
 
 export default function TopRibbon({ 
-  globalEnv, setGlobalEnv, crs, setCrs, 
+  activeWorkspace, globalEnv, setGlobalEnv, crs, setCrs, 
   processingScope, setProcessingScope, 
   onGenerate, onSave, onLoad, onClear, onAutoLayout, onOpenEnvSettings, onImportENVI,
   isDaemonAlive, projectName
@@ -76,15 +76,49 @@ export default function TopRibbon({
             <FolderUp size={18} />
             <span className="text-[10px] mt-1 font-medium">Load</span>
           </button>
-          <button onClick={onAutoLayout} className="flex flex-col items-center justify-center p-2 hover:bg-indigo-900/50 hover:text-indigo-400 rounded text-slate-400 transition-colors ml-4 border-l border-slate-700 pl-4" title="Auto Layout Nodes">
-            <Layers size={18} />
-            <span className="text-[10px] mt-1 font-medium">Layout</span>
-          </button>
+          
+          {/* Context-Aware Tools */}
+          {activeWorkspace === 'builder' && (
+            <>
+              <button onClick={onAutoLayout} className="flex flex-col items-center justify-center p-2 hover:bg-indigo-900/50 hover:text-indigo-400 rounded text-slate-400 transition-colors ml-4 border-l border-slate-700 pl-4" title="Auto Layout Nodes">
+                <Layers size={18} />
+                <span className="text-[10px] mt-1 font-medium">Layout</span>
+              </button>
 
-          <button onClick={onClear} className="flex flex-col items-center justify-center p-2 hover:bg-red-900/50 hover:text-red-400 rounded text-slate-400 transition-colors ml-1" title="Clear Canvas">
-            <Trash2 size={18} />
-            <span className="text-[10px] mt-1 font-medium">Clear</span>
-          </button>
+              <button onClick={onClear} className="flex flex-col items-center justify-center p-2 hover:bg-red-900/50 hover:text-red-400 rounded text-slate-400 transition-colors ml-1" title="Clear Canvas">
+                <Trash2 size={18} />
+                <span className="text-[10px] mt-1 font-medium">Clear</span>
+              </button>
+            </>
+          )}
+
+          {activeWorkspace === 'planar' && (
+            <>
+              <button 
+                onClick={() => window.dispatchEvent(new CustomEvent('magpi-draw-aoi'))} 
+                className="flex flex-col items-center justify-center p-2 hover:bg-cyan-900/50 hover:text-cyan-400 rounded text-slate-400 transition-colors ml-4 border-l border-slate-700 pl-4" 
+                title="Draw AOI on Map"
+              >
+                <Edit size={18} />
+                <span className="text-[10px] mt-1 font-medium">Draw AOI</span>
+              </button>
+              
+              <button className="flex flex-col items-center justify-center p-2 hover:bg-slate-700 rounded text-slate-500 transition-colors ml-1" title="Edit Polygons (Coming Soon)">
+                <Network size={18} />
+                <span className="text-[10px] mt-1 font-medium">Edit Vector</span>
+              </button>
+              
+              <button className="flex flex-col items-center justify-center p-2 hover:bg-slate-700 rounded text-slate-500 transition-colors ml-1" title="Build Training Dataset (Coming Soon)">
+                <Crosshair size={18} />
+                <span className="text-[10px] mt-1 font-medium">Training</span>
+              </button>
+              
+              <button className="flex flex-col items-center justify-center p-2 hover:bg-slate-700 rounded text-slate-500 transition-colors ml-1" title="QA/QC Workflows (Coming Soon)">
+                <ClipboardCheck size={18} />
+                <span className="text-[10px] mt-1 font-medium">QA/QC</span>
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>

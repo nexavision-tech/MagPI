@@ -120,14 +120,48 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
         }
     }, [activeWorkspace]);
     
-    // Feature selection listener
+    // Custom Event Listeners
     useEffect(() => {
-        const handleFeatureSelect = (e) => {
-            setSelectedFeature(e.detail);
+        const handleFeatureSelect = (e) => setSelectedFeature(e.detail);
+        const handleDrawAoi = () => activateDrawTool();
+        const handleZoomLayer = (e) => {
+            if (!mapInstance.current) return;
+            const { layerId } = e.detail;
+            
+            // Check highlight group layers first
+            let foundBounds = null;
+            highlightGroup.current.eachLayer((layer) => {
+                // If it's a marker, rectangle, or image overlay
+                if (layer.getBounds && layer.options && (layer.options.className === layerId || layerId.includes('extent'))) {
+                   foundBounds = layer.getBounds();
+                }
+            });
+            
+            // Fallback to loaded data cache
+            if (!foundBounds && loadedData[layerId]) {
+                const cached = loadedData[layerId];
+                if (cached.bounds) foundBounds = cached.bounds;
+                else if (cached.data) {
+                    const gj = L.geoJSON(cached.data);
+                    foundBounds = gj.getBounds();
+                }
+            }
+            
+            if (foundBounds && foundBounds.isValid && foundBounds.isValid()) {
+                mapInstance.current.fitBounds(foundBounds, { animate: true, padding: [150, 150] });
+            }
         };
+
         window.addEventListener('magpi-feature-selected', handleFeatureSelect);
-        return () => window.removeEventListener('magpi-feature-selected', handleFeatureSelect);
-    }, []);
+        window.addEventListener('magpi-draw-aoi', handleDrawAoi);
+        window.addEventListener('magpi-zoom-layer', handleZoomLayer);
+        
+        return () => {
+            window.removeEventListener('magpi-feature-selected', handleFeatureSelect);
+            window.removeEventListener('magpi-draw-aoi', handleDrawAoi);
+            window.removeEventListener('magpi-zoom-layer', handleZoomLayer);
+        };
+    }, [loadedData]);
 
     // Compute extents and file paths purely for rendering
     const computedLayers = React.useMemo(() => {
@@ -297,15 +331,7 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                     <MapIcon size={14} className={`mr-2 ${activeWorkspace === 'globe' ? 'text-cyan-400' : 'text-emerald-500'}`} /> 
                     {activeWorkspace === 'globe' ? 'GLOBE NEXUS' : 'LIVE VIEWPORT'}
                 </div>
-                <div className="flex items-center space-x-2">
-                    <button 
-                        onClick={activateDrawTool}
-                        className="text-cyan-400 hover:text-cyan-200 bg-cyan-900/30 hover:bg-cyan-800/50 px-2 py-1 rounded transition-colors flex items-center border border-cyan-900/50"
-                        title="Draw AOI Rectangle"
-                    >
-                        <Edit size={14} className="mr-1" /> DRAW AOI
-                    </button>
-                </div>
+                {/* Tools migrated to TopRibbon */}
             </div>
             
             {/* Map Container */}
