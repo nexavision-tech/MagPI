@@ -352,6 +352,51 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                 mapInstance.current.invalidateSize(true);
             }, 100);
         }
+
+        const handleDragEnter = (e) => {
+            if (mapRef.current && mapRef.current.contains(e.target)) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+        };
+
+        const handleDragOver = (e) => {
+            if (mapRef.current && mapRef.current.contains(e.target)) {
+                e.preventDefault();
+                e.stopPropagation();
+                e.dataTransfer.dropEffect = 'copy';
+            }
+        };
+
+        const handleDrop = (e) => {
+            if (mapRef.current && mapRef.current.contains(e.target)) {
+                e.preventDefault();
+                e.stopPropagation();
+                let data = null;
+                if (window.__draggedMagPITool) {
+                    data = window.__draggedMagPITool;
+                    window.__draggedMagPITool = null;
+                } else {
+                    const dataStr = e.dataTransfer.getData('application/reactflow');
+                    if (dataStr) {
+                        try { data = JSON.parse(dataStr); } catch (err) {}
+                    }
+                }
+                if (data) {
+                    window.dispatchEvent(new CustomEvent('magpi-map-drop', { detail: data }));
+                }
+            }
+        };
+
+        window.addEventListener('dragenter', handleDragEnter, { capture: true });
+        window.addEventListener('dragover', handleDragOver, { capture: true });
+        window.addEventListener('drop', handleDrop, { capture: true });
+
+        return () => {
+            window.removeEventListener('dragenter', handleDragEnter, { capture: true });
+            window.removeEventListener('dragover', handleDragOver, { capture: true });
+            window.removeEventListener('drop', handleDrop, { capture: true });
+        };
     }, [activeWorkspace]);
 
     return (
@@ -360,31 +405,7 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
             <div className="flex-1 relative overflow-hidden z-0 leaflet-dark-mode-container flex">
                 
                 {/* Maps Container (Flex-1) */}
-                <div 
-                    className="flex-1 relative overflow-hidden"
-                    onDragOverCapture={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        e.dataTransfer.dropEffect = 'copy';
-                    }}
-                    onDropCapture={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        let data = null;
-                        if (window.__draggedMagPITool) {
-                            data = window.__draggedMagPITool;
-                            window.__draggedMagPITool = null;
-                        } else {
-                            const dataStr = e.dataTransfer.getData('application/reactflow');
-                            if (dataStr) {
-                                try { data = JSON.parse(dataStr); } catch (err) {}
-                            }
-                        }
-                        if (data) {
-                            window.dispatchEvent(new CustomEvent('magpi-map-drop', { detail: data }));
-                        }
-                    }}
-                >
+                <div className="flex-1 relative overflow-hidden">
                     {/* Cesium Globe (Hidden when not in globe mode) */}
                     <div 
                         className="absolute inset-0 w-full h-full bg-[#111827]" 
