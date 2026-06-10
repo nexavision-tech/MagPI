@@ -37,6 +37,7 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
     const [loadedData, setLoadedData] = React.useState({}); // Cache for raster/geojson data
     const lastZoomedNode = useRef(null);
     const activeFeatureLayer = useRef(null);
+    const [currentZoom, setCurrentZoom] = React.useState(2);
 
     useEffect(() => {
         if (!mapRef.current) return;
@@ -45,6 +46,7 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
         // Zeroized global extent [0, 0] zoom 2
         const map = L.map(mapRef.current, { zoomControl: false }).setView([0, 0], 2);
         mapInstance.current = map;
+        map.on('zoomend', () => setCurrentZoom(map.getZoom()));
 
         osmLayerRef.current = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '© OSM'
@@ -293,15 +295,17 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                             rendererFactory: L.canvas.tile,
                             vectorTileLayerStyles: {
                                 sliced: {
-                                    weight: 1.5,
+                                    weight: 1,
                                     color: layer.vectorColor,
                                     opacity: 1,
                                     fillColor: layer.vectorColor,
                                     fill: true,
-                                    fillOpacity: 0.2
+                                    fillOpacity: 0.4,
+                                    radius: 4
                                 }
                             },
                             interactive: true,
+                            indexMaxZoom: 24,
                             maxNativeZoom: 14,
                             maxZoom: 24,
                             getFeatureId: (f) => f.properties.magpi_id
@@ -544,6 +548,11 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                             touchAction: 'none' 
                         }}
                     ></div>
+                    {activeWorkspace !== 'globe' && (
+                        <div className="absolute bottom-6 left-2 bg-slate-900/80 backdrop-blur border border-slate-700 text-[10px] text-slate-400 px-2 py-1 rounded shadow-lg z-[1000] pointer-events-none font-mono flex items-center">
+                            <span className="text-cyan-400 mr-1 font-bold">Z</span> {currentZoom}
+                        </div>
+                    )}
                 </div>
             </div>
 
