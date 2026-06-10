@@ -302,6 +302,8 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                                 }
                             },
                             interactive: true,
+                            maxNativeZoom: 14,
+                            maxZoom: 24,
                             getFeatureId: (f) => f.properties.magpi_id
                         });
 
