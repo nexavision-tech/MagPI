@@ -159,8 +159,7 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
             }
             
             if (foundBounds && foundBounds.isValid && foundBounds.isValid()) {
-                const mapPad = [window.innerWidth * 0.25, window.innerHeight * 0.25];
-                mapInstance.current.fitBounds(foundBounds, { animate: true, padding: mapPad });
+                mapInstance.current.fitBounds(foundBounds, { animate: true, padding: [50, 50] });
             }
         };
 
