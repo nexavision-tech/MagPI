@@ -123,67 +123,68 @@ def LaunchCanvas(port=8282):
             self.end_headers()
 
         def do_GET(self):
-            try:
-                parsed_path = urlparse(self.path)
-                if parsed_path.path == '/api/browse':
-                    self.handle_browse(parsed_path.query)
-                elif parsed_path.path == '/api/describe':
-                    self.handle_describe(parsed_path.query)
-                elif parsed_path.path == '/api/jobs':
-                    self.send_response(200)
-                    self.send_header('Content-type', 'application/json')
-                    self.end_headers()
-                    self.wfile.write(json.dumps(list(JOB_REGISTRY.values())).encode('utf-8'))
-                elif parsed_path.path == '/api/geojson':
-                    self.handle_geojson(parsed_path.query)
-                elif parsed_path.path == '/api/raster':
-                    self.handle_raster(parsed_path.query)
-                elif parsed_path.path == '/api/raster_metadata':
-                    self.handle_raster_metadata(parsed_path.query)
-                elif parsed_path.path == '/api/vector_metadata':
-                    self.handle_vector_metadata(parsed_path.query)
-                elif parsed_path.path == '/api/load_project':
-                    self.handle_load_project(parsed_path.query)
-                elif parsed_path.path == '/api/community_nodes':
-                    self.handle_community_nodes()
-                elif parsed_path.path == '/api/references':
-                    self.handle_references()
-                elif parsed_path.path == '/api/gis_servers':
-                    self.handle_gis_servers()
-                elif parsed_path.path == '/api/databases':
-                    self.handle_databases()
-                elif parsed_path.path == '/api/db_connections':
-                    self.handle_db_connections_get()
-                elif parsed_path.path == '/api/list_files':
-                    self.handle_list_files(parsed_path.query)
-                elif parsed_path.path == '/api/db_tables':
-                    self.handle_db_tables(parsed_path.query)
-                elif parsed_path.path == '/api/list_layers':
-                    self.handle_list_layers(parsed_path.query)
-                elif parsed_path.path == '/api/vector_data':
-                    self.handle_vector_data(parsed_path.query)
-                elif parsed_path.path == '/api/create_folder':
-                    self.handle_create_folder(parsed_path.query)
-                elif parsed_path.path == '/api/delete_file':
-                    self.handle_delete_file(parsed_path.query)
-                elif parsed_path.path == '/api/relaunch':
-                    self.handle_relaunch(parsed_path.query)
-                else:
-                    self.send_response(404)
-                    self.send_header('Content-type', 'application/json')
-                    self.end_headers()
-                    self.wfile.write(b'{"error": "Endpoint not found"}')
-            except Exception as e:
-                logger.error(f"Global unhandled GET error: {e}")
-                try:
-                    self.send_response(500)
-                    self.send_header('Content-type', 'application/json')
-                    self.end_headers()
-                    self.wfile.write(json.dumps({"error": f"Internal Daemon Error: {str(e)}"}).encode('utf-8'))
-                except:
-                    pass
+            parsed_path = urlparse(self.path)
+            if parsed_path.path == '/api/browse':
+                self.handle_browse(parsed_path.query)
+            elif parsed_path.path == '/api/describe':
+                self.handle_describe(parsed_path.query)
+            elif parsed_path.path == '/api/jobs':
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps(list(JOB_REGISTRY.values())).encode('utf-8'))
+            elif parsed_path.path == '/api/geojson':
+                self.handle_geojson(parsed_path.query)
+            elif parsed_path.path == '/api/raster':
+                self.handle_raster(parsed_path.query)
+            elif parsed_path.path == '/api/raster_metadata':
+                self.handle_raster_metadata(parsed_path.query)
+            elif parsed_path.path == '/api/vector_metadata':
+                self.handle_vector_metadata(parsed_path.query)
+            elif parsed_path.path == '/api/load_project':
+                self.handle_load_project(parsed_path.query)
+            elif parsed_path.path == '/api/community_nodes':
+                self.handle_community_nodes()
+            elif parsed_path.path == '/api/references':
+                self.handle_references()
+            elif parsed_path.path == '/api/gis_servers':
+                self.handle_gis_servers()
+            elif parsed_path.path == '/api/databases':
+                self.handle_databases()
+            elif parsed_path.path == '/api/db_connections':
+                self.handle_db_connections_get()
+            elif parsed_path.path == '/api/list_files':
+                self.handle_list_files(parsed_path.query)
+            elif parsed_path.path == '/api/db_tables':
+                self.handle_db_tables(parsed_path.query)
+            elif parsed_path.path == '/api/list_layers':
+                self.handle_list_layers(parsed_path.query)
+            elif parsed_path.path == '/api/vector_data':
+                self.handle_vector_data(parsed_path.query)
+            elif parsed_path.path == '/api/create_folder':
+                self.handle_create_folder(parsed_path.query)
+            elif parsed_path.path == '/api/delete_file':
+                self.handle_delete_file(parsed_path.query)
+            elif parsed_path.path == '/api/relaunch':
+                self.handle_relaunch(parsed_path.query)
+            else:
+                super().do_GET()
 
         def do_POST(self):
+            parsed_path = urlparse(self.path)
+            
+            if parsed_path.path == '/api/run':
+                content_length = int(self.headers['Content-Length'])
+                post_data = self.rfile.read(content_length)
+                
+                try:
+                    payload = json.loads(post_data.decode('utf-8'))
+                    script_code = payload.get('code', '')
+                    
+                    logger.info("Received Pipeline Execution Request from Canvas.")
+                    
+                    with tempfile.NamedTemporaryFile(delete=False, suffix='.py', mode='w') as temp_script:
+                        temp_script.write(script_code)
                         temp_filepath = temp_script.name
                         
                     logger.info(f"Executing Matrix Payload: {temp_filepath}")
