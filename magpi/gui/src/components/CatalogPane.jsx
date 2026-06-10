@@ -316,7 +316,34 @@ export default function CatalogPane({ mapLayers = [], setMapLayers, activeWorksp
                   <Target size={12} className="mr-1" /> Auto-Zoom
                 </button>
                 </div>
-        <div className="flex-1 overflow-y-auto p-2 custom-scrollbar space-y-1">
+        <div 
+          className="flex-1 overflow-y-auto p-2 custom-scrollbar space-y-1 relative"
+          onDragOver={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              e.dataTransfer.dropEffect = 'move';
+          }}
+          onDrop={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              let data = null;
+              if (window.__draggedMagPITool) {
+                  data = window.__draggedMagPITool;
+                  window.__draggedMagPITool = null;
+              } else {
+                  const dataStr = e.dataTransfer.getData('application/reactflow');
+                  if (dataStr) { try { data = JSON.parse(dataStr); } catch(err) {} }
+              }
+              if (data) {
+                  window.dispatchEvent(new CustomEvent('magpi-map-drop', { detail: data }));
+              }
+          }}
+        >
+          {mapLayers.length === 0 && (
+             <div className="absolute inset-0 flex items-center justify-center text-slate-600 text-xs text-center p-4 pointer-events-none border-2 border-dashed border-slate-700/50 rounded-lg m-2">
+                 Drag spatial files here to add them to the map.
+             </div>
+          )}
           {mapLayers.map(layer => {
               const isExpanded = expandedLayers[layer.id];
               return (

@@ -281,7 +281,7 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                     const cached = loadedData[layer.id];
                     if (cached && cached.type === 'geojson') {
                         const gjLayer = L.geoJSON(cached.data, {
-                            style: { color: layer.vectorColor, weight: 1.5, fillOpacity: layer.opacity / 100 },
+                            style: { color: layer.vectorColor, weight: 1.5, opacity: 1, fillOpacity: 0.2 },
                             onEachFeature: (feature, featureLayer) => {
                                 featureLayer.on('click', (e) => {
                                     L.DomEvent.stopPropagation(e);
@@ -300,7 +300,7 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                                     activeFeatureLayer.current = {
                                         layer: e.target,
                                         originalColor: layer.vectorColor,
-                                        originalOpacity: layer.opacity / 100
+                                        originalOpacity: 0.2
                                     };
 
                                     window.dispatchEvent(new CustomEvent('magpi-feature-selected', { detail: { feature: feature, layerName: layer.name } }));
@@ -332,6 +332,21 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
             }
         }
     }, [computedLayers, activeWorkspace, loadedData]);
+
+    // Handle clearing the feature selection from the UI side
+    useEffect(() => {
+        if (!selectedFeature && activeFeatureLayer.current && activeFeatureLayer.current.layer) {
+            try {
+                activeFeatureLayer.current.layer.setStyle({ 
+                    color: activeFeatureLayer.current.originalColor, 
+                    weight: 1.5, 
+                    opacity: 1,
+                    fillOpacity: activeFeatureLayer.current.originalOpacity 
+                });
+            } catch (e) {}
+            activeFeatureLayer.current = null;
+        }
+    }, [selectedFeature]);
 
     const activateDrawTool = () => {
         if (mapInstance.current) {
@@ -366,7 +381,7 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                 e.preventDefault();
                 e.stopPropagation();
                 e.stopImmediatePropagation();
-                e.dataTransfer.dropEffect = 'copy';
+                e.dataTransfer.dropEffect = 'move';
             }
         };
 
