@@ -128,11 +128,9 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
             if (!mapInstance.current) return;
             const { layerId } = e.detail;
             
-            // Check highlight group layers first
             let foundBounds = null;
             highlightGroup.current.eachLayer((layer) => {
-                // If it's a marker, rectangle, or image overlay
-                if (layer.getBounds && layer.options && (layer.options.className === layerId || layerId.includes('extent'))) {
+                if (layer.magpi_layer_id === layerId && layer.getBounds) {
                    foundBounds = layer.getBounds();
                 }
             });
@@ -185,6 +183,7 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
             
             return {
                 ...layer,
+                toolId: node.toolId,
                 extent,
                 filePath,
                 isRaster,
@@ -213,11 +212,12 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                     if (!isNaN(y1) && !isNaN(x1) && !isNaN(y2) && !isNaN(x2)) {
                         const bounds = [[y1, x1], [y2, x2]];
                         const isSelected = layer.selected;
+                        const isExtent = layer.toolId === 'core_extent';
                         const rect = L.rectangle(bounds, { 
-                            color: isSelected ? '#ff8c00' : (layer.id.includes('extent') ? '#00ffff' : layer.vectorColor), 
+                            color: isSelected ? '#ff8c00' : (isExtent ? '#00ffff' : layer.vectorColor), 
                             weight: isSelected ? 4 : 2, 
-                            fillOpacity: layer.id.includes('extent') ? 0.2 : 0, 
-                            dashArray: layer.id.includes('extent') ? '4, 4' : null 
+                            fillOpacity: isExtent ? 0.2 : 0, 
+                            dashArray: isExtent ? '4, 4' : null 
                         });
                         
                         rect.bindTooltip(layer.name, { 
@@ -226,19 +226,8 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                             className: "bg-slate-900 text-white font-bold text-[10px] border-none shadow-lg" 
                         });
                         
+                        rect.magpi_layer_id = layer.id;
                         highlightGroup.current.addLayer(rect);
-                        
-                        if (isSelected && activeWorkspace !== 'globe' && lastZoomedNode.current !== layer.id) {
-                            try { 
-                                if (y1 === y2 && x1 === x2) {
-                                    mapInstance.current.setView([y1, x1], 15, { animate: false });
-                                } else {
-                                    const mapPad = [window.innerWidth * 0.25, window.innerHeight * 0.25];
-                                    mapInstance.current.fitBounds(bounds, { animate: false, padding: mapPad }); 
-                                }
-                                lastZoomedNode.current = layer.id;
-                            } catch (e) {}
-                        }
                     }
                 }
 
@@ -251,15 +240,8 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                             interactive: true
                         });
                         imgLayer.bindPopup(`<div class="text-xs font-bold text-slate-800">${layer.name}</div>`);
+                        imgLayer.magpi_layer_id = layer.id;
                         highlightGroup.current.addLayer(imgLayer);
-                        
-                        if (layer.selected && !layer.extent && activeWorkspace !== 'globe' && lastZoomedNode.current !== layer.id) {
-                            try { 
-                                const mapPad = [window.innerWidth * 0.25, window.innerHeight * 0.25];
-                                mapInstance.current.fitBounds(cached.bounds, { animate: false, padding: mapPad }); 
-                                lastZoomedNode.current = layer.id;
-                            } catch (e) {}
-                        }
                     } else if (!cached || !cached.isFetching) {
                         setLoadedData(prev => ({ ...prev, [layer.id]: { isFetching: true } }));
                         fetch(`http://${window.location.hostname}:8282/api/raster?file=${encodeURIComponent(layer.filePath)}&cmap=${layer.cmap}`)
@@ -284,22 +266,8 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                                 });
                             }
                         });
+                        gjLayer.magpi_layer_id = layer.id;
                         highlightGroup.current.addLayer(gjLayer);
-                        
-                        if (layer.selected && !layer.extent && activeWorkspace !== 'globe' && lastZoomedNode.current !== layer.id) {
-                            try { 
-                                const bounds = gjLayer.getBounds();
-                                if (bounds.isValid()) {
-                                    if (bounds.getNorth() === bounds.getSouth() && bounds.getEast() === bounds.getWest()) {
-                                        mapInstance.current.setView(bounds.getCenter(), 15, { animate: false });
-                                    } else {
-                                        const mapPad = [window.innerWidth * 0.25, window.innerHeight * 0.25];
-                                        mapInstance.current.fitBounds(bounds, { animate: false, padding: mapPad }); 
-                                    }
-                                }
-                                lastZoomedNode.current = layer.id;
-                            } catch (e) {}
-                        }
                     } else if (!cached || !cached.isFetching) {
                         setLoadedData(prev => ({ ...prev, [layer.id]: { isFetching: true } }));
                         fetch(`http://${window.location.hostname}:8282/api/geojson?file=${encodeURIComponent(layer.filePath)}`)

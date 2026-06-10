@@ -70,7 +70,7 @@ export default function App() {
             if (node.params && node.params.export_to_map === false) return;
             
             const status = nodeStatuses[node.id];
-            if (status === 'success' || node.toolId.startsWith('load_') || node.toolId === 'core_extent' || node.toolId.startsWith('wfs_')) {
+            if (status === 'success' || node.toolId.startsWith('load_') || node.toolId === 'core_extent' || node.toolId.startsWith('wfs_') || node.toolId.startsWith('core_input_')) {
                 let layerName = node.name || node.toolId;
                 if (node.params && node.params.out_raster) {
                     layerName = `${node.name} (${node.params.out_raster})`;
@@ -277,6 +277,25 @@ export default function App() {
     localStorage.setItem('magpi_global_env', JSON.stringify(globalEnv));
   }, [nodes, connections, globalEnv]);
 
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+        if (e.key === 'Delete' && selectedNodeId) {
+            const activeElement = document.activeElement;
+            if (activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA' || activeElement.isContentEditable)) {
+                return;
+            }
+            if (window.confirm("Delete selected node?")) {
+                setNodes(prev => prev.filter(n => n.id !== selectedNodeId));
+                setConnections(prev => prev.filter(c => c.sourceId !== selectedNodeId && c.targetId !== selectedNodeId));
+                setSelectedNodeId(null);
+                setLogs([{ type: 'info', msg: 'Node deleted via keyboard shortcut.' }]);
+            }
+        }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedNodeId]);
+
   const handleAoiDrawn = useCallback((aoiData) => {
     const newId = `node_${Date.now()}`;
     const newNode = { 
@@ -431,16 +450,19 @@ export default function App() {
 
   const handleClear = () => {
     if (window.confirm("Are you sure you want to initialize a New Project? This will clear the current canvas. Unsaved changes will be lost.")) {
+        const d = new Date();
+        const pad = n => n.toString().padStart(2, '0');
+        const defaultName = `Untitled_${d.getFullYear()}_${pad(d.getMonth() + 1)}_${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+        
+        const newName = window.prompt("Enter a name for the New Project:", defaultName);
+        if (newName === null) return; // user cancelled the prompt
+        
         setNodes([]); setConnections([]); setSelectedNodeId(null); setNodeStatuses({});
         localStorage.removeItem('magpi_autosave_nodes'); localStorage.removeItem('magpi_autosave_cxs');
-        setActiveRightTab('toolbox'); setLogs([{ type: 'info', msg: 'Started a new Tabula Rasa session.' }]);
+        setActiveRightTab('toolbox'); setLogs([{ type: 'info', msg: `Started a new Tabula Rasa session: ${newName}` }]);
         setShowTerminal(true);
         setProjectDir(null);
-        setProjectName(() => {
-            const d = new Date();
-            const pad = n => n.toString().padStart(2, '0');
-            return `Untitled_${d.getFullYear()}_${pad(d.getMonth() + 1)}_${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
-        });
+        setProjectName(newName || defaultName);
     }
   };
 
