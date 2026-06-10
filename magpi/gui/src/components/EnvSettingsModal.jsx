@@ -27,7 +27,11 @@ export default function EnvSettingsModal({ isOpen, onClose, globalEnv, setGlobal
     setTimeout(() => {
         setIsRelaunching(false);
         onClose();
-        window.location.reload(); // Hard refresh to reconnect gracefully
+        if (portInput !== window.location.port && window.location.port !== '5173') {
+            window.location.href = `http://${window.location.hostname}:${portInput}`;
+        } else {
+            window.location.reload(); // Hard refresh to reconnect gracefully
+        }
     }, 2000);
   };
 
@@ -188,7 +192,7 @@ export default function EnvSettingsModal({ isOpen, onClose, globalEnv, setGlobal
 
               <div className="flex flex-col space-y-2 relative group">
                 <label className="text-xs font-bold text-slate-300 uppercase tracking-widest flex items-center">
-                  <MapIcon size={14} className="mr-2 text-rose-400" /> Vector Draw Limit (Features)
+                  <Database size={14} className="mr-2 text-rose-400" /> Vector Draw Limit (Features)
                 </label>
                 <input 
                   type="number" 
