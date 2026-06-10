@@ -285,7 +285,7 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                         }
                     } else if (!cached || !cached.isFetching) {
                         setLoadedData(prev => ({ ...prev, [layer.id]: { isFetching: true } }));
-                        fetch(`http://${window.location.hostname}:${window.MAGPI_PORT || '8282'}/api/geojson?file=${encodeURIComponent(layer.filePath)}`)
+                        fetch(`http://${window.location.hostname}:${window.MAGPI_PORT || '8282'}/api/geojson?file=${encodeURIComponent(layer.filePath)}&limit=${globalEnv.vector_draw_limit || 10000}`)
                             .then(r => r.ok ? r.json() : null)
                             .then(data => {
                                 if (data) {
@@ -352,15 +352,6 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
 
     return (
         <div className="w-full h-full flex flex-col relative bg-[#111827]">
-            {/* Header */}
-            <div className="px-4 py-3 bg-slate-800 text-xs font-bold tracking-widest text-slate-300 flex items-center justify-between border-b border-slate-700 z-10 shrink-0">
-                <div className="flex items-center">
-                    <MapIcon size={14} className={`mr-2 ${activeWorkspace === 'globe' ? 'text-cyan-400' : 'text-emerald-500'}`} /> 
-                    {activeWorkspace === 'globe' ? 'GLOBE NEXUS' : 'LIVE VIEWPORT'}
-                </div>
-                {/* Tools migrated to TopRibbon */}
-            </div>
-            
             {/* Map Container */}
             <div className="flex-1 relative overflow-hidden z-0 leaflet-dark-mode-container flex">
                 

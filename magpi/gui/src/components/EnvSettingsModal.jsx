@@ -185,6 +185,20 @@ export default function EnvSettingsModal({ isOpen, onClose, globalEnv, setGlobal
                   placeholder="EPSG:3855"
                 />
               </div>
+
+              <div className="flex flex-col space-y-2 relative group">
+                <label className="text-xs font-bold text-slate-300 uppercase tracking-widest flex items-center">
+                  <MapIcon size={14} className="mr-2 text-rose-400" /> Vector Draw Limit (Features)
+                </label>
+                <input 
+                  type="number" 
+                  name="vector_draw_limit"
+                  value={globalEnv.vector_draw_limit || 10000} 
+                  onChange={(e) => setGlobalEnv(prev => ({ ...prev, vector_draw_limit: parseInt(e.target.value) || 10000 }))}
+                  className="bg-slate-950 border border-slate-700 rounded-lg px-4 py-2.5 text-sm font-mono text-emerald-400 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500/50 transition-all" 
+                  placeholder="10000"
+                />
+              </div>
             </div>
           </div>
           {/* Autopilot Schedule Section */}

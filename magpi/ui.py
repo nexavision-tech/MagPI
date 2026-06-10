@@ -541,18 +541,23 @@ def LaunchCanvas(port=8282):
         def handle_geojson(self, query):
             qs = parse_qs(query)
             target_file = qs.get('file', [''])[0]
+            limit_str = qs.get('limit', ['10000'])[0]
+            try:
+                limit = int(limit_str)
+            except ValueError:
+                limit = 10000
             
             try:
                 import geopandas as gpd
-                logger.info(f"API Request: Streaming GeoJSON for {target_file}")
+                logger.info(f"API Request: Streaming GeoJSON for {target_file} (limit: {limit})")
                 
                 if not os.path.exists(target_file):
                     raise FileNotFoundError(f"File not found: {target_file}")
                     
                 # Read file with a limit to prevent crashing on massive datasets
-                gdf = gpd.read_file(target_file, rows=10000)
-                if len(gdf) == 10000:
-                    logger.warning(f"GeoJSON preview limited to 10,000 features for {target_file}")
+                gdf = gpd.read_file(target_file, rows=limit)
+                if len(gdf) == limit:
+                    logger.warning(f"GeoJSON preview limited to {limit} features for {target_file}")
                 if gdf.crs and not gdf.crs.is_geographic:
                     gdf = gdf.to_crs("EPSG:4326")
                     
