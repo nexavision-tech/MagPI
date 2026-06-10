@@ -168,7 +168,10 @@ def LaunchCanvas(port=8282):
             elif parsed_path.path == '/api/relaunch':
                 self.handle_relaunch(parsed_path.query)
             else:
-                super().do_GET()
+                self.send_response(404)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(b'{"error": "Endpoint not found"}')
 
         def do_POST(self):
             parsed_path = urlparse(self.path)
