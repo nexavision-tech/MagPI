@@ -165,6 +165,8 @@ def LaunchCanvas(port=8282):
                 self.handle_create_folder(parsed_path.query)
             elif parsed_path.path == '/api/delete_file':
                 self.handle_delete_file(parsed_path.query)
+            elif parsed_path.path == '/api/relaunch':
+                self.handle_relaunch(parsed_path.query)
             else:
                 super().do_GET()
 
@@ -1038,6 +1040,31 @@ def LaunchCanvas(port=8282):
                 self.send_header('Content-type', 'application/json')
                 self.end_headers()
                 self.wfile.write(json.dumps({"error": str(e)}).encode('utf-8'))
+
+        def handle_relaunch(self, query):
+            from urllib.parse import parse_qs
+            import subprocess
+            import sys
+            import threading
+            import time
+            
+            qs = parse_qs(query)
+            new_port = int(qs.get('port', ['8282'])[0])
+            
+            logger.info(f"Relaunching Daemon on port {new_port}")
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps({"status": "relaunching", "port": new_port}).encode('utf-8'))
+            
+            # Spawn a new daemon process
+            subprocess.Popen([sys.executable, "-c", f"import magpi.ui; magpi.ui.LaunchCanvas(port={new_port})"])
+            
+            # Kill current process after a short delay
+            def seppuku():
+                time.sleep(1)
+                os._exit(0)
+            threading.Thread(target=seppuku).start()
         def handle_databases(self):
             try:
                 import fiona

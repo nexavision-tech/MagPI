@@ -95,7 +95,7 @@ export default function StacQueryModal({ isOpen, onClose, selectedNode, nodes, c
     const date_range = `${selectedNode?.params.start_date?.value || selectedNode?.params.start_date}/${selectedNode?.params.end_date?.value || selectedNode?.params.end_date}`;
 
     try {
-      const response = await fetch(`http://${window.location.hostname}:8282/api/stac_query`, {
+      const response = await fetch(`http://${window.location.hostname}:${window.MAGPI_PORT || '8282'}/api/stac_query`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

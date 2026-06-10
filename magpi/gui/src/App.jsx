@@ -53,6 +53,7 @@ export default function App() {
   });
 
   const [projectDir, setProjectDir] = useState(null);
+  const [autoZoom, setAutoZoom] = useState(false);
   const [saveBrowserConfig, setSaveBrowserConfig] = useState({ isOpen: false, initialPath: "." });
   const [masterReferences, setMasterReferences] = useState({});
   const [masterGisServers, setMasterGisServers] = useState([]);
@@ -97,7 +98,7 @@ export default function App() {
   }, [nodes, nodeStatuses, selectedNodeId]);
 
   useEffect(() => {
-    fetch(`http://${window.location.hostname}:8282/api/references`)
+    fetch(`http://${window.location.hostname}:${window.MAGPI_PORT || '8282'}/api/references`)
       .then(res => res.json())
       .then(data => {
         if (data.status === 'success' && data.references) {
@@ -106,7 +107,7 @@ export default function App() {
       })
       .catch(err => console.error("Failed to load academic references", err));
       
-    fetch(`http://${window.location.hostname}:8282/api/gis_servers`)
+    fetch(`http://${window.location.hostname}:${window.MAGPI_PORT || '8282'}/api/gis_servers`)
       .then(res => res.json())
       .then(data => {
         if (data.status === 'success' && data.servers) {
@@ -122,7 +123,7 @@ export default function App() {
     if (activeJobId) {
       interval = setInterval(async () => {
         try {
-          const res = await fetch(`http://${window.location.hostname}:8282/api/jobs`);
+          const res = await fetch(`http://${window.location.hostname}:${window.MAGPI_PORT || '8282'}/api/jobs`);
           if (res.ok) {
             const jobs = await res.json();
             const job = jobs.find(j => j.id === activeJobId);
@@ -179,7 +180,7 @@ export default function App() {
   useEffect(() => {
       const checkActiveJobs = async () => {
           try {
-              const res = await fetch(`http://${window.location.hostname}:8282/api/jobs`);
+              const res = await fetch(`http://${window.location.hostname}:${window.MAGPI_PORT || '8282'}/api/jobs`);
               if (res.ok) {
                   setIsDaemonAlive(true);
                   const jobs = await res.json();
@@ -394,7 +395,7 @@ export default function App() {
     if (browserConfig.nodeId === "LOAD_PROJECT") {
         try {
             setLogs([{ type: 'info', msg: `Loading project from ${absolutePath}...` }]);
-            const response = await fetch(`http://${window.location.hostname}:8282/api/load_project?file=${encodeURIComponent(absolutePath)}`);
+            const response = await fetch(`http://${window.location.hostname}:${window.MAGPI_PORT || '8282'}/api/load_project?file=${encodeURIComponent(absolutePath)}`);
             const data = await response.json();
             if (response.ok && data.status === 'success') {
                 const pd = data.project_data;
@@ -630,7 +631,7 @@ export default function App() {
             crs,
             globalEnv
         };
-        const response = await fetch(`http://${window.location.hostname}:8282/api/run_pipeline`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        const response = await fetch(`http://${window.location.hostname}:${window.MAGPI_PORT || '8282'}/api/run_pipeline`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
         const data = await response.json();
         if (response.ok) {
             setLogs(prev => [...prev, { type: 'success', msg: `Pipeline Dispatched to Daemon. Job ID: ${data.job_id}` }]);
@@ -675,7 +676,7 @@ export default function App() {
     
     try {
         const payload = { nodes: subgraphNodes, connections: subgraphConnections, crs, globalEnv };
-        const response = await fetch(`http://${window.location.hostname}:8282/api/run_pipeline`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        const response = await fetch(`http://${window.location.hostname}:${window.MAGPI_PORT || '8282'}/api/run_pipeline`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
         const data = await response.json();
         if (response.ok) {
             setLogs(prev => [...prev, { type: 'success', msg: `Partial Pipeline Dispatched. Job ID: ${data.job_id}` }]);
@@ -719,6 +720,8 @@ export default function App() {
                 openFileBrowser={openFileBrowser}
                 globalEnv={globalEnv}
                 isDaemonAlive={isDaemonAlive}
+                autoZoom={autoZoom}
+                setAutoZoom={setAutoZoom}
             />
           </div>
 
@@ -726,7 +729,7 @@ export default function App() {
             <NodeCanvas nodes={nodes} setNodes={setNodes} connections={connections} setConnections={setConnections} selectedNodeId={selectedNodeId} setSelectedNodeId={setSelectedNodeId} setActiveRightTab={setActiveRightTab} nodeStatuses={nodeStatuses} removeConnection={removeConnection} addNode={addNode} />
         </div>
         <div className={`relative ${['globe', 'planar'].includes(activeWorkspace) ? 'flex-1 w-full min-w-0' : 'hidden'} flex-col shadow-[-10px_0_20px_rgba(0,0,0,0.3)] z-10 border-l border-r border-slate-800`}>
-            <MapViewport onAoiDrawn={handleAoiDrawn} onAoiImported={handleAoiImported} selectedNode={nodes.find(n => n.id === selectedNodeId)} activeWorkspace={activeWorkspace} nodes={nodes} nodeStatuses={nodeStatuses} connections={connections} globalEnv={globalEnv} mapLayers={mapLayers} />
+            <MapViewport onAoiDrawn={handleAoiDrawn} onAoiImported={handleAoiImported} selectedNode={nodes.find(n => n.id === selectedNodeId)} activeWorkspace={activeWorkspace} nodes={nodes} nodeStatuses={nodeStatuses} connections={connections} globalEnv={globalEnv} mapLayers={mapLayers} autoZoom={autoZoom} />
         </div>
         <div className={`w-[320px] shrink-0 relative ${['builder', 'planar'].includes(activeWorkspace) ? 'flex' : 'hidden'} flex-col z-20`}>
             <Toolbox 

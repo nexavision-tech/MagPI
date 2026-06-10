@@ -26,7 +26,7 @@ const getAncestralExtent = (nodeId, nodes, connections) => {
     return null;
 };
 
-const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activeWorkspace, nodes = [], nodeStatuses = {}, connections = [], globalEnv, mapLayers = [] }) => {
+const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activeWorkspace, nodes = [], nodeStatuses = {}, connections = [], globalEnv, mapLayers = [], autoZoom }) => {
     const mapRef = useRef(null);
     const mapInstance = useRef(null); 
     const highlightGroup = useRef(null);
@@ -228,6 +228,11 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                         
                         rect.magpi_layer_id = layer.id;
                         highlightGroup.current.addLayer(rect);
+                        
+                        if (autoZoom && isSelected && lastZoomedNode.current !== layer.id) {
+                            lastZoomedNode.current = layer.id;
+                            map.fitBounds(bounds, { animate: true, padding: [100, 100] });
+                        }
                     }
                 }
 
@@ -242,9 +247,14 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                         imgLayer.bindPopup(`<div class="text-xs font-bold text-slate-800">${layer.name}</div>`);
                         imgLayer.magpi_layer_id = layer.id;
                         highlightGroup.current.addLayer(imgLayer);
+                        
+                        if (autoZoom && layer.selected && lastZoomedNode.current !== layer.id) {
+                            lastZoomedNode.current = layer.id;
+                            map.fitBounds(cached.bounds, { animate: true, padding: [100, 100] });
+                        }
                     } else if (!cached || !cached.isFetching) {
                         setLoadedData(prev => ({ ...prev, [layer.id]: { isFetching: true } }));
-                        fetch(`http://${window.location.hostname}:8282/api/raster?file=${encodeURIComponent(layer.filePath)}&cmap=${layer.cmap}`)
+                        fetch(`http://${window.location.hostname}:${window.MAGPI_PORT || '8282'}/api/raster?file=${encodeURIComponent(layer.filePath)}&cmap=${layer.cmap}`)
                             .then(r => r.ok ? r.json() : null)
                             .then(data => {
                                 if (data && data.image) {
@@ -268,9 +278,14 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                         });
                         gjLayer.magpi_layer_id = layer.id;
                         highlightGroup.current.addLayer(gjLayer);
+                        
+                        if (autoZoom && layer.selected && lastZoomedNode.current !== layer.id) {
+                            lastZoomedNode.current = layer.id;
+                            map.fitBounds(gjLayer.getBounds(), { animate: true, padding: [100, 100] });
+                        }
                     } else if (!cached || !cached.isFetching) {
                         setLoadedData(prev => ({ ...prev, [layer.id]: { isFetching: true } }));
-                        fetch(`http://${window.location.hostname}:8282/api/geojson?file=${encodeURIComponent(layer.filePath)}`)
+                        fetch(`http://${window.location.hostname}:${window.MAGPI_PORT || '8282'}/api/geojson?file=${encodeURIComponent(layer.filePath)}`)
                             .then(r => r.ok ? r.json() : null)
                             .then(data => {
                                 if (data) {

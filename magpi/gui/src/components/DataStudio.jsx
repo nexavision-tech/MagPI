@@ -19,7 +19,7 @@ export default function DataStudio() {
 
   const fetchDatabases = async () => {
     try {
-      const res = await fetch(`http://${window.location.hostname}:8282/api/databases`);
+      const res = await fetch(`http://${window.location.hostname}:${window.MAGPI_PORT || '8282'}/api/databases`);
       const data = await res.json();
       if (data.status === 'success') {
         setDatabases(data.databases);
@@ -49,7 +49,7 @@ export default function DataStudio() {
     setTerminalLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] Executing query on ${selectedDb.name}...`]);
 
     try {
-      const res = await fetch(`http://${window.location.hostname}:8282/api/query`, {
+      const res = await fetch(`http://${window.location.hostname}:${window.MAGPI_PORT || '8282'}/api/query`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ db_path: selectedDb.path, query: query })
@@ -78,7 +78,7 @@ export default function DataStudio() {
   const handleAddConnection = async () => {
     if (!newConnName || !newConnString) return;
     try {
-      const res = await fetch(`http://${window.location.hostname}:8282/api/db_connections`, {
+      const res = await fetch(`http://${window.location.hostname}:${window.MAGPI_PORT || '8282'}/api/db_connections`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: newConnName, connection_string: newConnString })

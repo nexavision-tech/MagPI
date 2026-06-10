@@ -70,7 +70,7 @@ const MagPINode = ({ data, id }) => {
 
   React.useEffect(() => {
     if (toolId === 'load_raster' && data.params?.file_path && !data.metadataFetched) {
-        fetch(`http://${window.location.hostname}:8282/api/raster_metadata?file=${encodeURIComponent(data.params.file_path)}`)
+        fetch(`http://${window.location.hostname}:${window.MAGPI_PORT || '8282'}/api/raster_metadata?file=${encodeURIComponent(data.params.file_path)}`)
         .then(res => res.ok ? res.json() : null)
         .then(meta => {
             if (meta && !meta.error) {
@@ -110,7 +110,7 @@ const MagPINode = ({ data, id }) => {
     }
     
     if (toolId === 'load_vector' && data.params?.file_path && !data.metadataFetched) {
-        fetch(`http://${window.location.hostname}:8282/api/vector_metadata?file=${encodeURIComponent(data.params.file_path)}`)
+        fetch(`http://${window.location.hostname}:${window.MAGPI_PORT || '8282'}/api/vector_metadata?file=${encodeURIComponent(data.params.file_path)}`)
         .then(res => res.ok ? res.json() : null)
         .then(meta => {
             if (meta && !meta.error) {

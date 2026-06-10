@@ -1,12 +1,34 @@
-import React from 'react';
-import { X, Globe, Folder, Database, HardDrive, CheckCircle2, Settings } from 'lucide-react';
+import React, { useState } from 'react';
+import { X, Globe, Folder, Database, HardDrive, CheckCircle2, Settings, Server, RefreshCw } from 'lucide-react';
 
 export default function EnvSettingsModal({ isOpen, onClose, globalEnv, setGlobalEnv, openFileBrowser }) {
   if (!isOpen) return null;
 
+  const [portInput, setPortInput] = useState(window.MAGPI_PORT || '8282');
+  const [isRelaunching, setIsRelaunching] = useState(false);
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setGlobalEnv(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleRelaunch = async () => {
+    setIsRelaunching(true);
+    try {
+        await fetch(`http://${window.location.hostname}:${window.MAGPI_PORT || '8282'}/api/relaunch?port=${portInput}`);
+    } catch (e) {
+        // We expect it to fail slightly when the daemon kills itself
+    }
+    
+    // Update frontend state
+    localStorage.setItem('magpi_daemon_port', portInput);
+    window.MAGPI_PORT = portInput;
+    
+    setTimeout(() => {
+        setIsRelaunching(false);
+        onClose();
+        window.location.reload(); // Hard refresh to reconnect gracefully
+    }, 2000);
   };
 
   return (
@@ -167,6 +189,32 @@ export default function EnvSettingsModal({ isOpen, onClose, globalEnv, setGlobal
           </div>
           {/* Autopilot Schedule Section */}
           <div className="mt-6 border-t border-slate-700 pt-6 space-y-4">
+
+            {/* Daemon Port Settings */}
+            <div className="pt-4 border-t border-slate-700">
+              <div className="flex items-end justify-between">
+                <div className="flex flex-col space-y-2 relative w-1/3">
+                  <label className="text-xs font-bold text-slate-300 uppercase tracking-widest flex items-center">
+                    <Server size={14} className="mr-2 text-cyan-400" /> Daemon Port
+                  </label>
+                  <input 
+                    type="number" 
+                    value={portInput} 
+                    onChange={(e) => setPortInput(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-lg px-4 py-2.5 text-sm font-mono text-emerald-400 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500/50 transition-all" 
+                    placeholder="8282"
+                  />
+                </div>
+                <button 
+                  onClick={handleRelaunch}
+                  disabled={isRelaunching}
+                  className="px-4 py-2.5 bg-cyan-600/20 hover:bg-cyan-600/40 text-cyan-400 border border-cyan-500/50 font-bold rounded-lg flex items-center transition-all disabled:opacity-50"
+                >
+                  <RefreshCw size={16} className={`mr-2 ${isRelaunching ? 'animate-spin' : ''}`} />
+                  {isRelaunching ? 'Relaunching Daemon...' : 'Relaunch Daemon on Port'}
+                </button>
+              </div>
+            </div>
 
           </div>
         </div>

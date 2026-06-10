@@ -11,7 +11,7 @@ export default function FileBrowserModal({ isOpen, onClose, onSelect, initialPat
   const [saveName, setSaveName] = useState(defaultSaveName);
 
   // The API bridge to the local Python Daemon (Default port 8282)
-  const API_URL = `http://${window.location.hostname}:8282/api/browse`;
+  const API_URL = `http://${window.location.hostname}:${window.MAGPI_PORT || '8282'}/api/browse`;
 
   const fetchDirectory = async (targetDir) => {
     setLoading(true);

@@ -99,7 +99,7 @@ export default function TensorBrew({ activeWorkspace }) {
     setCompileOutput(prev => prev + 'Dispatching graph to MagPI Daemon (/api/run)...\n\n');
 
     try {
-      const res = await fetch(`http://${window.location.hostname}:8282/api/run`, {
+      const res = await fetch(`http://${window.location.hostname}:${window.MAGPI_PORT || '8282'}/api/run`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ code })

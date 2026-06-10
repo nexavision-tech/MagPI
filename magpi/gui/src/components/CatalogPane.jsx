@@ -22,7 +22,7 @@ const FileNode = ({ node, level, globalEnv }) => {
     if (!isOpen && isGdb && !layers) {
       setIsLoading(true);
       try {
-        const res = await fetch(`http://${window.location.hostname}:8282/api/list_layers?file_path=${encodeURIComponent(node.path)}`);
+        const res = await fetch(`http://${window.location.hostname}:${window.MAGPI_PORT || '8282'}/api/list_layers?file_path=${encodeURIComponent(node.path)}`);
         const data = await res.json();
         if (data.status === 'success') {
           setLayers(data.layers);
@@ -154,7 +154,7 @@ const FileNode = ({ node, level, globalEnv }) => {
   );
 };
 
-export default function CatalogPane({ mapLayers = [], setMapLayers, activeWorkspace, nodes = [], setNodes, setSelectedNodeId, openFileBrowser, globalEnv, isDaemonAlive }) {
+export default function CatalogPane({ mapLayers = [], setMapLayers, activeWorkspace, nodes = [], setNodes, setSelectedNodeId, openFileBrowser, globalEnv, isDaemonAlive, autoZoom, setAutoZoom }) {
   const [catalog, setCatalog] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [expandedLayers, setExpandedLayers] = useState({});
@@ -174,7 +174,7 @@ export default function CatalogPane({ mapLayers = [], setMapLayers, activeWorksp
       if (globalEnv?.external_dirs) {
           globalEnv.external_dirs.forEach(dir => qs.append('external', dir));
       }
-      const res = await fetch(`http://${window.location.hostname}:8282/api/list_files?${qs.toString()}`);
+      const res = await fetch(`http://${window.location.hostname}:${window.MAGPI_PORT || '8282'}/api/list_files?${qs.toString()}`);
       const data = await res.json();
       if (data.status === 'success') {
         setCatalog(data.catalog);
@@ -196,7 +196,7 @@ export default function CatalogPane({ mapLayers = [], setMapLayers, activeWorksp
     const handleDelete = async (e) => {
         const { path } = e.detail;
         try {
-            await fetch(`http://${window.location.hostname}:8282/api/delete_file?path=${encodeURIComponent(path)}`);
+            await fetch(`http://${window.location.hostname}:${window.MAGPI_PORT || '8282'}/api/delete_file?path=${encodeURIComponent(path)}`);
             fetchCatalog();
         } catch (err) {
             console.error("Failed to delete file", err);
@@ -224,7 +224,7 @@ export default function CatalogPane({ mapLayers = [], setMapLayers, activeWorksp
                     const name = window.prompt("Enter new folder name:");
                     if (name) {
                         try {
-                            await fetch(`http://${window.location.hostname}:8282/api/create_folder?workspace=${encodeURIComponent(globalEnv?.workspace_dir || '')}&name=${encodeURIComponent(name)}`);
+                            await fetch(`http://${window.location.hostname}:${window.MAGPI_PORT || '8282'}/api/create_folder?workspace=${encodeURIComponent(globalEnv?.workspace_dir || '')}&name=${encodeURIComponent(name)}`);
                             fetchCatalog();
                         } catch (err) {
                             console.error("Failed to create folder", err);
@@ -293,6 +293,13 @@ export default function CatalogPane({ mapLayers = [], setMapLayers, activeWorksp
                     <Layers size={14} className="mr-2" />
                     Map Layers
                 </h2>
+                <button 
+                  onClick={() => setAutoZoom(!autoZoom)}
+                  className={`flex items-center text-[10px] uppercase font-bold tracking-widest px-2 py-0.5 rounded border ${autoZoom ? 'bg-cyan-900/50 text-cyan-300 border-cyan-700/50' : 'bg-slate-900 text-slate-500 border-slate-700 hover:text-slate-300'} transition-colors`}
+                  title="Toggle Auto-Zoom to new layers"
+                >
+                  <Target size={12} className="mr-1" /> Auto-Zoom
+                </button>
                 </div>
         <div className="flex-1 overflow-y-auto p-2 custom-scrollbar space-y-1">
           {mapLayers.map(layer => {

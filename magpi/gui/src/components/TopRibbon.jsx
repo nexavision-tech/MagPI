@@ -19,7 +19,7 @@ export default function TopRibbon({
           </span>
           <span className="bg-slate-800 px-2 py-0.5 rounded border border-slate-700">Project: {projectName || "Untitled_1"}</span>
           <button onClick={onOpenEnvSettings} className="text-[10px] text-slate-300 hover:text-white font-bold uppercase tracking-widest flex items-center bg-slate-800 hover:bg-slate-700 px-2 py-0.5 rounded border border-slate-700 transition-colors">
-              <Globe size={12} className="mr-1" /> DAEMON CONFIG
+              <Globe size={12} className="mr-1" /> GLOBALS
           </button>
           <div className="flex items-center space-x-2 bg-slate-900 px-2 py-0.5 rounded text-[10px] border border-slate-700">
             <Cpu size={12} className="text-purple-400" />
