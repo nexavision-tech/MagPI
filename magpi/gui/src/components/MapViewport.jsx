@@ -3,6 +3,7 @@ import L from 'leaflet';
 import 'leaflet-draw';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet-draw/dist/leaflet.draw.css';
+import 'leaflet.vectorgrid';
 import 'cesium/Build/Cesium/Widgets/widgets.css';
 import { Map as MapIcon, Satellite, Edit, Globe, Layers, Eye, EyeOff, XCircle, Upload } from 'lucide-react';
 import { Viewer, Entity, ImageryLayer, GeoJsonDataSource } from 'resium';
@@ -279,39 +280,77 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                 else if (layer.filePath && !layer.id.includes('extent')) {
                     const cached = loadedData[layer.id];
                     if (cached && cached.type === 'geojson') {
-                        const gjLayer = L.geoJSON(cached.data, {
-                            style: { color: layer.vectorColor, weight: 1.5, opacity: 1, fillOpacity: 0.2 },
-                            onEachFeature: (feature, featureLayer) => {
-                                featureLayer.on('click', (e) => {
-                                    L.DomEvent.stopPropagation(e);
-                                    
-                                    // Reset previous
-                                    if (activeFeatureLayer.current && activeFeatureLayer.current.layer) {
-                                        activeFeatureLayer.current.layer.setStyle({ 
-                                            color: activeFeatureLayer.current.originalColor, 
-                                            weight: 1.5, 
-                                            fillOpacity: activeFeatureLayer.current.originalOpacity 
-                                        });
-                                    }
-                                    
-                                    // Highlight new
-                                    e.target.setStyle({ color: '#00ffff', weight: 4, fillOpacity: 0.3 });
-                                    activeFeatureLayer.current = {
-                                        layer: e.target,
-                                        originalColor: layer.vectorColor,
-                                        originalOpacity: 0.2
-                                    };
+                        // Ensure features have an ID for VectorGrid interaction
+                        if (cached.data && cached.data.features && !cached.hasIds) {
+                            cached.data.features.forEach((f, i) => {
+                                if (!f.properties) f.properties = {};
+                                f.properties.magpi_id = `magpi_f_${i}`;
+                            });
+                            cached.hasIds = true;
+                        }
 
-                                    window.dispatchEvent(new CustomEvent('magpi-feature-selected', { detail: { feature: feature, layerName: layer.name } }));
-                                });
-                            }
+                        const gjLayer = L.vectorGrid.slicer(cached.data, {
+                            rendererFactory: L.canvas.tile,
+                            vectorTileLayerStyles: {
+                                sliced: {
+                                    weight: 1.5,
+                                    color: layer.vectorColor,
+                                    opacity: 1,
+                                    fillColor: layer.vectorColor,
+                                    fill: true,
+                                    fillOpacity: 0.2
+                                }
+                            },
+                            interactive: true,
+                            getFeatureId: (f) => f.properties.magpi_id
                         });
+
+                        gjLayer.on('click', (e) => {
+                            L.DomEvent.stopPropagation(e);
+                            if (activeFeatureLayer.current && activeFeatureLayer.current.layer) {
+                                activeFeatureLayer.current.layer.setFeatureStyle(
+                                    activeFeatureLayer.current.id,
+                                    { 
+                                        weight: 1.5,
+                                        color: activeFeatureLayer.current.originalColor,
+                                        opacity: 1,
+                                        fillColor: activeFeatureLayer.current.originalColor,
+                                        fill: true,
+                                        fillOpacity: activeFeatureLayer.current.originalOpacity
+                                    }
+                                );
+                            }
+
+                            const magpiId = e.layer.properties.magpi_id;
+                            gjLayer.setFeatureStyle(magpiId, {
+                                weight: 4,
+                                color: '#00ffff',
+                                opacity: 1,
+                                fillColor: '#00ffff',
+                                fill: true,
+                                fillOpacity: 0.3
+                            });
+
+                            activeFeatureLayer.current = {
+                                layer: gjLayer,
+                                id: magpiId,
+                                originalColor: layer.vectorColor,
+                                originalOpacity: 0.2
+                            };
+
+                            // Mock feature for toolbox selection
+                            const feature = { properties: e.layer.properties, geometry: { type: 'Geometry' } };
+                            window.dispatchEvent(new CustomEvent('magpi-feature-selected', { detail: { feature: feature, layerName: layer.name } }));
+                        });
+
                         gjLayer.magpi_layer_id = layer.id;
                         highlightGroup.current.addLayer(gjLayer);
                         
                         if (autoZoom && layer.selected && lastZoomedNode.current !== layer.id) {
                             lastZoomedNode.current = layer.id;
-                            map.fitBounds(gjLayer.getBounds(), { animate: true, padding: [100, 100] });
+                            // Need standard geojson to get bounds since vectorgrid doesn't have getBounds easily accessible
+                            const tempGj = L.geoJSON(cached.data);
+                            map.fitBounds(tempGj.getBounds(), { animate: true, padding: [100, 100] });
                         }
                     } else if (!cached || !cached.isFetching) {
                         setLoadedData(prev => ({ ...prev, [layer.id]: { isFetching: true } }));
@@ -336,12 +375,26 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
     useEffect(() => {
         if (!selectedFeature && activeFeatureLayer.current && activeFeatureLayer.current.layer) {
             try {
-                activeFeatureLayer.current.layer.setStyle({ 
-                    color: activeFeatureLayer.current.originalColor, 
-                    weight: 1.5, 
-                    opacity: 1,
-                    fillOpacity: activeFeatureLayer.current.originalOpacity 
-                });
+                if (activeFeatureLayer.current.layer.setFeatureStyle && activeFeatureLayer.current.id) {
+                    activeFeatureLayer.current.layer.setFeatureStyle(
+                        activeFeatureLayer.current.id,
+                        { 
+                            weight: 1.5,
+                            color: activeFeatureLayer.current.originalColor,
+                            opacity: 1,
+                            fillColor: activeFeatureLayer.current.originalColor,
+                            fill: true,
+                            fillOpacity: activeFeatureLayer.current.originalOpacity 
+                        }
+                    );
+                } else if (activeFeatureLayer.current.layer.setStyle) {
+                    activeFeatureLayer.current.layer.setStyle({ 
+                        color: activeFeatureLayer.current.originalColor, 
+                        weight: 1.5, 
+                        opacity: 1,
+                        fillOpacity: activeFeatureLayer.current.originalOpacity 
+                    });
+                }
             } catch (e) {}
             activeFeatureLayer.current = null;
         }
