@@ -316,7 +316,7 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                         }
                     } else if (!cached || !cached.isFetching) {
                         setLoadedData(prev => ({ ...prev, [layer.id]: { isFetching: true } }));
-                        fetch(`http://${window.location.hostname}:${window.MAGPI_PORT || '8282'}/api/geojson?file=${encodeURIComponent(layer.filePath)}&limit=${globalEnv.vector_draw_limit || 10000}`)
+                        fetch(`http://${window.location.hostname}:${window.MAGPI_PORT || '8282'}/api/geojson?file=${encodeURIComponent(layer.filePath)}&layer_name=${encodeURIComponent(layer.layerName || '')}&limit=${globalEnv.vector_draw_limit || 10000}`)
                             .then(r => r.ok ? r.json() : null)
                             .then(data => {
                                 if (data) {
@@ -369,7 +369,7 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
         }
 
         const handleDragEnter = (e) => {
-            if (mapRef.current && mapRef.current.contains(e.target)) {
+            if (activeWorkspace === 'planar') {
                 e.preventDefault();
                 e.stopPropagation();
                 e.stopImmediatePropagation();
@@ -377,7 +377,7 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
         };
 
         const handleDragOver = (e) => {
-            if (mapRef.current && mapRef.current.contains(e.target)) {
+            if (activeWorkspace === 'planar') {
                 e.preventDefault();
                 e.stopPropagation();
                 e.stopImmediatePropagation();
@@ -386,7 +386,7 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
         };
 
         const handleDrop = (e) => {
-            if (mapRef.current && mapRef.current.contains(e.target)) {
+            if (activeWorkspace === 'planar') {
                 e.preventDefault();
                 e.stopPropagation();
                 e.stopImmediatePropagation();
