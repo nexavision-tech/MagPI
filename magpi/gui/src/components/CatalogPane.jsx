@@ -328,7 +328,15 @@ export default function CatalogPane({ mapLayers = [], setMapLayers, activeWorksp
                       >
                           {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                       </button>
-                      <span className="text-[11px] font-medium text-slate-200 truncate flex-1" title={layer.name}>
+                      <span 
+                          className="text-[11px] font-medium text-slate-200 truncate flex-1 cursor-pointer hover:text-cyan-400 transition-colors" 
+                          title={layer.name}
+                          onClick={() => {
+                              if (setSelectedNodeId && layer.id !== 'base') {
+                                  setSelectedNodeId(layer.id);
+                              }
+                          }}
+                      >
                           {layer.name}
                       </span>
                       <div className="flex items-center ml-2 shrink-0 space-x-1">

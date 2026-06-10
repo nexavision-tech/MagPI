@@ -357,6 +357,7 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
             if (mapRef.current && mapRef.current.contains(e.target)) {
                 e.preventDefault();
                 e.stopPropagation();
+                e.stopImmediatePropagation();
             }
         };
 
@@ -364,6 +365,7 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
             if (mapRef.current && mapRef.current.contains(e.target)) {
                 e.preventDefault();
                 e.stopPropagation();
+                e.stopImmediatePropagation();
                 e.dataTransfer.dropEffect = 'copy';
             }
         };
@@ -372,6 +374,7 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
             if (mapRef.current && mapRef.current.contains(e.target)) {
                 e.preventDefault();
                 e.stopPropagation();
+                e.stopImmediatePropagation();
                 let data = null;
                 if (window.__draggedMagPITool) {
                     data = window.__draggedMagPITool;
