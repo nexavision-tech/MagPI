@@ -27,7 +27,8 @@ export default function App() {
     scratch_dir: "/home/gda/MagPI/magpi_workspace/magpi_scratch",
     output_dir: "/home/gda/MagPI/magpi_workspace/magpi_output",
     horizontal_datum: "EPSG:4326",
-    vertical_datum: "EPSG:3855"
+    vertical_datum: "EPSG:3855",
+    external_dirs: []
   });
   const [showEnvSettings, setShowEnvSettings] = useState(false);
 
@@ -45,7 +46,11 @@ export default function App() {
   const [nodeStatuses, setNodeStatuses] = useState({});
   const [activeJobId, setActiveJobId] = useState(null);
   const [isDaemonAlive, setIsDaemonAlive] = useState(false);
-  const [projectName, setProjectName] = useState('Untitled_1');
+  const [projectName, setProjectName] = useState(() => {
+    const d = new Date();
+    const pad = n => n.toString().padStart(2, '0');
+    return `Untitled_${d.getFullYear()}_${pad(d.getMonth() + 1)}_${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+  });
   const [saveBrowserConfig, setSaveBrowserConfig] = useState({ isOpen: false, initialPath: "." });
   const [masterReferences, setMasterReferences] = useState({});
   const [masterGisServers, setMasterGisServers] = useState([]);
@@ -237,6 +242,13 @@ export default function App() {
 
   // --- AUTO-SAVE ENGINE (Prevents Losing Work!) ---
   useEffect(() => {
+    // Listen for unlink requests from CatalogPane
+    const handleUnlink = (e) => {
+        const { path } = e.detail;
+        setGlobalEnv(prev => ({...prev, external_dirs: (prev.external_dirs || []).filter(p => p !== path)}));
+    };
+    window.addEventListener('magpi-unlink-external', handleUnlink);
+    
     // Load from LocalStorage on initial boot
     const savedNodes = localStorage.getItem('magpi_autosave_nodes');
     const savedCxs = localStorage.getItem('magpi_autosave_cxs');
@@ -264,29 +276,16 @@ export default function App() {
   }, [nodes, connections, globalEnv]);
 
   const handleAoiDrawn = useCallback((aoiData) => {
-    setNodes(prev => {
-        const extentNodes = prev.filter(n => n.toolId === 'core_extent');
-        let targetId = null;
-        if (selectedNodeId && prev.find(n => n.id === selectedNodeId && n.toolId === 'core_extent')) {
-            targetId = selectedNodeId;
-        }
-        
-        if (targetId) {
-            return prev.map(n => n.id === targetId ? {
-                ...n, params: { ...n.params, xmin: aoiData.xmin, ymin: aoiData.ymin, xmax: aoiData.xmax, ymax: aoiData.ymax }
-            } : n);
-        } else {
-            const newNode = { 
-              id: `node_${Date.now()}`, toolId: 'core_extent', name: 'Spatial Extent (AOI)', icon: 'core_extent', 
-              x: 400 + Math.random() * 50, y: 200 + Math.random() * 50, color: 'bg-yellow-600', border: 'border-yellow-500', 
-              params: { xmin: aoiData.xmin, ymin: aoiData.ymin, xmax: aoiData.xmax, ymax: aoiData.ymax } 
-            };
-            setSelectedNodeId(newNode.id);
-            return [...prev, newNode];
-        }
-    });
+    const newId = `node_${Date.now()}`;
+    const newNode = { 
+        id: newId, toolId: 'core_extent', name: 'Spatial Extent (AOI)', icon: 'core_extent', 
+        x: 400 + Math.random() * 50, y: 200 + Math.random() * 50, color: 'bg-yellow-600', border: 'border-yellow-500', 
+        params: { xmin: aoiData.xmin, ymin: aoiData.ymin, xmax: aoiData.xmax, ymax: aoiData.ymax } 
+    };
+    setNodes(prev => [...prev, newNode]);
+    setSelectedNodeId(newId);
     setActiveRightTab('inspector');
-  }, [selectedNodeId]);
+  }, []);
 
   const handleAoiImported = useCallback((bounds, filename) => {
     const newNode = { 
@@ -393,6 +392,8 @@ export default function App() {
             setLogs([{ type: 'error', msg: `Failed to load project: ${e.message}` }]);
             setShowTerminal(true);
         }
+    } else if (browserConfig.nodeId === "env" && browserConfig.paramKey === "external_dirs_append") {
+        setGlobalEnv(prev => ({ ...prev, external_dirs: [...(prev.external_dirs || []), absolutePath] }));
     } else if (browserConfig.nodeId === "env" && browserConfig.paramKey) {
         setGlobalEnv(prev => ({ ...prev, [browserConfig.paramKey]: absolutePath }));
     } else if (browserConfig.nodeId && browserConfig.paramKey) {
@@ -450,17 +451,7 @@ export default function App() {
   };
 
   const handleLoad = () => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.mpjx,.json';
-    input.onchange = (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        loadProject(file, setNodes, setConnections, setCrs, setGlobalEnv, (log) => {
-            setLogs([log]);
-        });
-    };
-    input.click();
+    setBrowserConfig({ isOpen: true, nodeId: "LOAD_PROJECT", initialPath: globalEnv.workspace_dir || "." });
   };
 
   const handleAutoLayout = () => {

@@ -148,7 +148,8 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
             }
             
             if (foundBounds && foundBounds.isValid && foundBounds.isValid()) {
-                mapInstance.current.fitBounds(foundBounds, { animate: true, padding: [150, 150] });
+                const mapPad = [window.innerWidth * 0.25, window.innerHeight * 0.25];
+                mapInstance.current.fitBounds(foundBounds, { animate: true, padding: mapPad });
             }
         };
 
@@ -232,7 +233,8 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                                 if (y1 === y2 && x1 === x2) {
                                     mapInstance.current.setView([y1, x1], 15, { animate: false });
                                 } else {
-                                    mapInstance.current.fitBounds(bounds, { animate: false, padding: [150, 150] }); 
+                                    const mapPad = [window.innerWidth * 0.25, window.innerHeight * 0.25];
+                                    mapInstance.current.fitBounds(bounds, { animate: false, padding: mapPad }); 
                                 }
                                 lastZoomedNode.current = layer.id;
                             } catch (e) {}
@@ -253,7 +255,8 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                         
                         if (layer.selected && !layer.extent && activeWorkspace !== 'globe' && lastZoomedNode.current !== layer.id) {
                             try { 
-                                mapInstance.current.fitBounds(cached.bounds, { animate: false, padding: [150, 150] }); 
+                                const mapPad = [window.innerWidth * 0.25, window.innerHeight * 0.25];
+                                mapInstance.current.fitBounds(cached.bounds, { animate: false, padding: mapPad }); 
                                 lastZoomedNode.current = layer.id;
                             } catch (e) {}
                         }
@@ -290,7 +293,8 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                                     if (bounds.getNorth() === bounds.getSouth() && bounds.getEast() === bounds.getWest()) {
                                         mapInstance.current.setView(bounds.getCenter(), 15, { animate: false });
                                     } else {
-                                        mapInstance.current.fitBounds(bounds, { animate: false, padding: [150, 150] }); 
+                                        const mapPad = [window.innerWidth * 0.25, window.innerHeight * 0.25];
+                                        mapInstance.current.fitBounds(bounds, { animate: false, padding: mapPad }); 
                                     }
                                 }
                                 lastZoomedNode.current = layer.id;

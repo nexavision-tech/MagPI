@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useReactFlow } from '@xyflow/react';
-import { Folder, Database, File, ChevronRight, ChevronDown, RefreshCw, Box, Map, Image as ImageIcon, Layers, Eye, EyeOff, Network, Target, FolderOpen, Search, Trash2, FolderPlus, MinusCircle } from 'lucide-react';
+import { Folder, Database, File, ChevronRight, ChevronDown, RefreshCw, Box, Map, Image as ImageIcon, Layers, Eye, EyeOff, Network, Target, FolderOpen, Search, Trash2, FolderPlus, MinusCircle, Link } from 'lucide-react';
 import { TOOLBOX_CATEGORIES } from './Toolbox';
 
-const FileNode = ({ node, level }) => {
+const FileNode = ({ node, level, globalEnv }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [layers, setLayers] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -94,7 +94,21 @@ const FileNode = ({ node, level }) => {
             {node.type}
           </span>
         )}
-        {node.path !== '/home/gda/MagPI/magpi_workspace' && (
+        {globalEnv?.external_dirs?.includes(node.path) && (
+          <button 
+              className="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-purple-400 ml-2 transition-opacity z-10"
+              onClick={(e) => {
+                  e.stopPropagation();
+                  if (window.confirm(`Are you sure you want to unlink ${node.name} from the catalog? This will not delete the folder from disk.`)) {
+                      window.dispatchEvent(new CustomEvent('magpi-unlink-external', { detail: { path: node.path } }));
+                  }
+              }}
+              title="Unlink Folder from Catalog"
+          >
+              <Link size={12} />
+          </button>
+        )}
+        {node.path !== '/home/gda/MagPI/magpi_workspace' && !globalEnv?.external_dirs?.includes(node.path) && (
           <button 
               className="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-red-500 ml-2 transition-opacity z-10"
               onClick={(e) => {
@@ -113,7 +127,7 @@ const FileNode = ({ node, level }) => {
       {isOpen && node.children && (
         <div>
           {node.children.map((child, i) => (
-            <FileNode key={i} node={child} level={level + 1} />
+            <FileNode key={i} node={child} level={level + 1} globalEnv={globalEnv} />
           ))}
         </div>
       )}
@@ -157,6 +171,9 @@ export default function CatalogPane({ mapLayers = [], setMapLayers, activeWorksp
       const qs = new URLSearchParams();
       if (globalEnv?.workspace_dir) qs.append('workspace', globalEnv.workspace_dir);
       if (globalEnv?.output_dir) qs.append('output', globalEnv.output_dir);
+      if (globalEnv?.external_dirs) {
+          globalEnv.external_dirs.forEach(dir => qs.append('external', dir));
+      }
       const res = await fetch(`http://${window.location.hostname}:8282/api/list_files?${qs.toString()}`);
       const data = await res.json();
       if (data.status === 'success') {
@@ -215,9 +232,16 @@ export default function CatalogPane({ mapLayers = [], setMapLayers, activeWorksp
                     }
                 }}
                 className="p-1 hover:bg-slate-700 rounded transition-colors text-slate-400 hover:text-blue-400" 
-                title="New Folder"
+                title="New Folder in Workspace"
             >
               <FolderPlus size={12} />
+            </button>
+            <button 
+                onClick={() => openFileBrowser('env', 'external_dirs_append', null)} 
+                className="p-1 hover:bg-slate-700 rounded transition-colors text-slate-400 hover:text-purple-400" 
+                title="Link External Folder to Catalog"
+            >
+              <Link size={12} />
             </button>
             <button onClick={fetchCatalog} className="p-1 hover:bg-slate-700 rounded transition-colors text-slate-400 hover:text-emerald-400" title="Refresh Catalog">
               <RefreshCw size={12} className={isLoading ? "animate-spin" : ""} />
@@ -231,7 +255,7 @@ export default function CatalogPane({ mapLayers = [], setMapLayers, activeWorksp
         
         <div className="flex-1 overflow-y-auto p-1 custom-scrollbar">
           {catalog.map((node, i) => (
-            <FileNode key={i} node={{...node, autoExpand: node.name === 'magpi_workspace'}} level={0} />
+            <FileNode key={i} node={{...node, autoExpand: node.name === 'magpi_workspace'}} level={0} globalEnv={globalEnv} />
           ))}
         </div>
       </div>
@@ -309,7 +333,11 @@ export default function CatalogPane({ mapLayers = [], setMapLayers, activeWorksp
                           <button
                               onClick={() => {
                                   if (setNodes) {
-                                      setNodes(prev => prev.filter(n => n.id !== layer.id));
+                                      if (window.confirm("Do you want to permanently remove this dataset from the Model Builder pipeline?\n\n(Click 'Cancel' to just hide it from the map view instead)")) {
+                                          setNodes(prev => prev.filter(n => n.id !== layer.id));
+                                      } else {
+                                          setNodes(prev => prev.map(n => n.id === layer.id ? { ...n, params: { ...n.params, export_to_map: false } } : n));
+                                      }
                                   }
                               }}
                               className="text-slate-400 hover:text-orange-400"

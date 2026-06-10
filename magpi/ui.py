@@ -963,6 +963,7 @@ def LaunchCanvas(port=8282):
                 workspace_path = params.get('workspace', [os.path.join(os.getcwd(), 'magpi_workspace')])[0]
                 output_path = params.get('output', [os.path.join(os.getcwd(), 'magpi_output')])[0]
                 test_data_path = os.path.join(os.getcwd(), 'test_data')
+                external_paths = params.get('external', [])
                 
                 catalog = []
                 if os.path.exists(workspace_path):
@@ -971,6 +972,10 @@ def LaunchCanvas(port=8282):
                     catalog.append({"name": os.path.basename(output_path), "path": output_path, "type": "folder", "is_dir": True, "children": build_tree(output_path)})
                 if os.path.exists(test_data_path):
                     catalog.append({"name": "test_data", "path": test_data_path, "type": "folder", "is_dir": True, "children": build_tree(test_data_path)})
+                
+                for ext_path in external_paths:
+                    if os.path.exists(ext_path):
+                        catalog.append({"name": os.path.basename(ext_path), "path": ext_path, "type": "folder", "is_dir": True, "children": build_tree(ext_path)})
 
                 self.send_response(200)
                 self.send_header('Content-type', 'application/json')

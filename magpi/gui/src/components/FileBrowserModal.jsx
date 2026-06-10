@@ -38,9 +38,10 @@ export default function FileBrowserModal({ isOpen, onClose, onSelect, initialPat
 
   useEffect(() => {
     if (isOpen) {
-      fetchDirectory(currentPath);
+      setCurrentPath(initialPath || ".");
+      fetchDirectory(initialPath || ".");
     }
-  }, [isOpen, currentPath]);
+  }, [isOpen, initialPath]);
 
   if (!isOpen) return null;
 
