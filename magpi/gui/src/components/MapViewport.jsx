@@ -330,14 +330,23 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
 
     const handleDrop = (e) => {
         e.preventDefault();
-        const dataStr = e.dataTransfer.getData('application/reactflow');
-        if (dataStr) {
-            try {
-                const data = JSON.parse(dataStr);
-                window.dispatchEvent(new CustomEvent('magpi-map-drop', { detail: data }));
-            } catch (err) {
-                console.error("Failed to parse dropped file data", err);
+        let data = null;
+        if (window.__draggedMagPITool) {
+            data = window.__draggedMagPITool;
+            window.__draggedMagPITool = null;
+        } else {
+            const dataStr = e.dataTransfer.getData('application/reactflow');
+            if (dataStr) {
+                try {
+                    data = JSON.parse(dataStr);
+                } catch (err) {
+                    console.error("Failed to parse dropped file data", err);
+                }
             }
+        }
+        
+        if (data) {
+            window.dispatchEvent(new CustomEvent('magpi-map-drop', { detail: data }));
         }
     };
 

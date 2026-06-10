@@ -161,6 +161,10 @@ def LaunchCanvas(port=8282):
                 self.handle_list_layers(parsed_path.query)
             elif parsed_path.path == '/api/vector_data':
                 self.handle_vector_data(parsed_path.query)
+            elif parsed_path.path == '/api/create_folder':
+                self.handle_create_folder(parsed_path.query)
+            elif parsed_path.path == '/api/delete_file':
+                self.handle_delete_file(parsed_path.query)
             else:
                 super().do_GET()
 
@@ -976,6 +980,53 @@ def LaunchCanvas(port=8282):
                 self.end_headers()
                 self.wfile.write(json.dumps({"error": str(e)}).encode('utf-8'))
 
+        def handle_create_folder(self, query):
+            try:
+                from urllib.parse import parse_qs, unquote
+                params = parse_qs(query)
+                workspace = params.get('workspace', [''])[0]
+                name = params.get('name', [''])[0]
+                if not workspace or not name:
+                    raise ValueError("Missing workspace or folder name")
+                
+                new_path = os.path.join(workspace, name)
+                os.makedirs(new_path, exist_ok=True)
+                
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"status": "success", "path": new_path}).encode('utf-8'))
+            except Exception as e:
+                logger.error(f"Create Folder API failed: {e}")
+                self.send_response(500)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": str(e)}).encode('utf-8'))
+
+        def handle_delete_file(self, query):
+            try:
+                from urllib.parse import parse_qs, unquote
+                import shutil
+                params = parse_qs(query)
+                path = params.get('path', [''])[0]
+                if not path or not os.path.exists(path):
+                    raise ValueError("Invalid path")
+                
+                if os.path.isdir(path):
+                    shutil.rmtree(path)
+                else:
+                    os.remove(path)
+                    
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"status": "success"}).encode('utf-8'))
+            except Exception as e:
+                logger.error(f"Delete File API failed: {e}")
+                self.send_response(500)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": str(e)}).encode('utf-8'))
         def handle_databases(self):
             try:
                 import fiona

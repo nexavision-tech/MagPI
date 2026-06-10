@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useReactFlow } from '@xyflow/react';
-import { Folder, Database, File, ChevronRight, ChevronDown, RefreshCw, Box, Map, Image as ImageIcon, Layers, Eye, EyeOff, Network, Target, FolderOpen, Search, Trash2 } from 'lucide-react';
+import { Folder, Database, File, ChevronRight, ChevronDown, RefreshCw, Box, Map, Image as ImageIcon, Layers, Eye, EyeOff, Network, Target, FolderOpen, Search, Trash2, FolderPlus } from 'lucide-react';
 import { TOOLBOX_CATEGORIES } from './Toolbox';
 
 const FileNode = ({ node, level }) => {
@@ -10,6 +10,12 @@ const FileNode = ({ node, level }) => {
 
   const isGdb = node.type === 'gdb' || node.type === 'gpkg';
   const isExpandable = node.is_dir || isGdb;
+
+  useEffect(() => {
+      if (node.autoExpand && !isOpen) {
+          setIsOpen(true);
+      }
+  }, [node.autoExpand]);
 
   const handleToggle = async () => {
     setIsOpen(!isOpen);
@@ -88,6 +94,20 @@ const FileNode = ({ node, level }) => {
             {node.type}
           </span>
         )}
+        {node.path !== '/home/gda/MagPI/magpi_workspace' && (
+          <button 
+              className="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-red-400 ml-2 transition-opacity z-10"
+              onClick={(e) => {
+                  e.stopPropagation();
+                  if (window.confirm(`Are you sure you want to permanently delete ${node.name} from the server? This action cannot be undone.`)) {
+                      window.dispatchEvent(new CustomEvent('magpi-delete-file', { detail: { path: node.path } }));
+                  }
+              }}
+              title="Delete File/Folder from Server"
+          >
+              <Trash2 size={12} />
+          </button>
+        )}
       </div>
 
       {isOpen && node.children && (
@@ -153,6 +173,20 @@ export default function CatalogPane({ mapLayers = [], setMapLayers, activeWorksp
     fetchCatalog();
   }, [globalEnv?.workspace_dir]);
 
+  useEffect(() => {
+    const handleDelete = async (e) => {
+        const { path } = e.detail;
+        try {
+            await fetch(`http://${window.location.hostname}:8282/api/delete_file?path=${encodeURIComponent(path)}`);
+            fetchCatalog();
+        } catch (err) {
+            console.error("Failed to delete file", err);
+        }
+    };
+    window.addEventListener('magpi-delete-file', handleDelete);
+    return () => window.removeEventListener('magpi-delete-file', handleDelete);
+  }, []);
+
   return (
     <div className="w-72 border-r border-slate-800 flex flex-col bg-slate-900 h-full shrink-0 relative z-20 shadow-[2px_0_10px_rgba(0,0,0,0.5)]">
       {/* Top Half: Browser */}
@@ -166,6 +200,23 @@ export default function CatalogPane({ mapLayers = [], setMapLayers, activeWorksp
             <button onClick={() => openFileBrowser('env', 'workspace', null)} className="p-1 hover:bg-slate-700 rounded transition-colors text-slate-400 hover:text-emerald-400" title="Change Workspace Directory">
               <FolderOpen size={12} />
             </button>
+            <button 
+                onClick={async () => {
+                    const name = window.prompt("Enter new folder name:");
+                    if (name) {
+                        try {
+                            await fetch(`http://${window.location.hostname}:8282/api/create_folder?workspace=${encodeURIComponent(globalEnv?.workspace_dir || '')}&name=${encodeURIComponent(name)}`);
+                            fetchCatalog();
+                        } catch (err) {
+                            console.error("Failed to create folder", err);
+                        }
+                    }
+                }}
+                className="p-1 hover:bg-slate-700 rounded transition-colors text-slate-400 hover:text-blue-400" 
+                title="New Folder"
+            >
+              <FolderPlus size={12} />
+            </button>
             <button onClick={fetchCatalog} className="p-1 hover:bg-slate-700 rounded transition-colors text-slate-400 hover:text-emerald-400" title="Refresh Catalog">
               <RefreshCw size={12} className={isLoading ? "animate-spin" : ""} />
             </button>
@@ -178,7 +229,7 @@ export default function CatalogPane({ mapLayers = [], setMapLayers, activeWorksp
         
         <div className="flex-1 overflow-y-auto p-1 custom-scrollbar">
           {catalog.map((node, i) => (
-            <FileNode key={i} node={node} level={0} />
+            <FileNode key={i} node={{...node, autoExpand: node.name === 'magpi_workspace'}} level={0} />
           ))}
         </div>
       </div>
