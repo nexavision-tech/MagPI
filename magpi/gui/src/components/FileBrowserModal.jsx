@@ -19,7 +19,7 @@ export default function FileBrowserModal({ isOpen, onClose, onSelect, initialPat
     try {
       const response = await fetch(`${API_URL}?dir=${encodeURIComponent(targetDir)}`);
       if (!response.ok) {
-        throw new Error("Failed to connect to MagPI Daemon on port 8282.");
+        throw new Error(`Failed to connect to MagPI Daemon on port ${window.MAGPI_PORT || '8282'}.`);
       }
       const data = await response.json();
       

@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useReactFlow } from '@xyflow/react';
-import { Folder, Database, File, ChevronRight, ChevronDown, RefreshCw, Box, Map, Image as ImageIcon, Layers, Eye, EyeOff, Network, Target, FolderOpen, Search, Trash2, FolderPlus, MinusCircle, Link } from 'lucide-react';
+import { Folder, Database, File, ChevronRight, ChevronDown, RefreshCw, Box, Map, Image as ImageIcon, Layers, Eye, EyeOff, Network, Target, FolderOpen, Search, Trash2, FolderPlus, MinusCircle, Link, Copy, Check } from 'lucide-react';
 import { TOOLBOX_CATEGORIES } from './Toolbox';
 
-const FileNode = ({ node, level, globalEnv }) => {
+const FileNode = ({ node, level, globalEnv, copiedPath, setCopiedPath }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [layers, setLayers] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -89,6 +89,20 @@ const FileNode = ({ node, level, globalEnv }) => {
         )}
         {renderIcon()}
         <span className="break-all flex-1 pr-2" title={node.name}>{node.name}</span>
+        
+        <button 
+          onClick={(e) => {
+              e.stopPropagation();
+              navigator.clipboard.writeText(node.path);
+              setCopiedPath(node.path);
+              setTimeout(() => setCopiedPath(null), 2000);
+          }}
+          className="opacity-0 group-hover:opacity-100 hover:text-emerald-400 text-slate-500 transition-opacity p-0.5 ml-1 shrink-0"
+          title="Copy Absolute Path"
+        >
+          {copiedPath === node.path ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
+        </button>
+
         {node.type && node.type !== 'folder' && (
           <span className="opacity-0 group-hover:opacity-100 text-[9px] bg-slate-800 px-1 rounded text-slate-500 uppercase ml-2 transition-opacity">
             {node.type}
@@ -127,7 +141,7 @@ const FileNode = ({ node, level, globalEnv }) => {
       {isOpen && node.children && (
         <div>
           {node.children.map((child, i) => (
-            <FileNode key={i} node={child} level={level + 1} globalEnv={globalEnv} />
+            <FileNode key={i} node={child} level={level + 1} globalEnv={globalEnv} copiedPath={copiedPath} setCopiedPath={setCopiedPath} />
           ))}
         </div>
       )}
@@ -158,6 +172,7 @@ export default function CatalogPane({ mapLayers = [], setMapLayers, activeWorksp
   const [catalog, setCatalog] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [expandedLayers, setExpandedLayers] = useState({});
+  const [copiedPath, setCopiedPath] = useState(null);
   const reactFlow = useReactFlow();
 
   const handleNodeClick = (node) => {

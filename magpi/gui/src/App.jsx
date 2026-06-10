@@ -37,6 +37,18 @@ export default function App() {
   
   const [activeRightTab, setActiveRightTab] = useState('toolbox');
   const [selectedNodeId, setSelectedNodeId] = useState(null);
+  const [selectedFeature, setSelectedFeature] = useState(null);
+
+  useEffect(() => {
+     const handleSelect = (e) => {
+         setSelectedFeature(e.detail);
+         if (e.detail) {
+             setActiveRightTab('identify');
+         }
+     };
+     window.addEventListener('magpi-feature-selected', handleSelect);
+     return () => window.removeEventListener('magpi-feature-selected', handleSelect);
+  }, []);
 
   const [showScript, setShowScript] = useState(false);
   const [generatedCode, setGeneratedCode] = useState("");
@@ -729,7 +741,7 @@ export default function App() {
             <NodeCanvas nodes={nodes} setNodes={setNodes} connections={connections} setConnections={setConnections} selectedNodeId={selectedNodeId} setSelectedNodeId={setSelectedNodeId} setActiveRightTab={setActiveRightTab} nodeStatuses={nodeStatuses} removeConnection={removeConnection} addNode={addNode} />
         </div>
         <div className={`relative ${['globe', 'planar'].includes(activeWorkspace) ? 'flex-1 w-full min-w-0' : 'hidden'} flex-col shadow-[-10px_0_20px_rgba(0,0,0,0.3)] z-10 border-l border-r border-slate-800`}>
-            <MapViewport onAoiDrawn={handleAoiDrawn} onAoiImported={handleAoiImported} selectedNode={nodes.find(n => n.id === selectedNodeId)} activeWorkspace={activeWorkspace} nodes={nodes} nodeStatuses={nodeStatuses} connections={connections} globalEnv={globalEnv} mapLayers={mapLayers} autoZoom={autoZoom} />
+            <MapViewport onAoiDrawn={handleAoiDrawn} onAoiImported={handleAoiImported} selectedNode={nodes.find(n => n.id === selectedNodeId)} activeWorkspace={activeWorkspace} nodes={nodes} nodeStatuses={nodeStatuses} connections={connections} globalEnv={globalEnv} mapLayers={mapLayers} autoZoom={autoZoom} selectedFeature={selectedFeature} setSelectedFeature={setSelectedFeature} />
         </div>
         <div className={`w-[320px] shrink-0 relative ${['builder', 'planar'].includes(activeWorkspace) ? 'flex' : 'hidden'} flex-col z-20`}>
             <Toolbox 
@@ -747,6 +759,8 @@ export default function App() {
             nodes={nodes}
             masterReferences={masterReferences}
             masterGisServers={masterGisServers}
+            selectedFeature={selectedFeature}
+            setSelectedFeature={setSelectedFeature}
           />
         </div>
         

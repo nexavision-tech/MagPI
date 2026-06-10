@@ -26,16 +26,16 @@ const getAncestralExtent = (nodeId, nodes, connections) => {
     return null;
 };
 
-const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activeWorkspace, nodes = [], nodeStatuses = {}, connections = [], globalEnv, mapLayers = [], autoZoom }) => {
+const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activeWorkspace, nodes = [], nodeStatuses = {}, connections = [], globalEnv, mapLayers = [], autoZoom, selectedFeature, setSelectedFeature }) => {
     const mapRef = useRef(null);
     const mapInstance = useRef(null); 
     const highlightGroup = useRef(null);
     const osmLayerRef = useRef(null);
     const cesiumRef = useRef(null);
     const osmImageryProvider = React.useMemo(() => new OpenStreetMapImageryProvider({ url: 'https://a.tile.openstreetmap.org/' }), []);
-    const [selectedFeature, setSelectedFeature] = React.useState(null);
     const [loadedData, setLoadedData] = React.useState({}); // Cache for raster/geojson data
     const lastZoomedNode = useRef(null);
+    const activeFeatureLayer = useRef(null);
 
     useEffect(() => {
         if (!mapRef.current) return;
@@ -122,7 +122,20 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
     
     // Custom Event Listeners
     useEffect(() => {
-        const handleFeatureSelect = (e) => setSelectedFeature(e.detail);
+        const handleFeatureSelect = (e) => {
+            if (!e.detail && activeFeatureLayer.current) {
+                // If deselected, reset color
+                if (activeFeatureLayer.current.layer && activeFeatureLayer.current.layer.setStyle) {
+                    activeFeatureLayer.current.layer.setStyle({ 
+                        color: activeFeatureLayer.current.originalColor, 
+                        weight: 1.5, 
+                        fillOpacity: activeFeatureLayer.current.originalOpacity 
+                    });
+                }
+                activeFeatureLayer.current = null;
+            }
+            setSelectedFeature && setSelectedFeature(e.detail);
+        };
         const handleDrawAoi = () => activateDrawTool();
         const handleZoomLayer = (e) => {
             if (!mapInstance.current) return;
@@ -272,6 +285,24 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                             onEachFeature: (feature, featureLayer) => {
                                 featureLayer.on('click', (e) => {
                                     L.DomEvent.stopPropagation(e);
+                                    
+                                    // Reset previous
+                                    if (activeFeatureLayer.current && activeFeatureLayer.current.layer) {
+                                        activeFeatureLayer.current.layer.setStyle({ 
+                                            color: activeFeatureLayer.current.originalColor, 
+                                            weight: 1.5, 
+                                            fillOpacity: activeFeatureLayer.current.originalOpacity 
+                                        });
+                                    }
+                                    
+                                    // Highlight new
+                                    e.target.setStyle({ color: '#00ffff', weight: 4, fillOpacity: 0.3 });
+                                    activeFeatureLayer.current = {
+                                        layer: e.target,
+                                        originalColor: layer.vectorColor,
+                                        originalOpacity: layer.opacity / 100
+                                    };
+
                                     window.dispatchEvent(new CustomEvent('magpi-feature-selected', { detail: { feature: feature, layerName: layer.name } }));
                                 });
                             }
@@ -311,43 +342,16 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
     };
 
     useEffect(() => {
-        if (!mapInstance.current) return;
-        const container = mapInstance.current.getContainer();
-        
-        const handleDragOver = (e) => {
-            e.preventDefault();
-            e.dataTransfer.dropEffect = 'copy';
-        };
-
-        const handleDrop = (e) => {
-            e.preventDefault();
-            let data = null;
-            if (window.__draggedMagPITool) {
-                data = window.__draggedMagPITool;
-                window.__draggedMagPITool = null;
-            } else {
-                const dataStr = e.dataTransfer.getData('application/reactflow');
-                if (dataStr) {
-                    try {
-                        data = JSON.parse(dataStr);
-                    } catch (err) {
-                        console.error("Failed to parse dropped file data", err);
-                    }
-                }
-            }
-            
-            if (data) {
-                window.dispatchEvent(new CustomEvent('magpi-map-drop', { detail: data }));
-            }
-        };
-
-        container.addEventListener('dragover', handleDragOver);
-        container.addEventListener('drop', handleDrop);
-        
-        return () => {
-            container.removeEventListener('dragover', handleDragOver);
-            container.removeEventListener('drop', handleDrop);
-        };
+        // Handle resizing when activeWorkspace changes
+        if (activeWorkspace === 'globe' && cesiumRef.current && cesiumRef.current.cesiumElement) {
+            setTimeout(() => {
+                cesiumRef.current.cesiumElement.resize();
+            }, 100);
+        } else if (activeWorkspace !== 'globe' && mapInstance.current) {
+            setTimeout(() => {
+                mapInstance.current.invalidateSize(true);
+            }, 100);
+        }
     }, [activeWorkspace]);
 
     return (
@@ -356,7 +360,31 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
             <div className="flex-1 relative overflow-hidden z-0 leaflet-dark-mode-container flex">
                 
                 {/* Maps Container (Flex-1) */}
-                <div className="flex-1 relative overflow-hidden">
+                <div 
+                    className="flex-1 relative overflow-hidden"
+                    onDragOverCapture={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        e.dataTransfer.dropEffect = 'copy';
+                    }}
+                    onDropCapture={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        let data = null;
+                        if (window.__draggedMagPITool) {
+                            data = window.__draggedMagPITool;
+                            window.__draggedMagPITool = null;
+                        } else {
+                            const dataStr = e.dataTransfer.getData('application/reactflow');
+                            if (dataStr) {
+                                try { data = JSON.parse(dataStr); } catch (err) {}
+                            }
+                        }
+                        if (data) {
+                            window.dispatchEvent(new CustomEvent('magpi-map-drop', { detail: data }));
+                        }
+                    }}
+                >
                     {/* Cesium Globe (Hidden when not in globe mode) */}
                     <div 
                         className="absolute inset-0 w-full h-full bg-[#111827]" 
@@ -427,45 +455,6 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
             </div>
 
             {/* Attribute Table Panel */}
-            {selectedFeature && (
-                <div className="h-48 bg-slate-900 border-t border-slate-700 shrink-0 flex flex-col z-20 animate-fadeIn">
-                    <div className="flex items-center justify-between px-4 py-2 bg-slate-800 border-b border-slate-700">
-                        <span className="text-xs font-bold text-slate-300 uppercase tracking-widest flex items-center">
-                            <Layers size={14} className="mr-2 text-indigo-400" /> 
-                            Attributes: {selectedFeature.layerName}
-                        </span>
-                        <button 
-                            onClick={() => setSelectedFeature(null)}
-                            className="p-1 hover:bg-slate-700 rounded text-slate-400 hover:text-white"
-                        >
-                            <XCircle size={14} />
-                        </button>
-                    </div>
-                    <div className="flex-1 overflow-auto p-0">
-                        <table className="w-full text-left border-collapse">
-                            <thead className="bg-slate-950 sticky top-0 shadow">
-                                <tr>
-                                    <th className="px-4 py-2 text-[10px] font-bold text-slate-400 uppercase border-b border-slate-700">Field</th>
-                                    <th className="px-4 py-2 text-[10px] font-bold text-slate-400 uppercase border-b border-slate-700">Value</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {Object.entries(selectedFeature.feature.properties || {}).map(([key, value], idx) => (
-                                    <tr key={idx} className="hover:bg-slate-800/50 border-b border-slate-800/50 transition-colors">
-                                        <td className="px-4 py-2 text-xs font-mono text-emerald-400">{key}</td>
-                                        <td className="px-4 py-2 text-xs text-slate-300">{value?.toString() || 'null'}</td>
-                                    </tr>
-                                ))}
-                                {(!selectedFeature.feature.properties || Object.keys(selectedFeature.feature.properties).length === 0) && (
-                                    <tr>
-                                        <td colSpan="2" className="px-4 py-8 text-center text-xs text-slate-500 italic">No attributes found for this feature.</td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            )}
 
             {/* Footer Text (Only show if in compact Builder mode to save space in Globe mode) */}
             {activeWorkspace === 'builder' && (

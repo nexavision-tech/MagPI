@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Database, Folder, Table2, Play, Terminal, TerminalSquare, AlertCircle, RefreshCw, Plus, X, Server } from 'lucide-react';
+import { Database, Folder, Table2, Play, Terminal, TerminalSquare, AlertCircle, RefreshCw, Plus, X, Server, MapPin } from 'lucide-react';
 
 export default function DataStudio() {
   const [databases, setDatabases] = useState([]);
@@ -226,14 +226,24 @@ export default function DataStudio() {
               <table className="w-full text-left border-collapse text-xs">
                 <thead className="bg-[#2d2d2d] sticky top-0 shadow-md">
                   <tr>
+                    <th className="p-2 border-b border-[#444] border-r border-[#444] text-slate-300 font-semibold whitespace-nowrap w-10 text-center">Action</th>
                     {columns.map((col, idx) => (
-                      <th key={idx} className="p-2 border-b border-[#444] border-r text-slate-300 font-semibold whitespace-nowrap">{col}</th>
+                      <th key={idx} className="p-2 border-b border-[#444] border-r border-[#444] text-slate-300 font-semibold whitespace-nowrap">{col}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {queryResults.map((row, r_idx) => (
-                    <tr key={r_idx} className="border-b border-[#333] hover:bg-[#2a2d2e] transition-colors">
+                    <tr key={r_idx} className="border-b border-[#333] hover:bg-[#2a2d2e] transition-colors group">
+                      <td className="p-2 border-r border-[#333] text-center w-10">
+                         <button 
+                            onClick={() => alert("Zooming to raw SQL geometry rows will be fully supported in the upcoming GeoPandas integration update!")}
+                            className="p-1 rounded bg-slate-800 text-slate-400 hover:text-emerald-400 hover:bg-slate-700 opacity-50 group-hover:opacity-100 transition-all"
+                            title="Zoom to Row Geometry"
+                         >
+                            <MapPin size={12} />
+                         </button>
+                      </td>
                       {columns.map((col, c_idx) => (
                         <td key={c_idx} className="p-2 border-r border-[#333] text-slate-400 max-w-xs truncate" title={String(row[col])}>
                           {String(row[col])}

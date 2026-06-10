@@ -657,7 +657,8 @@ export const TOOLBOX_CATEGORIES = [
 export default function Toolbox({
   activeRightTab, setActiveRightTab,
   selectedNode, updateNodeParam, updateNodeName, deleteNode, addNode, duplicateNode,
-  openFileBrowser, nodes, connections, handleRunUpToNode, masterReferences, masterGisServers
+  openFileBrowser, nodes, connections, handleRunUpToNode, masterReferences, masterGisServers,
+  selectedFeature, setSelectedFeature
 }) {
   const [expandedCategories, setExpandedCategories] = useState({});
   const [searchQuery, setSearchQuery] = useState('');
@@ -832,7 +833,7 @@ export default function Toolbox({
       <div className="flex bg-slate-900 border-b border-slate-700">
         <button onClick={() => setActiveRightTab('toolbox')} className={`flex-1 py-4 text-[10px] font-bold uppercase tracking-widest transition-all flex items-center justify-center ${activeRightTab === 'toolbox' ? 'text-emerald-400 border-b-2 border-emerald-400 bg-slate-800' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/50'}`}><Wrench size={12} className="mr-1" /> Tools</button>
         <button onClick={() => setActiveRightTab('inspector')} className={`flex-1 py-4 text-[10px] font-bold uppercase tracking-widest transition-all flex items-center justify-center ${activeRightTab === 'inspector' ? 'text-emerald-400 border-b-2 border-emerald-400 bg-slate-800' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/50'}`}><SlidersHorizontal size={12} className="mr-1" /> Params</button>
-        <button onClick={() => setActiveRightTab('explorer')} className={`flex-1 py-4 text-[10px] font-bold uppercase tracking-widest transition-all flex items-center justify-center ${activeRightTab === 'explorer' ? 'text-emerald-400 border-b-2 border-emerald-400 bg-slate-800' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/50'}`}><FolderOpen size={12} className="mr-1" /> Explorer</button>
+        <button onClick={() => setActiveRightTab('identify')} className={`flex-1 py-4 text-[10px] font-bold uppercase tracking-widest transition-all flex items-center justify-center ${activeRightTab === 'identify' ? 'text-emerald-400 border-b-2 border-emerald-400 bg-slate-800' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/50'}`}><Info size={12} className="mr-1" /> Identify</button>
       </div>
 
       <div className="flex-1 overflow-y-auto bg-slate-800 flex flex-col">
@@ -1070,15 +1071,58 @@ export default function Toolbox({
           </div>
         )}
 
-        {activeRightTab === 'explorer' && (
-          <div className="p-4 flex flex-col items-center h-full text-slate-500 w-full">
-            <div className="flex-1 w-full flex items-center justify-center min-h-[200px] mb-4">
-               <MiniMap />
-            </div>
-            <p className="text-sm font-bold text-slate-400 mb-2">Native OS Explorer</p>
-            <p className="text-xs text-center">
-              All processed WFS and Tensor Brew layers sync to the Live Viewport's Active Layers!
-            </p>
+        {activeRightTab === 'identify' && (
+          <div className="p-0 flex flex-col h-full bg-slate-900 w-full animate-fadeIn">
+            {selectedFeature ? (
+              <>
+                <div className="flex items-center justify-between px-4 py-3 bg-slate-800 border-b border-slate-700 shrink-0">
+                    <span className="text-xs font-bold text-slate-300 uppercase tracking-widest flex items-center">
+                        <Layers size={14} className="mr-2 text-indigo-400" /> 
+                        {selectedFeature.layerName}
+                    </span>
+                    <button 
+                        onClick={() => { setSelectedFeature(null); setActiveRightTab('toolbox'); }}
+                        className="p-1 hover:bg-slate-700 rounded text-slate-400 hover:text-white transition-colors"
+                        title="Clear Selection"
+                    >
+                        <Trash2 size={14} />
+                    </button>
+                </div>
+                <div className="flex-1 overflow-auto p-0">
+                    <table className="w-full text-left border-collapse">
+                        <thead className="bg-slate-950/80 sticky top-0 shadow backdrop-blur-sm z-10">
+                            <tr>
+                                <th className="px-4 py-2 text-[10px] font-bold text-slate-400 uppercase border-b border-slate-700">Field</th>
+                                <th className="px-4 py-2 text-[10px] font-bold text-slate-400 uppercase border-b border-slate-700">Value</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {Object.entries(selectedFeature.feature.properties || {}).map(([key, value], idx) => (
+                                <tr key={idx} className="hover:bg-slate-800/50 border-b border-slate-800/50 transition-colors group">
+                                    <td className="px-4 py-3 text-xs font-mono text-cyan-400 align-top group-hover:text-cyan-300">{key}</td>
+                                    <td className="px-4 py-3 text-xs text-slate-300 break-words">{value?.toString() || 'null'}</td>
+                                </tr>
+                            ))}
+                            {(!selectedFeature.feature.properties || Object.keys(selectedFeature.feature.properties).length === 0) && (
+                                <tr>
+                                    <td colSpan="2" className="px-4 py-8 text-center text-xs text-slate-500 italic">No attributes found for this feature.</td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+              </>
+            ) : (
+              <div className="flex-1 flex flex-col items-center justify-center p-6 text-center text-slate-500">
+                <div className="w-16 h-16 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center mb-4 shadow-inner">
+                  <MousePointer2 size={24} className="opacity-50 text-cyan-400" />
+                </div>
+                <p className="text-sm font-bold text-slate-400 mb-2">Identify Feature</p>
+                <p className="text-xs">
+                  Click on any vector feature in the Live Viewport to inspect its attributes here.
+                </p>
+              </div>
+            )}
           </div>
         )}
       </div>
