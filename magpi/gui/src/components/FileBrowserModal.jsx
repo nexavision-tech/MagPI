@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { X, Folder, File as FileIcon, ArrowLeft, Home, HardDrive, AlertTriangle, Loader2, CheckSquare } from 'lucide-react';
+import { X, Folder, File as FileIcon, ArrowLeft, Home, HardDrive, AlertTriangle, Loader2, CheckSquare, Save } from 'lucide-react';
 
-export default function FileBrowserModal({ isOpen, onClose, onSelect, initialPath }) {
+export default function FileBrowserModal({ isOpen, onClose, onSelect, initialPath, isSaveMode = false, defaultSaveName = "Untitled_1" }) {
   const [currentPath, setCurrentPath] = useState(initialPath || ".");
   const [parentPath, setParentPath] = useState("");
   const [folders, setFolders] = useState([]);
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [saveName, setSaveName] = useState(defaultSaveName);
 
   // The API bridge to the local Python Daemon (Default port 8282)
   const API_URL = `http://${window.location.hostname}:8282/api/browse`;
@@ -77,17 +78,38 @@ export default function FileBrowserModal({ isOpen, onClose, onSelect, initialPat
                 {currentPath}
             </div>
             
-            {/* BUTTON: Select current folder for output parameters */}
-            <button 
-                onClick={() => {
-                    onSelect(currentPath);
-                    onClose();
-                }}
-                className="ml-2 bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded text-xs font-bold flex items-center shadow-md transition-colors shrink-0"
-                title="Use this folder as output destination"
-            >
-                <CheckSquare size={14} className="mr-2" /> Select this Folder
-            </button>
+            {isSaveMode ? (
+                <div className="flex items-center ml-2 bg-slate-800 border border-slate-600 rounded">
+                    <input 
+                        type="text" 
+                        value={saveName} 
+                        onChange={(e) => setSaveName(e.target.value)}
+                        className="bg-transparent text-white px-2 py-1.5 text-xs outline-none w-32"
+                        placeholder="Project name..."
+                    />
+                    <button 
+                        onClick={() => {
+                            if (!saveName) return;
+                            onSelect({ dir: currentPath, name: saveName });
+                            onClose();
+                        }}
+                        className="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-r text-xs font-bold flex items-center shadow-md transition-colors shrink-0"
+                    >
+                        <Save size={14} className="mr-1.5" /> Save
+                    </button>
+                </div>
+            ) : (
+                <button 
+                    onClick={() => {
+                        onSelect(currentPath);
+                        onClose();
+                    }}
+                    className="ml-2 bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded text-xs font-bold flex items-center shadow-md transition-colors shrink-0"
+                    title="Use this folder as output destination"
+                >
+                    <CheckSquare size={14} className="mr-2" /> Select this Folder
+                </button>
+            )}
         </div>
         
         {/* File and Folder List */}

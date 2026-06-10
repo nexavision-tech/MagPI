@@ -23,9 +23,9 @@ export default function App() {
   const [processingScope, setProcessingScope] = useState("Local Python");
   
   const [globalEnv, setGlobalEnv] = useState({
-    workspace_dir: "./magpi_workspace",
-    scratch_dir: "./magpi_scratch",
-    output_dir: "./magpi_output",
+    workspace_dir: "/home/gda/MagPI/magpi_workspace",
+    scratch_dir: "/home/gda/MagPI/magpi_workspace/magpi_scratch",
+    output_dir: "/home/gda/MagPI/magpi_workspace/magpi_output",
     horizontal_datum: "EPSG:4326",
     vertical_datum: "EPSG:3855"
   });
@@ -46,6 +46,7 @@ export default function App() {
   const [activeJobId, setActiveJobId] = useState(null);
   const [isDaemonAlive, setIsDaemonAlive] = useState(false);
   const [projectName, setProjectName] = useState('Untitled_1');
+  const [saveBrowserConfig, setSaveBrowserConfig] = useState({ isOpen: false, initialPath: "." });
   const [masterReferences, setMasterReferences] = useState({});
   const [masterGisServers, setMasterGisServers] = useState([]);
   const [mapLayers, setMapLayers] = useState([
@@ -215,7 +216,7 @@ export default function App() {
             y: 200 + Math.random() * 50,
             color: data.color || 'bg-slate-600',
             border: data.border || 'border-slate-500',
-            params: { ...data.defaultParams }
+            params: data.params ? { ...data.params } : { ...(data.defaultParams || {}) }
         };
 
         if (data.droppedFilePath) {
@@ -431,13 +432,17 @@ export default function App() {
 
   const selectedNode = nodes.find(n => n.id === selectedNodeId);
 
-  const handleSave = async () => {
-    const pName = prompt("Enter project name:", projectName);
-    if (!pName) return;
+  const handleSave = () => {
+    setSaveBrowserConfig({ isOpen: true, initialPath: globalEnv.workspace_dir || "." });
+  };
+
+  const handleSaveConfirm = async (saveData) => {
+    const { dir, name } = saveData;
+    const pName = name;
     setProjectName(pName);
     try {
-        await saveProject(nodes, connections, crs, globalEnv, pName);
-        setLogs([{ type: 'success', msg: `Project successfully saved to workspace as ${pName}.mpjx` }]);
+        await saveProject(nodes, connections, crs, globalEnv, pName, dir);
+        setLogs([{ type: 'success', msg: `Project successfully saved to ${dir} as ${pName}.mpjx` }]);
     } catch (e) {
         setLogs([{ type: 'error', msg: `Failed to save project: ${e.message}` }]);
         setShowTerminal(true);
@@ -675,6 +680,7 @@ export default function App() {
                 setSelectedNodeId={setSelectedNodeId}
                 openFileBrowser={openFileBrowser}
                 globalEnv={globalEnv}
+                isDaemonAlive={isDaemonAlive}
             />
           </div>
 
@@ -737,6 +743,7 @@ export default function App() {
       
       <ScriptModal showScript={showScript} setShowScript={setShowScript} generatedCode={generatedCode} processingScope={processingScope} onDeploy={handleDeploy} />
       <FileBrowserModal isOpen={browserConfig.isOpen} onClose={() => setBrowserConfig(prev => ({ ...prev, isOpen: false }))} onSelect={handleFileSelected} initialPath={browserConfig.initialPath} />
+      <FileBrowserModal isOpen={saveBrowserConfig.isOpen} onClose={() => setSaveBrowserConfig(prev => ({ ...prev, isOpen: false }))} onSelect={handleSaveConfirm} initialPath={saveBrowserConfig.initialPath} isSaveMode={true} defaultSaveName={projectName} />
       <EnvSettingsModal isOpen={showEnvSettings} onClose={() => setShowEnvSettings(false)} globalEnv={globalEnv} setGlobalEnv={setGlobalEnv} openFileBrowser={openFileBrowser} />
     </div>
   );

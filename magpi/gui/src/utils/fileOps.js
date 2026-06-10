@@ -1,4 +1,4 @@
-export const saveProject = async (nodes, connections, crs, globalEnv, defaultName = "magpi_project") => {
+export const saveProject = async (nodes, connections, crs, globalEnv, defaultName = "magpi_project", saveDir = null) => {
     const projectData = {
         version: "0.1.3",
         timestamp: new Date().toISOString(),
@@ -15,7 +15,8 @@ export const saveProject = async (nodes, connections, crs, globalEnv, defaultNam
         },
         body: JSON.stringify({
             project_name: defaultName,
-            project_data: projectData
+            project_data: projectData,
+            save_dir: saveDir
         })
     });
     

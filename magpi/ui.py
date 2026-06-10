@@ -303,12 +303,15 @@ def LaunchCanvas(port=8282):
                     if not project_name.endswith('.mpjx'):
                         project_name += '.mpjx'
                         
-                    # Save to magpi_workspace/projects/
-                    workspace_dir = os.path.join(os.getcwd(), 'magpi_workspace')
-                    projects_dir = os.path.join(workspace_dir, 'projects')
-                    os.makedirs(projects_dir, exist_ok=True)
+                    # Save to save_dir or magpi_workspace/
+                    save_dir = payload.get('save_dir')
+                    if not save_dir:
+                        workspace_dir = os.path.join(os.getcwd(), 'magpi_workspace')
+                        save_dir = workspace_dir
                     
-                    file_path = os.path.join(projects_dir, project_name)
+                    os.makedirs(save_dir, exist_ok=True)
+                    file_path = os.path.join(save_dir, project_name)
+                    
                     with open(file_path, 'w') as f:
                         json.dump(project_data, f, indent=2)
                         

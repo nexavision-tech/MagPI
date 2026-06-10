@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useReactFlow } from '@xyflow/react';
-import { Folder, Database, File, ChevronRight, ChevronDown, RefreshCw, Box, Map, Image as ImageIcon, Layers, Eye, EyeOff, Network, Target, FolderOpen, Search, Trash2, FolderPlus } from 'lucide-react';
+import { Folder, Database, File, ChevronRight, ChevronDown, RefreshCw, Box, Map, Image as ImageIcon, Layers, Eye, EyeOff, Network, Target, FolderOpen, Search, Trash2, FolderPlus, MinusCircle } from 'lucide-react';
 import { TOOLBOX_CATEGORIES } from './Toolbox';
 
 const FileNode = ({ node, level }) => {
@@ -96,7 +96,7 @@ const FileNode = ({ node, level }) => {
         )}
         {node.path !== '/home/gda/MagPI/magpi_workspace' && (
           <button 
-              className="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-red-400 ml-2 transition-opacity z-10"
+              className="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-red-500 ml-2 transition-opacity z-10"
               onClick={(e) => {
                   e.stopPropagation();
                   if (window.confirm(`Are you sure you want to permanently delete ${node.name} from the server? This action cannot be undone.`)) {
@@ -140,7 +140,7 @@ const FileNode = ({ node, level }) => {
   );
 };
 
-export default function CatalogPane({ mapLayers = [], setMapLayers, activeWorkspace, nodes = [], setNodes, setSelectedNodeId, openFileBrowser, globalEnv }) {
+export default function CatalogPane({ mapLayers = [], setMapLayers, activeWorkspace, nodes = [], setNodes, setSelectedNodeId, openFileBrowser, globalEnv, isDaemonAlive }) {
   const [catalog, setCatalog] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [expandedLayers, setExpandedLayers] = useState({});
@@ -170,8 +170,10 @@ export default function CatalogPane({ mapLayers = [], setMapLayers, activeWorksp
   };
 
   useEffect(() => {
-    fetchCatalog();
-  }, [globalEnv?.workspace_dir]);
+    if (isDaemonAlive) {
+        fetchCatalog();
+    }
+  }, [globalEnv?.workspace_dir, isDaemonAlive]);
 
   useEffect(() => {
     const handleDelete = async (e) => {
@@ -310,10 +312,10 @@ export default function CatalogPane({ mapLayers = [], setMapLayers, activeWorksp
                                       setNodes(prev => prev.filter(n => n.id !== layer.id));
                                   }
                               }}
-                              className="text-slate-400 hover:text-red-400"
-                              title="Delete Layer"
+                              className="text-slate-400 hover:text-orange-400"
+                              title="Remove Layer"
                           >
-                              <Trash2 size={12} />
+                              <MinusCircle size={12} />
                           </button>
                       </div>
                   </div>

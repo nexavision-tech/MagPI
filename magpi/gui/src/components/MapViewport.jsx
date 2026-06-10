@@ -323,35 +323,48 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
         }
     };
 
-    const handleDragOver = (e) => {
-        e.preventDefault();
-        e.dataTransfer.dropEffect = 'copy';
-    };
+    useEffect(() => {
+        if (!mapInstance.current) return;
+        const container = mapInstance.current.getContainer();
+        
+        const handleDragOver = (e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'copy';
+        };
 
-    const handleDrop = (e) => {
-        e.preventDefault();
-        let data = null;
-        if (window.__draggedMagPITool) {
-            data = window.__draggedMagPITool;
-            window.__draggedMagPITool = null;
-        } else {
-            const dataStr = e.dataTransfer.getData('application/reactflow');
-            if (dataStr) {
-                try {
-                    data = JSON.parse(dataStr);
-                } catch (err) {
-                    console.error("Failed to parse dropped file data", err);
+        const handleDrop = (e) => {
+            e.preventDefault();
+            let data = null;
+            if (window.__draggedMagPITool) {
+                data = window.__draggedMagPITool;
+                window.__draggedMagPITool = null;
+            } else {
+                const dataStr = e.dataTransfer.getData('application/reactflow');
+                if (dataStr) {
+                    try {
+                        data = JSON.parse(dataStr);
+                    } catch (err) {
+                        console.error("Failed to parse dropped file data", err);
+                    }
                 }
             }
-        }
+            
+            if (data) {
+                window.dispatchEvent(new CustomEvent('magpi-map-drop', { detail: data }));
+            }
+        };
+
+        container.addEventListener('dragover', handleDragOver);
+        container.addEventListener('drop', handleDrop);
         
-        if (data) {
-            window.dispatchEvent(new CustomEvent('magpi-map-drop', { detail: data }));
-        }
-    };
+        return () => {
+            container.removeEventListener('dragover', handleDragOver);
+            container.removeEventListener('drop', handleDrop);
+        };
+    }, [activeWorkspace]);
 
     return (
-        <div className="w-full h-full flex flex-col relative bg-[#111827]" onDragOver={handleDragOver} onDrop={handleDrop}>
+        <div className="w-full h-full flex flex-col relative bg-[#111827]">
             {/* Header */}
             <div className="px-4 py-3 bg-slate-800 text-xs font-bold tracking-widest text-slate-300 flex items-center justify-between border-b border-slate-700 z-10 shrink-0">
                 <div className="flex items-center">
