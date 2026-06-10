@@ -51,6 +51,8 @@ export default function App() {
     const pad = n => n.toString().padStart(2, '0');
     return `Untitled_${d.getFullYear()}_${pad(d.getMonth() + 1)}_${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
   });
+
+  const [projectDir, setProjectDir] = useState(null);
   const [saveBrowserConfig, setSaveBrowserConfig] = useState({ isOpen: false, initialPath: "." });
   const [masterReferences, setMasterReferences] = useState({});
   const [masterGisServers, setMasterGisServers] = useState([]);
@@ -221,7 +223,7 @@ export default function App() {
             y: 200 + Math.random() * 50,
             color: data.color || 'bg-slate-600',
             border: data.border || 'border-slate-500',
-            params: data.params ? { ...data.params } : { ...(data.defaultParams || {}) }
+            params: { ...(data.params || data.defaultParams || {}), export_to_map: true }
         };
 
         if (data.droppedFilePath) {
@@ -381,7 +383,10 @@ export default function App() {
                 if (pd.connections) setConnections(pd.connections);
                 if (pd.crs) setCrs(pd.crs);
                 if (pd.globalEnv) setGlobalEnv(pd.globalEnv);
-                setProjectName(file.name.replace(/\.[^/.]+$/, ""));
+                const pName = absolutePath.split('/').pop().replace(/\.[^/.]+$/, "");
+                const pDir = absolutePath.substring(0, absolutePath.lastIndexOf('/'));
+                setProjectName(pName);
+                setProjectDir(pDir);
                 setLogs([{ type: 'success', msg: `Project loaded successfully. Rehydrated ${pd.nodes?.length || 0} nodes.` }]);
                 setNodeStatuses({});
                 setShowTerminal(true);
@@ -425,22 +430,42 @@ export default function App() {
   };
 
   const handleClear = () => {
-    setNodes([]); setConnections([]); setSelectedNodeId(null); setNodeStatuses({});
-    localStorage.removeItem('magpi_autosave_nodes'); localStorage.removeItem('magpi_autosave_cxs');
-    setActiveRightTab('toolbox'); setLogs([{ type: 'info', msg: 'Matrix cleared. Ready for new input.' }]);
-    setShowTerminal(true);
+    if (window.confirm("Are you sure you want to initialize a New Project? This will clear the current canvas. Unsaved changes will be lost.")) {
+        setNodes([]); setConnections([]); setSelectedNodeId(null); setNodeStatuses({});
+        localStorage.removeItem('magpi_autosave_nodes'); localStorage.removeItem('magpi_autosave_cxs');
+        setActiveRightTab('toolbox'); setLogs([{ type: 'info', msg: 'Started a new Tabula Rasa session.' }]);
+        setShowTerminal(true);
+        setProjectDir(null);
+        setProjectName(() => {
+            const d = new Date();
+            const pad = n => n.toString().padStart(2, '0');
+            return `Untitled_${d.getFullYear()}_${pad(d.getMonth() + 1)}_${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+        });
+    }
   };
 
   const selectedNode = nodes.find(n => n.id === selectedNodeId);
 
-  const handleSave = () => {
-    setSaveBrowserConfig({ isOpen: true, initialPath: globalEnv.workspace_dir || "." });
+  const handleSave = async () => {
+    if (projectDir) {
+        try {
+            setLogs([{ type: 'info', msg: `Quick saving project...` }]);
+            await saveProject(nodes, connections, crs, globalEnv, projectName, projectDir);
+            setLogs([{ type: 'success', msg: `Project quickly saved to ${projectDir} as ${projectName}.mpjx` }]);
+        } catch (e) {
+            setLogs([{ type: 'error', msg: `Failed to quick save project: ${e.message}` }]);
+            setShowTerminal(true);
+        }
+    } else {
+        setSaveBrowserConfig({ isOpen: true, initialPath: globalEnv.workspace_dir || "." });
+    }
   };
 
   const handleSaveConfirm = async (saveData) => {
     const { dir, name } = saveData;
     const pName = name;
     setProjectName(pName);
+    setProjectDir(dir);
     try {
         await saveProject(nodes, connections, crs, globalEnv, pName, dir);
         setLogs([{ type: 'success', msg: `Project successfully saved to ${dir} as ${pName}.mpjx` }]);

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Compass, Server, Code, Save, Globe, Cpu, FolderUp, Trash2, Rss, Map as MapIcon, Layers, XCircle, Edit, Crosshair, ClipboardCheck, Network } from 'lucide-react';
+import { Compass, Server, Code, Save, Globe, Cpu, FolderUp, Trash2, Rss, Map as MapIcon, Layers, XCircle, Edit, Crosshair, ClipboardCheck, Network, FilePlus } from 'lucide-react';
 
 export default function TopRibbon({ 
   activeWorkspace, globalEnv, setGlobalEnv, crs, setCrs, 
@@ -67,7 +67,12 @@ export default function TopRibbon({
             <Code size={18} className="mr-2" /> Generate Pipeline
           </button>
           
-          <button onClick={onSave} className="flex flex-col items-center justify-center p-2 hover:bg-slate-700 rounded text-slate-400 transition-colors ml-2" title="Save Project">
+          <button onClick={onClear} className="flex flex-col items-center justify-center p-2 hover:bg-slate-700 rounded text-slate-400 transition-colors ml-1 cursor-pointer" title="New Blank Project">
+            <FilePlus size={18} />
+            <span className="text-[10px] mt-1 font-medium">New</span>
+          </button>
+          
+          <button onClick={onSave} className="flex flex-col items-center justify-center p-2 hover:bg-slate-700 rounded text-slate-400 transition-colors ml-2" title="Quick Save / Save As">
             <Save size={18} />
             <span className="text-[10px] mt-1 font-medium">Save</span>
           </button>
@@ -83,11 +88,6 @@ export default function TopRibbon({
               <button onClick={onAutoLayout} className="flex flex-col items-center justify-center p-2 hover:bg-indigo-900/50 hover:text-indigo-400 rounded text-slate-400 transition-colors ml-4 border-l border-slate-700 pl-4" title="Auto Layout Nodes">
                 <Layers size={18} />
                 <span className="text-[10px] mt-1 font-medium">Layout</span>
-              </button>
-
-              <button onClick={onClear} className="flex flex-col items-center justify-center p-2 hover:bg-red-900/50 hover:text-red-400 rounded text-slate-400 transition-colors ml-1" title="Clear Canvas">
-                <Trash2 size={18} />
-                <span className="text-[10px] mt-1 font-medium">Clear</span>
               </button>
             </>
           )}

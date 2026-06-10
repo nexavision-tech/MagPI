@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { Terminal as TermIcon, X, Loader2, Copy, Check, Table, AlertTriangle, ChevronRight, ChevronLeft } from 'lucide-react';
+import { Terminal as TermIcon, ChevronDown, Loader2, Copy, Check, Table, AlertTriangle, ChevronRight, ChevronLeft } from 'lucide-react';
 
 export default function Terminal({ showTerminal, setShowTerminal, logs, isProcessing, selectedNode }) {
   const bottomRef = useRef(null);
@@ -148,8 +148,8 @@ export default function Terminal({ showTerminal, setShowTerminal, logs, isProces
               </button>
           )}
           <div className="w-px h-3 bg-slate-700"></div>
-          <button onClick={() => setShowTerminal(false)} className="text-slate-500 hover:text-red-400 transition-colors">
-            <X size={14} />
+          <button onClick={() => setShowTerminal(false)} className="text-slate-500 hover:text-red-400 transition-colors" title="Pin Down (Minimize)">
+            <ChevronDown size={18} />
           </button>
         </div>
       </div>

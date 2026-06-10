@@ -333,15 +333,11 @@ export default function CatalogPane({ mapLayers = [], setMapLayers, activeWorksp
                           <button
                               onClick={() => {
                                   if (setNodes) {
-                                      if (window.confirm("Do you want to permanently remove this dataset from the Model Builder pipeline?\n\n(Click 'Cancel' to just hide it from the map view instead)")) {
-                                          setNodes(prev => prev.filter(n => n.id !== layer.id));
-                                      } else {
-                                          setNodes(prev => prev.map(n => n.id === layer.id ? { ...n, params: { ...n.params, export_to_map: false } } : n));
-                                      }
+                                      setNodes(prev => prev.map(n => n.id === layer.id ? { ...n, params: { ...n.params, export_to_map: false } } : n));
                                   }
                               }}
                               className="text-slate-400 hover:text-orange-400"
-                              title="Remove Layer"
+                              title="Hide from Map (Unlink Layer)"
                           >
                               <MinusCircle size={12} />
                           </button>
