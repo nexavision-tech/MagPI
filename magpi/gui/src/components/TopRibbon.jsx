@@ -41,11 +41,11 @@ export default function TopRibbon({
           </a>
           {processingScope === "Apache Airflow" ? (
             <span className="flex items-center text-sky-400 font-bold bg-sky-900/30 px-2 py-0.5 rounded border border-sky-800">
-              <Server size={14} className="mr-2 animate-pulse" /> AIRFLOW (PORT: 8282)
+              <Server size={14} className="mr-2 animate-pulse" /> AIRFLOW (PORT: {window.MAGPI_PORT || '8282'})
             </span>
           ) : isDaemonAlive ? (
             <span className="flex items-center text-emerald-500 font-bold bg-emerald-900/30 px-2 py-0.5 rounded border border-emerald-800">
-              <Server size={14} className="mr-2 animate-pulse" /> LOCAL DAEMON (PORT: 8282)
+              <Server size={14} className="mr-2 animate-pulse" /> LOCAL DAEMON (PORT: {window.MAGPI_PORT || '8282'})
             </span>
           ) : (
             <span className="flex items-center text-red-500 font-bold bg-red-900/30 px-2 py-0.5 rounded border border-red-800">
