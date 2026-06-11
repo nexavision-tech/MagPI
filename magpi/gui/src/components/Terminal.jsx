@@ -26,6 +26,12 @@ export default function Terminal({ showTerminal, setShowTerminal, logs, isProces
     }
   }, [logs, showTerminal, activeTab]);
 
+  useEffect(() => {
+    const handleOpenDataStudio = () => setActiveTab('data_studio');
+    window.addEventListener('magpi-open-data-studio', handleOpenDataStudio);
+    return () => window.removeEventListener('magpi-open-data-studio', handleOpenDataStudio);
+  }, []);
+
   // Fetch DB connections on tab open
   useEffect(() => {
       if (activeTab === 'db_studio') {

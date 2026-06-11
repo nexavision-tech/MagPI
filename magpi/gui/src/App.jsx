@@ -44,6 +44,11 @@ export default function App() {
          setSelectedFeature(e.detail);
          if (e.detail) {
              setActiveRightTab('identify');
+             if (e.detail.nodeId) {
+                 setSelectedNodeId(e.detail.nodeId);
+             }
+             setShowTerminal(true);
+             window.dispatchEvent(new CustomEvent('magpi-open-data-studio'));
          }
      };
      window.addEventListener('magpi-feature-selected', handleSelect);
