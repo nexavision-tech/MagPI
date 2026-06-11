@@ -287,11 +287,9 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    // Save to LocalStorage whenever the matrix changes
-    if (nodes.length > 0 || connections.length > 0) {
-        localStorage.setItem('magpi_autosave_nodes', JSON.stringify(nodes));
-        localStorage.setItem('magpi_autosave_cxs', JSON.stringify(connections));
-    }
+    // Save to LocalStorage whenever the matrix changes (even if empty)
+    localStorage.setItem('magpi_autosave_nodes', JSON.stringify(nodes));
+    localStorage.setItem('magpi_autosave_cxs', JSON.stringify(connections));
     localStorage.setItem('magpi_global_env', JSON.stringify(globalEnv));
   }, [nodes, connections, globalEnv]);
 
