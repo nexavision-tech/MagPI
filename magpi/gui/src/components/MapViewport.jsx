@@ -362,7 +362,7 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                     const isMacroView = currentZoom < 15;
                     const expectedType = isMacroView ? 'vector_image' : 'geojson';
                     
-                    const needsFetch = !cached || cached.type !== expectedType || (!cached.isFetching && (!cached.bbox || cached.bbox !== viewportBBox));
+                    const needsFetch = viewportBBox && (!cached || cached.type !== expectedType || (!cached.isFetching && (!cached.bbox || cached.bbox !== viewportBBox)));
 
                     if (needsFetch) {
                         setLoadedData(prev => ({ ...prev, [layer.id]: { ...(prev[layer.id] || {}), isFetching: true, bbox: viewportBBox } }));

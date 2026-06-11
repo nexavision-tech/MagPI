@@ -589,8 +589,8 @@ def LaunchCanvas(port=8282):
                 if layer_name:
                     kwargs['layer'] = layer_name
                 
-                # Fetch only geometries within the bbox, capped at 50,000 to prevent CPU spikes for 1TB datasets!
-                gdf = pyogrio.read_dataframe(file_path, bbox=bbox, max_features=50000, **kwargs)
+                # Fetch only geometries within the bbox, capped at 5,000 to ensure fast Matplotlib plotting
+                gdf = pyogrio.read_dataframe(file_path, bbox=bbox, max_features=5000, **kwargs)
                 
                 if gdf.empty:
                     # Return empty transparent PNG
