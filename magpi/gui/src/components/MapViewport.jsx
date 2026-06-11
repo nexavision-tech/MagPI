@@ -49,7 +49,9 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
         map.on('zoomend', () => setCurrentZoom(map.getZoom()));
 
         osmLayerRef.current = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OSM'
+            attribution: '© OSM',
+            maxNativeZoom: 19,
+            maxZoom: 24
         }).addTo(map);
 
         L.control.zoom({ position: 'topright' }).addTo(map);
@@ -306,13 +308,13 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                             },
                             interactive: true,
                             indexMaxZoom: 24,
-                            maxNativeZoom: 14,
+                            maxNativeZoom: 24,
                             maxZoom: 24,
                             getFeatureId: (f) => f.properties.magpi_id
                         });
 
                         gjLayer.on('click', (e) => {
-                            L.DomEvent.stopPropagation(e);
+                            L.DomEvent.stopPropagation(e.originalEvent);
                             if (activeFeatureLayer.current && activeFeatureLayer.current.layer) {
                                 activeFeatureLayer.current.layer.setFeatureStyle(
                                     activeFeatureLayer.current.id,
