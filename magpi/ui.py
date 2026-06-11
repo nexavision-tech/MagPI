@@ -571,13 +571,7 @@ def LaunchCanvas(port=8282):
                 if gdf.crs and not gdf.crs.is_geographic:
                     gdf = gdf.to_crs("EPSG:4326")
                 
-                # Simplify geometries to prevent browser crashes on insanely complex vectors
-                if not gdf.empty:
-                    try:
-                        # 0.0001 degrees is ~11 meters at the equator. This preserves shape while removing excessive vertices
-                        gdf.geometry = gdf.geometry.simplify(0.0001, preserve_topology=True)
-                    except Exception as e:
-                        logger.warning(f"Geometry simplification failed: {e}")
+                # Removed aggressive geometry simplification to stream pure vertices
                     
                 # Convert any datetime columns to string to prevent JSON serialization errors
                 for col in gdf.select_dtypes(include=['datetime', 'datetimetz']).columns:
