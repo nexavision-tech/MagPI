@@ -55,6 +55,7 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
         }).addTo(map);
 
         L.control.zoom({ position: 'topright' }).addTo(map);
+        L.control.scale({ position: 'bottomright', imperial: true, metric: true }).addTo(map);
 
         highlightGroup.current = new L.FeatureGroup();
         map.addLayer(highlightGroup.current);
@@ -310,11 +311,11 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                             indexMaxZoom: 24,
                             maxNativeZoom: 24,
                             maxZoom: 24,
+                            tolerance: 1,
                             getFeatureId: (f) => f.properties.magpi_id
                         });
 
                         gjLayer.on('click', (e) => {
-                            L.DomEvent.stopPropagation(e.originalEvent);
                             if (activeFeatureLayer.current && activeFeatureLayer.current.layer) {
                                 activeFeatureLayer.current.layer.setFeatureStyle(
                                     activeFeatureLayer.current.id,
@@ -553,6 +554,16 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                     {activeWorkspace !== 'globe' && (
                         <div className="absolute bottom-6 left-2 bg-slate-900/80 backdrop-blur border border-slate-700 text-[10px] text-slate-400 px-2 py-1 rounded shadow-lg z-[1000] pointer-events-none font-mono flex items-center">
                             <span className="text-cyan-400 mr-1 font-bold">Z</span> {currentZoom}
+                        </div>
+                    )}
+                    {activeWorkspace !== 'globe' && (
+                        <div className="absolute top-20 right-3 z-[1000] pointer-events-none drop-shadow-lg opacity-80 mix-blend-screen bg-slate-900/40 p-2 rounded-full border border-slate-700">
+                            <svg width="18" height="30" viewBox="0 0 24 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M12 0L24 40L12 30L0 40L12 0Z" fill="#ef4444" />
+                                <path d="M12 0L24 40L12 30V0Z" fill="#b91c1c" />
+                                <path d="M12 0L12 30L0 40L12 0Z" fill="#f87171" />
+                                <text x="12" y="-5" fill="#f8fafc" fontSize="14" fontFamily="sans-serif" fontWeight="bold" textAnchor="middle">N</text>
+                            </svg>
                         </div>
                     )}
                 </div>
