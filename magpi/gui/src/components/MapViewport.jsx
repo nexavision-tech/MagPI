@@ -55,7 +55,7 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
         }).addTo(map);
 
         L.control.zoom({ position: 'topright' }).addTo(map);
-        L.control.scale({ position: 'bottomright', imperial: true, metric: true }).addTo(map);
+        L.control.scale({ position: 'bottomleft', imperial: true, metric: true }).addTo(map);
 
         highlightGroup.current = new L.FeatureGroup();
         map.addLayer(highlightGroup.current);
@@ -311,45 +311,53 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                             indexMaxZoom: 24,
                             maxNativeZoom: 24,
                             maxZoom: 24,
-                            tolerance: 1,
+                            tolerance: 0,
                             getFeatureId: (f) => f.properties.magpi_id
                         });
 
                         gjLayer.on('click', (e) => {
-                            if (activeFeatureLayer.current && activeFeatureLayer.current.layer) {
-                                activeFeatureLayer.current.layer.setFeatureStyle(
-                                    activeFeatureLayer.current.id,
-                                    { 
-                                        weight: 1.5,
-                                        color: activeFeatureLayer.current.originalColor,
+                            if (!e.layer || !e.layer.properties) return;
+
+                            try {
+                                if (activeFeatureLayer.current && activeFeatureLayer.current.layer) {
+                                    activeFeatureLayer.current.layer.setFeatureStyle(
+                                        activeFeatureLayer.current.id,
+                                        { 
+                                            weight: 1.5,
+                                            color: activeFeatureLayer.current.originalColor || '#3388ff',
+                                            opacity: 1,
+                                            fillColor: activeFeatureLayer.current.originalColor || '#3388ff',
+                                            fill: true,
+                                            fillOpacity: activeFeatureLayer.current.originalOpacity || 0.2
+                                        }
+                                    );
+                                }
+
+                                const magpiId = e.layer.properties.magpi_id;
+                                if (magpiId) {
+                                    gjLayer.setFeatureStyle(magpiId, {
+                                        weight: 4,
+                                        color: '#00ffff',
                                         opacity: 1,
-                                        fillColor: activeFeatureLayer.current.originalColor,
+                                        fillColor: '#00ffff',
                                         fill: true,
-                                        fillOpacity: activeFeatureLayer.current.originalOpacity
-                                    }
-                                );
+                                        fillOpacity: 0.3
+                                    });
+
+                                    activeFeatureLayer.current = {
+                                        layer: gjLayer,
+                                        id: magpiId,
+                                        originalColor: layer.vectorColor || '#3388ff',
+                                        originalOpacity: 0.2
+                                    };
+                                }
+                            } catch (err) {
+                                console.warn("Failed to highlight vector feature:", err);
                             }
-
-                            const magpiId = e.layer.properties.magpi_id;
-                            gjLayer.setFeatureStyle(magpiId, {
-                                weight: 4,
-                                color: '#00ffff',
-                                opacity: 1,
-                                fillColor: '#00ffff',
-                                fill: true,
-                                fillOpacity: 0.3
-                            });
-
-                            activeFeatureLayer.current = {
-                                layer: gjLayer,
-                                id: magpiId,
-                                originalColor: layer.vectorColor,
-                                originalOpacity: 0.2
-                            };
 
                             // Mock feature for toolbox selection
                             const feature = { properties: e.layer.properties, geometry: { type: 'Geometry' } };
-                            window.dispatchEvent(new CustomEvent('magpi-feature-selected', { detail: { feature: feature, layerName: layer.name } }));
+                            window.dispatchEvent(new CustomEvent('magpi-feature-selected', { detail: { feature: feature, layerName: layer.name || layer.id } }));
                         });
 
                         gjLayer.magpi_layer_id = layer.id;
@@ -552,10 +560,24 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                         }}
                     ></div>
                     {activeWorkspace !== 'globe' && (
-                        <div className="absolute bottom-6 left-2 bg-slate-900/80 backdrop-blur border border-slate-700 text-[10px] text-slate-400 px-2 py-1 rounded shadow-lg z-[1000] pointer-events-none font-mono flex items-center">
+                        <div className="absolute bottom-12 left-2 bg-slate-900/80 backdrop-blur border border-slate-700 text-[10px] text-slate-400 px-2 py-1 rounded shadow-lg z-[1000] pointer-events-none font-mono flex items-center">
                             <span className="text-cyan-400 mr-1 font-bold">Z</span> {currentZoom}
                         </div>
                     )}
+                    <style>{`
+                        .leaflet-control-scale-line {
+                            background: rgba(15, 23, 42, 0.8) !important;
+                            backdrop-filter: blur(4px);
+                            border: 1px solid rgba(51, 65, 85, 1) !important;
+                            color: #94a3b8 !important;
+                            font-family: monospace;
+                            text-shadow: none !important;
+                            border-radius: 4px;
+                            line-height: 1.2;
+                            padding: 2px 5px !important;
+                            border-top: none !important;
+                        }
+                    `}</style>
                     {activeWorkspace !== 'globe' && (
                         <div className="absolute top-20 right-3 z-[1000] pointer-events-none drop-shadow-lg opacity-80 mix-blend-screen bg-slate-900/40 p-2 rounded-full border border-slate-700">
                             <svg width="18" height="30" viewBox="0 0 24 40" fill="none" xmlns="http://www.w3.org/2000/svg">
