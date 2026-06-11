@@ -86,7 +86,8 @@ export default function Terminal({ showTerminal, setShowTerminal, logs, isProces
         setIsLoadingData(true);
         setDataError(null);
         try {
-            const res = await fetch(`http://${window.location.hostname}:${window.MAGPI_PORT || '8282'}/api/vector_data?file=${encodeURIComponent(path)}&limit=${limit}&offset=${page * limit}`);
+            const layerNameParam = selectedNode.params?.layer_name ? `&layer_name=${encodeURIComponent(selectedNode.params.layer_name)}` : '';
+            const res = await fetch(`http://${window.location.hostname}:${window.MAGPI_PORT || '8282'}/api/vector_data?file=${encodeURIComponent(path)}${layerNameParam}&limit=${limit}&offset=${page * limit}`);
             const data = await res.json();
             if (res.ok) {
                 setTableData(data);

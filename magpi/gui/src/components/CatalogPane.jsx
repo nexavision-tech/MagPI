@@ -3,6 +3,20 @@ import { useReactFlow } from '@xyflow/react';
 import { Folder, Database, File, ChevronRight, ChevronDown, RefreshCw, Box, Map, Image as ImageIcon, Layers, Eye, EyeOff, Network, Target, FolderOpen, Search, Trash2, FolderPlus, MinusCircle, Link, Copy, Check } from 'lucide-react';
 import { TOOLBOX_CATEGORIES } from './Toolbox';
 
+const DebouncedColorPicker = ({ color, onChange }) => {
+    const [localColor, setLocalColor] = useState(color || '#32d74b');
+    useEffect(() => { setLocalColor(color || '#32d74b'); }, [color]);
+    return (
+        <input 
+            type="color"
+            className="w-full h-6 rounded cursor-pointer bg-slate-800 border-none p-0"
+            value={localColor}
+            onChange={(e) => setLocalColor(e.target.value)}
+            onBlur={() => onChange(localColor)}
+        />
+    );
+};
+
 const FileNode = ({ node, level, globalEnv, copiedPath, setCopiedPath }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [layers, setLayers] = useState(null);
@@ -473,19 +487,17 @@ export default function CatalogPane({ mapLayers = [], setMapLayers, activeWorksp
                                               </select>
                                           </>
                                       ) : (
-                                          <>
-                                              <span className="text-[9px] text-slate-500 uppercase tracking-widest w-12 shrink-0">Color</span>
-                                              <input 
-                                                  type="color"
-                                                  className="w-full h-6 rounded cursor-pointer bg-slate-800 border-none p-0"
-                                                  value={layer.vectorColor || '#32d74b'}
-                                                  onChange={(e) => {
-                                                      if (setMapLayers) {
-                                                          setMapLayers(prev => prev.map(l => l.id === layer.id ? { ...l, vectorColor: e.target.value } : l));
-                                                      }
-                                                  }}
-                                              />
-                                          </>
+                                            <>
+                                                <span className="text-[9px] text-slate-500 uppercase tracking-widest w-12 shrink-0">Color</span>
+                                                <DebouncedColorPicker 
+                                                    color={layer.vectorColor}
+                                                    onChange={(newColor) => {
+                                                        if (setMapLayers) {
+                                                            setMapLayers(prev => prev.map(l => l.id === layer.id ? { ...l, vectorColor: newColor } : l));
+                                                        }
+                                                    }}
+                                                />
+                                            </>
                                       )}
                                   </div>
                               );
