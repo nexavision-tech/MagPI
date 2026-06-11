@@ -562,6 +562,7 @@ def LaunchCanvas(port=8282):
             target_file = qs.get('file', [''])[0]
             layer_name = qs.get('layer_name', [''])[0]
             limit_str = qs.get('limit', ['10000'])[0]
+            bbox_str = qs.get('bbox', [''])[0]
             try:
                 limit = int(limit_str)
             except ValueError:
@@ -569,7 +570,7 @@ def LaunchCanvas(port=8282):
             
             try:
                 import geopandas as gpd
-                logger.info(f"API Request: Streaming GeoJSON for {target_file} (layer: {layer_name}, limit: {limit})")
+                logger.info(f"API Request: Streaming GeoJSON for {target_file} (layer: {layer_name}, limit: {limit}, bbox: {bbox_str})")
                 
                 if not os.path.exists(target_file):
                     raise FileNotFoundError(f"File not found: {target_file}")
@@ -578,6 +579,13 @@ def LaunchCanvas(port=8282):
                 kwargs = {'rows': limit, 'engine': 'pyogrio'}
                 if layer_name:
                     kwargs['layer'] = layer_name
+                
+                if bbox_str:
+                    try:
+                        minx, miny, maxx, maxy = map(float, bbox_str.split(','))
+                        kwargs['bbox'] = (minx, miny, maxx, maxy)
+                    except ValueError:
+                        pass
                     
                 gdf = gpd.read_file(target_file, **kwargs)
                 if len(gdf) == limit:

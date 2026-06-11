@@ -38,6 +38,8 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
     const lastZoomedNode = useRef(null);
     const activeFeatureLayer = useRef(null);
     const [currentZoom, setCurrentZoom] = React.useState(2);
+    const [viewportBBox, setViewportBBox] = React.useState("");
+    const [viewportBBoxTimestamp, setViewportBBoxTimestamp] = React.useState(0);
 
     useEffect(() => {
         if (!mapRef.current) return;
@@ -46,7 +48,17 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
         // Zeroized global extent [0, 0] zoom 2
         const map = L.map(mapRef.current, { zoomControl: false }).setView([0, 0], 2);
         mapInstance.current = map;
-        map.on('zoomend', () => setCurrentZoom(map.getZoom()));
+        map.on('zoomend', () => {
+            setCurrentZoom(map.getZoom());
+        });
+
+        // Add moveend listener for dynamic viewport streaming
+        map.on('moveend', () => {
+            const bounds = map.getBounds();
+            const bboxStr = `${bounds.getWest()},${bounds.getSouth()},${bounds.getEast()},${bounds.getNorth()}`;
+            setViewportBBox(bboxStr);
+            setViewportBBoxTimestamp(Date.now());
+        });
 
         osmLayerRef.current = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '© OSM',
@@ -139,6 +151,42 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                     });
                 }
                 activeFeatureLayer.current = null;
+            } else if (e.detail && e.detail.isFromTable) {
+                let foundLayer = null;
+                highlightGroup.current.eachLayer((gjLayer) => {
+                    if (gjLayer.magpi_layer_id === e.detail.nodeId && !foundLayer) {
+                        gjLayer.eachLayer((featureLayer) => {
+                            if (featureLayer.feature && featureLayer.feature.properties && !foundLayer) {
+                                // Simple exact match for properties
+                                if (JSON.stringify(featureLayer.feature.properties) === JSON.stringify(e.detail.feature.properties)) {
+                                    foundLayer = featureLayer;
+                                }
+                            }
+                        });
+                    }
+                });
+
+                if (foundLayer) {
+                    if (activeFeatureLayer.current && activeFeatureLayer.current.layer && activeFeatureLayer.current.layer.setStyle) {
+                        activeFeatureLayer.current.layer.setStyle({ 
+                            color: activeFeatureLayer.current.originalColor, 
+                            weight: 1.5, 
+                            fillOpacity: activeFeatureLayer.current.originalOpacity 
+                        });
+                    }
+                    const originalColor = foundLayer.options.color || '#32d74b';
+                    const originalOpacity = foundLayer.options.fillOpacity || 0.2;
+                    if (foundLayer.setStyle) {
+                        foundLayer.setStyle({ color: '#00ffff', weight: 4, fillOpacity: 0.5 });
+                        if (foundLayer.bringToFront) foundLayer.bringToFront();
+                    }
+                    activeFeatureLayer.current = { layer: foundLayer, originalColor, originalOpacity, id: e.detail.nodeId };
+                    
+                    // Pan to it
+                    if (foundLayer.getBounds && mapInstance.current) {
+                        mapInstance.current.fitBounds(foundLayer.getBounds(), { maxZoom: 18, animate: true, padding: [50, 50] });
+                    }
+                }
             }
             setSelectedFeature && setSelectedFeature(e.detail);
         };
@@ -206,10 +254,11 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                 filePath,
                 isRaster,
                 cmap: layer.cmap || 'viridis',
-                vectorColor: layer.vectorColor || '#32d74b'
+                vectorColor: layer.vectorColor || '#32d74b',
+                _bboxTimestamp: viewportBBoxTimestamp // Mix timestamp into dependency
             };
         });
-    }, [mapLayers, nodes, connections]);
+    }, [mapLayers, nodes, connections, viewportBBoxTimestamp]);
     useEffect(() => {
         if (activeWorkspace === 'planar' && mapInstance.current) {
             const map = mapInstance.current;
@@ -352,15 +401,21 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                                 console.warn("Could not fit bounds to geojson layer", err);
                             }
                         }
-                    } else if (!cached || !cached.isFetching) {
-                        setLoadedData(prev => ({ ...prev, [layer.id]: { isFetching: true } }));
-                        fetch(`http://${window.location.hostname}:${window.MAGPI_PORT || '8282'}/api/geojson?file=${encodeURIComponent(layer.filePath)}&layer_name=${encodeURIComponent(layer.layerName || '')}&limit=${globalEnv.vector_draw_limit || 10000}`)
-                            .then(r => r.ok ? r.json() : null)
-                            .then(data => {
-                                if (data) {
-                                    setLoadedData(prev => ({ ...prev, [layer.id]: { type: 'geojson', data: data, isFetching: false } }));
-                                }
-                            }).catch(() => { setLoadedData(prev => ({ ...prev, [layer.id]: { isFetching: false } })); });
+                    } else {
+                        // Check if we need to fetch or re-fetch because of panning
+                        const needsFetch = !cached || !cached.isFetching && (!cached.bbox || cached.bbox !== viewportBBox);
+                        
+                        if (needsFetch) {
+                            setLoadedData(prev => ({ ...prev, [layer.id]: { isFetching: true, bbox: viewportBBox } }));
+                            const bboxParam = viewportBBox ? `&bbox=${encodeURIComponent(viewportBBox)}` : '';
+                            fetch(`http://${window.location.hostname}:${window.MAGPI_PORT || '8282'}/api/geojson?file=${encodeURIComponent(layer.filePath)}&layer_name=${encodeURIComponent(layer.layerName || '')}&limit=${globalEnv.vector_draw_limit || 10000}${bboxParam}`)
+                                .then(r => r.ok ? r.json() : null)
+                                .then(data => {
+                                    if (data) {
+                                        setLoadedData(prev => ({ ...prev, [layer.id]: { type: 'geojson', data: data, isFetching: false, bbox: viewportBBox } }));
+                                    }
+                                }).catch(() => { setLoadedData(prev => ({ ...prev, [layer.id]: { isFetching: false, bbox: viewportBBox } })); });
+                        }
                     }
                 }
             });

@@ -11,7 +11,8 @@ export default function Terminal({ showTerminal, setShowTerminal, logs, isProces
   const [isLoadingData, setIsLoadingData] = useState(false);
   const [dataError, setDataError] = useState(null);
   const [page, setPage] = useState(0);
-  const limit = 50;
+  const [selectedRowIndex, setSelectedRowIndex] = useState(null);
+  const limit = 100;
 
   // DB Studio State
   const [dbConnections, setDbConnections] = useState([]);
@@ -218,16 +219,33 @@ export default function Terminal({ showTerminal, setShowTerminal, logs, isProces
                                   </tr>
                               </thead>
                               <tbody>
-                                  {tableData.rows.map((row, rIdx) => (
-                                      <tr key={rIdx} className="border-b border-slate-800/50 hover:bg-slate-800/50 transition-colors">
-                                          <td className="px-3 py-1.5 text-slate-600 border-r border-slate-800/50">{page * limit + rIdx + 1}</td>
-                                          {tableData.columns.map((col, cIdx) => (
-                                              <td key={cIdx} className="px-4 py-1.5 text-slate-300 border-r border-slate-800/50 truncate max-w-[300px]" title={row[col]}>
-                                                  {row[col] === null ? <span className="text-slate-600 italic">null</span> : String(row[col])}
-                                              </td>
-                                          ))}
-                                      </tr>
-                                  ))}
+                                  {tableData.rows.map((row, rIdx) => {
+                                      const isSelected = selectedRowIndex === (page * limit + rIdx);
+                                      return (
+                                          <tr 
+                                              key={rIdx} 
+                                              className={`border-b border-slate-800/50 hover:bg-slate-800/80 transition-colors cursor-pointer ${isSelected ? 'bg-cyan-900/30' : ''}`}
+                                              onClick={() => {
+                                                  setSelectedRowIndex(page * limit + rIdx);
+                                                  window.dispatchEvent(new CustomEvent('magpi-feature-selected', { 
+                                                      detail: { 
+                                                          feature: { properties: row }, 
+                                                          layerName: selectedNode?.params?.layer_name || selectedNode?.name || 'Data Studio Row', 
+                                                          nodeId: selectedNode?.id,
+                                                          isFromTable: true
+                                                      } 
+                                                  }));
+                                              }}
+                                          >
+                                              <td className="px-3 py-1.5 text-slate-600 border-r border-slate-800/50">{page * limit + rIdx + 1}</td>
+                                              {tableData.columns.map((col, cIdx) => (
+                                                  <td key={cIdx} className={`px-4 py-1.5 border-r border-slate-800/50 truncate max-w-[300px] ${isSelected ? 'text-cyan-300' : 'text-slate-300'}`} title={row[col]}>
+                                                      {row[col] === null ? <span className="text-slate-600 italic">null</span> : String(row[col])}
+                                                  </td>
+                                              ))}
+                                          </tr>
+                                      );
+                                  })}
                               </tbody>
                           </table>
                       </div>
