@@ -415,12 +415,22 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                         const gjLayer = L.geoJSON(cached.data, {
                             renderer: canvasRenderer,
                             style: (feature) => {
+                                const isSelected = selectedFeature && selectedFeature.layerId === layer.id && JSON.stringify(selectedFeature.feature?.properties) === JSON.stringify(feature.properties);
+                                if (isFishnet) {
+                                    return {
+                                        weight: isSelected ? 4 : 2,
+                                        color: isSelected ? '#00ffff' : '#ff8c00', // Cyan when selected, Orange outline
+                                        opacity: 0.8,
+                                        fillColor: isSelected ? '#00ffff' : '#ff8c00',
+                                        fillOpacity: isSelected ? 0.15 : 0.05 // Nearly transparent grid so buildings are visible!
+                                    };
+                                }
                                 return {
                                     weight: 1,
                                     color: layer.vectorColor || '#3388ff',
                                     opacity: 1,
                                     fillColor: layer.vectorColor || '#3388ff',
-                                    fillOpacity: 0.4
+                                    fillOpacity: 0.5
                                 };
                             },
                             pointToLayer: (feature, latlng) => {
@@ -430,7 +440,7 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                                     color: layer.vectorColor || '#3388ff',
                                     opacity: 1,
                                     fillColor: layer.vectorColor || '#3388ff',
-                                    fillOpacity: 0.4
+                                    fillOpacity: 0.5
                                 });
                             },
                             onEachFeature: (feature, layerObj) => {
@@ -438,7 +448,7 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                                     layerObj.bindTooltip(feature.properties.id, {
                                         permanent: true,
                                         direction: "center",
-                                        className: "bg-transparent text-emerald-400 font-bold text-[10px] border-none shadow-none"
+                                        className: "bg-transparent text-white font-bold text-[14px] border-none shadow-none text-shadow-lg"
                                     });
                                 }
                             }
