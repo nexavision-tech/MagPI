@@ -358,9 +358,16 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                 // Render GeoJSON or Vector Image based on Zoom
                 else if (layer.filePath && !layer.id.includes('extent')) {
                     const cached = loadedData[layer.id];
-                    // Strategy A: Macro view (vector image) for Z < 15, Micro view (geojson) for Z >= 15
-                    const isMacroView = currentZoom < 15;
-                    const expectedType = isMacroView ? 'vector_image' : 'geojson';
+                    const isFishnet = layer.toolId === 'core_fishnet';
+                    const renderMode = layer.renderMode || 'footprint';
+                    
+                    // Strategy C: Lock down automatic fetching.
+                    // Only fetch if it's a fishnet grid, or if renderMode is 'full' (transcription cell activated).
+                    if (!isFishnet && renderMode !== 'full') {
+                        return; // Just draw the footprint (handled below)
+                    }
+
+                    const expectedType = 'geojson';
                     
                     const needsFetch = viewportBBox && (!cached || cached.type !== expectedType || (!cached.isFetching && (!cached.bbox || cached.bbox !== viewportBBox)));
 
@@ -368,53 +375,28 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                         setLoadedData(prev => ({ ...prev, [layer.id]: { ...(prev[layer.id] || {}), isFetching: true, bbox: viewportBBox } }));
                         const bboxParam = viewportBBox ? `&bbox=${encodeURIComponent(viewportBBox)}` : '';
                         
-                        if (isMacroView) {
-                            const colorParam = layer.vectorColor ? `&color=${encodeURIComponent(layer.vectorColor)}` : '';
-                            const url = `http://${window.location.hostname}:${window.MAGPI_PORT || '8282'}/api/vector_image?file=${encodeURIComponent(layer.filePath)}&layer_name=${encodeURIComponent(layer.layerName || '')}${bboxParam}${colorParam}`;
-                            
-                            fetch(url)
-                                .then(r => r.ok ? r.blob() : null)
-                                .then(blob => {
-                                    if (blob) {
-                                        const imageUrl = URL.createObjectURL(blob);
-                                        const [w, s, e, n] = viewportBBox.split(',').map(Number);
-                                        const bounds = [[s, w], [n, e]];
-                                        setLoadedData(prev => ({ ...prev, [layer.id]: { type: expectedType, imageUrl: imageUrl, bounds: bounds, isFetching: false, bbox: viewportBBox } }));
-                                    } else {
-                                        setLoadedData(prev => ({ ...prev, [layer.id]: { ...(prev[layer.id] || {}), type: expectedType, isFetching: false, bbox: viewportBBox } }));
-                                    }
-                                }).catch(() => { setLoadedData(prev => ({ ...prev, [layer.id]: { ...(prev[layer.id] || {}), type: expectedType, isFetching: false, bbox: viewportBBox } })); });
-                        } else {
-                            fetch(`http://${window.location.hostname}:${window.MAGPI_PORT || '8282'}/api/geojson?file=${encodeURIComponent(layer.filePath)}&layer_name=${encodeURIComponent(layer.layerName || '')}&limit=${globalEnv.vector_draw_limit || 10000}${bboxParam}`)
-                                .then(r => r.ok ? r.json() : null)
-                                .then(data => {
-                                    if (data) {
-                                        setLoadedData(prev => {
-                                            const oldData = prev[layer.id]?.data;
-                                            let mergedFeatures = data.features || [];
-                                            if (oldData && oldData.features) {
-                                                const existingHashes = new Set(oldData.features.map(f => JSON.stringify(f.geometry?.coordinates || [])));
-                                                const newUnique = mergedFeatures.filter(f => !existingHashes.has(JSON.stringify(f.geometry?.coordinates || [])));
-                                                mergedFeatures = [...oldData.features, ...newUnique];
-                                            }
-                                            return { ...prev, [layer.id]: { type: expectedType, data: { ...data, features: mergedFeatures }, isFetching: false, bbox: viewportBBox } };
-                                        });
-                                    } else {
-                                        setLoadedData(prev => ({ ...prev, [layer.id]: { ...(prev[layer.id] || {}), type: expectedType, isFetching: false, bbox: viewportBBox } }));
-                                    }
-                                }).catch(() => { setLoadedData(prev => ({ ...prev, [layer.id]: { ...(prev[layer.id] || {}), type: expectedType, isFetching: false, bbox: viewportBBox } })); });
-                        }
+                        fetch(`http://${window.location.hostname}:${window.MAGPI_PORT || '8282'}/api/geojson?file=${encodeURIComponent(layer.filePath)}&layer_name=${encodeURIComponent(layer.layerName || '')}&limit=${globalEnv.vector_draw_limit || 10000}${bboxParam}`)
+                            .then(r => r.ok ? r.json() : null)
+                            .then(data => {
+                                if (data) {
+                                    setLoadedData(prev => {
+                                        const oldData = prev[layer.id]?.data;
+                                        let mergedFeatures = data.features || [];
+                                        if (oldData && oldData.features) {
+                                            const existingHashes = new Set(oldData.features.map(f => JSON.stringify(f.geometry?.coordinates || [])));
+                                            const newUnique = mergedFeatures.filter(f => !existingHashes.has(JSON.stringify(f.geometry?.coordinates || [])));
+                                            mergedFeatures = [...oldData.features, ...newUnique];
+                                        }
+                                        return { ...prev, [layer.id]: { type: expectedType, data: { ...data, features: mergedFeatures }, isFetching: false, bbox: viewportBBox } };
+                                    });
+                                } else {
+                                    setLoadedData(prev => ({ ...prev, [layer.id]: { ...(prev[layer.id] || {}), type: expectedType, isFetching: false, bbox: viewportBBox } }));
+                                }
+                            }).catch(() => { setLoadedData(prev => ({ ...prev, [layer.id]: { ...(prev[layer.id] || {}), type: expectedType, isFetching: false, bbox: viewportBBox } })); });
                     }
                     
                     if (cached && !cached.isFetching) {
-                        if (cached.type === 'vector_image' && cached.imageUrl && cached.bounds) {
-                            const imgLayer = L.imageOverlay(cached.imageUrl, cached.bounds, {
-                                opacity: 1,
-                                interactive: false
-                            });
-                            imgLayer.magpi_layer_id = layer.id;
-                            highlightGroup.current.addLayer(imgLayer);
-                        } else if (cached.type === 'geojson' && cached.data) {
+                        if (cached.type === 'geojson' && cached.data) {
                         const canvasRenderer = L.canvas({ padding: 0.5 });
                         const gjLayer = L.geoJSON(cached.data, {
                             renderer: canvasRenderer,
