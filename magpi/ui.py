@@ -135,6 +135,8 @@ def LaunchCanvas(port=8282):
                 self.wfile.write(json.dumps(list(JOB_REGISTRY.values())).encode('utf-8'))
             elif parsed_path.path == '/api/geojson':
                 self.handle_geojson(parsed_path.query)
+            elif parsed_path.path == '/api/fishnet':
+                self.handle_fishnet(parsed_path.query)
             elif parsed_path.path == '/api/vector_image':
                 self.handle_vector_image(parsed_path.query)
             elif parsed_path.path == '/api/raster':
@@ -558,6 +560,68 @@ def LaunchCanvas(port=8282):
                 self.send_header('Content-type', 'application/json')
                 self.end_headers()
                 self.wfile.write(json.dumps({"error": str(e)}).encode('utf-8'))
+
+        def handle_fishnet(self, query):
+            try:
+                from urllib.parse import parse_qs
+                import json
+                
+                qs = parse_qs(query)
+                bbox_str = qs.get('bbox', [''])[0]
+                rows = int(qs.get('rows', ['10'])[0])
+                cols = int(qs.get('cols', ['10'])[0])
+                
+                if not bbox_str:
+                    raise ValueError("Missing bbox parameter")
+                
+                w, s, e, n = map(float, bbox_str.split(','))
+                
+                cell_w = (e - w) / cols
+                cell_h = (n - s) / rows
+                
+                features = []
+                for i in range(rows):
+                    for j in range(cols):
+                        cell_s = s + i * cell_h
+                        cell_n = s + (i + 1) * cell_h
+                        cell_w_lon = w + j * cell_w
+                        cell_e_lon = w + (j + 1) * cell_w
+                        
+                        geom = {
+                            "type": "Polygon",
+                            "coordinates": [[
+                                [cell_w_lon, cell_s],
+                                [cell_e_lon, cell_s],
+                                [cell_e_lon, cell_n],
+                                [cell_w_lon, cell_n],
+                                [cell_w_lon, cell_s]
+                            ]]
+                        }
+                        
+                        features.append({
+                            "type": "Feature",
+                            "geometry": geom,
+                            "properties": {
+                                "id": f"R{i}C{j}",
+                                "row": i,
+                                "col": j
+                            }
+                        })
+                
+                # Write to magpi_workspace so it can be loaded as a regular file if needed, though we can just return it.
+                # Actually, returning it directly as GeoJSON is cleaner for the API!
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"type": "FeatureCollection", "features": features}).encode('utf-8'))
+                
+            except Exception as e:
+                logger.error(f"Fishnet generation failed: {e}")
+                self.send_response(500)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": str(e)}).encode('utf-8'))
+
 
         def handle_vector_image(self, query):
             try:
