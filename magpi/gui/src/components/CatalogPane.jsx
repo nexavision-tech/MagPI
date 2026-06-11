@@ -157,9 +157,10 @@ const FileNode = ({ node, level, globalEnv, copiedPath, setCopiedPath }) => {
               style={{ paddingLeft: `${(level+1) * 12 + 20}px` }}
               draggable
               onDragStart={(e) => handleDragStart(e, { path: node.path, type: node.type, layer_name: layer })}
+              title={layer}
             >
-              <Box size={12} className="mr-2 opacity-50" />
-              {layer}
+              <Box size={12} className="mr-2 opacity-50 shrink-0" />
+              <span className="truncate">{layer}</span>
             </div>
           ))}
         </div>
