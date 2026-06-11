@@ -1003,6 +1003,43 @@ export default function Toolbox({
                       </div>
                     )}
 
+                    {metadata[selectedNode.id] && metadata[selectedNode.id].data && metadata[selectedNode.id].data.extent && (
+                        <button
+                          onClick={async () => {
+                              const extent = metadata[selectedNode.id].data.extent;
+                              const url = `http://${window.location.hostname}:${window.MAGPI_PORT || '8282'}/api/fishnet?bbox=${encodeURIComponent(extent)}&rows=10&cols=10`;
+                              try {
+                                  const res = await fetch(url);
+                                  const data = await res.json();
+                                  if (data.status === 'success') {
+                                      const newTool = {
+                                          id: 'core_fishnet',
+                                          name: `Fishnet: ${selectedNode.name}`,
+                                          color: 'bg-emerald-600',
+                                          border: 'border-emerald-500',
+                                          params: {
+                                              file_path: data.file,
+                                              target_layer: selectedNode.id,
+                                              export_to_map: true
+                                          }
+                                      };
+                                      if (addNode) {
+                                          addNode(newTool, selectedNode.x + 150, selectedNode.y + 50);
+                                      } else {
+                                          console.error("addNode prop is not available in Toolbox");
+                                      }
+                                  }
+                              } catch (e) {
+                                  console.error("Fishnet failed:", e);
+                              }
+                          }}
+                          className="w-full py-2 bg-emerald-900/40 hover:bg-emerald-600 text-emerald-300 hover:text-white text-xs font-bold rounded border border-emerald-800/50 hover:border-emerald-500 transition-all flex items-center justify-center mt-3 shadow-lg"
+                        >
+                          <Grid size={14} className="mr-2" />
+                          Generate Fishnet Grid (10x10)
+                        </button>
+                    )}
+
                     {metadata[selectedNode.id] && metadata[selectedNode.id].error && (
                       <div className="bg-red-900/20 p-3 rounded border border-red-800/50 flex items-start text-xs text-red-400 mt-2">
                         <AlertCircle size={14} className="mr-2 mt-0.5 shrink-0" />

@@ -608,12 +608,22 @@ def LaunchCanvas(port=8282):
                             }
                         })
                 
-                # Write to magpi_workspace so it can be loaded as a regular file if needed, though we can just return it.
-                # Actually, returning it directly as GeoJSON is cleaner for the API!
+                import os
+                import time
+                
+                workspace = os.path.join(os.getcwd(), 'magpi_workspace')
+                os.makedirs(workspace, exist_ok=True)
+                
+                fishnet_id = f"fishnet_{int(time.time())}"
+                fishnet_path = os.path.join(workspace, f"{fishnet_id}.geojson")
+                
+                with open(fishnet_path, 'w') as f:
+                    json.dump({"type": "FeatureCollection", "features": features}, f)
+                
                 self.send_response(200)
                 self.send_header('Content-type', 'application/json')
                 self.end_headers()
-                self.wfile.write(json.dumps({"type": "FeatureCollection", "features": features}).encode('utf-8'))
+                self.wfile.write(json.dumps({"status": "success", "file": fishnet_path}).encode('utf-8'))
                 
             except Exception as e:
                 logger.error(f"Fishnet generation failed: {e}")

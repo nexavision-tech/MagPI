@@ -308,7 +308,7 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                         const rect = L.rectangle(bounds, { 
                             color: isSelected ? '#ff8c00' : (isExtent ? '#00ffff' : layer.vectorColor), 
                             weight: isSelected ? 4 : 2, 
-                            fillOpacity: isExtent ? 0.2 : 0, 
+                            fillOpacity: 0.2, 
                             dashArray: isExtent ? '4, 4' : null 
                         });
                         
@@ -359,21 +359,34 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                 else if (layer.filePath && !layer.id.includes('extent')) {
                     const cached = loadedData[layer.id];
                     const isFishnet = layer.toolId === 'core_fishnet';
-                    const renderMode = layer.renderMode || 'footprint';
                     
-                    // Strategy C: Lock down automatic fetching.
-                    // Only fetch if it's a fishnet grid, or if renderMode is 'full' (transcription cell activated).
-                    if (!isFishnet && renderMode !== 'full') {
-                        return; // Just draw the footprint (handled below)
+                    let activeTranscriptionBbox = null;
+                    if (selectedFeature && nodes) {
+                        const selNode = nodes.find(n => n.id === selectedFeature.layerId);
+                        if (selNode && selNode.toolId === 'core_fishnet' && selNode.params.target_layer === layer.id) {
+                            const coords = selectedFeature.feature?.geometry?.coordinates?.[0];
+                            if (coords) {
+                                const xs = coords.map(c => c[0]);
+                                const ys = coords.map(c => c[1]);
+                                activeTranscriptionBbox = `${Math.min(...xs)},${Math.min(...ys)},${Math.max(...xs)},${Math.max(...ys)}`;
+                            }
+                        }
                     }
 
+                    const renderMode = activeTranscriptionBbox ? 'full' : (layer.renderMode || 'footprint');
+                    
+                    if (!isFishnet && renderMode !== 'full') {
+                        return;
+                    }
+
+                    const fetchBbox = activeTranscriptionBbox || viewportBBox;
                     const expectedType = 'geojson';
                     
-                    const needsFetch = viewportBBox && (!cached || cached.type !== expectedType || (!cached.isFetching && (!cached.bbox || cached.bbox !== viewportBBox)));
+                    const needsFetch = fetchBbox && (!cached || cached.type !== expectedType || (!cached.isFetching && (!cached.bbox || cached.bbox !== fetchBbox)));
 
                     if (needsFetch) {
-                        setLoadedData(prev => ({ ...prev, [layer.id]: { ...(prev[layer.id] || {}), isFetching: true, bbox: viewportBBox } }));
-                        const bboxParam = viewportBBox ? `&bbox=${encodeURIComponent(viewportBBox)}` : '';
+                        setLoadedData(prev => ({ ...prev, [layer.id]: { ...(prev[layer.id] || {}), isFetching: true, bbox: fetchBbox } }));
+                        const bboxParam = fetchBbox ? `&bbox=${encodeURIComponent(fetchBbox)}` : '';
                         
                         fetch(`http://${window.location.hostname}:${window.MAGPI_PORT || '8282'}/api/geojson?file=${encodeURIComponent(layer.filePath)}&layer_name=${encodeURIComponent(layer.layerName || '')}&limit=${globalEnv.vector_draw_limit || 10000}${bboxParam}`)
                             .then(r => r.ok ? r.json() : null)
@@ -387,12 +400,12 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                                             const newUnique = mergedFeatures.filter(f => !existingHashes.has(JSON.stringify(f.geometry?.coordinates || [])));
                                             mergedFeatures = [...oldData.features, ...newUnique];
                                         }
-                                        return { ...prev, [layer.id]: { type: expectedType, data: { ...data, features: mergedFeatures }, isFetching: false, bbox: viewportBBox } };
+                                        return { ...prev, [layer.id]: { type: expectedType, data: { ...data, features: mergedFeatures }, isFetching: false, bbox: fetchBbox } };
                                     });
                                 } else {
-                                    setLoadedData(prev => ({ ...prev, [layer.id]: { ...(prev[layer.id] || {}), type: expectedType, isFetching: false, bbox: viewportBBox } }));
+                                    setLoadedData(prev => ({ ...prev, [layer.id]: { ...(prev[layer.id] || {}), type: expectedType, isFetching: false, bbox: fetchBbox } }));
                                 }
-                            }).catch(() => { setLoadedData(prev => ({ ...prev, [layer.id]: { ...(prev[layer.id] || {}), type: expectedType, isFetching: false, bbox: viewportBBox } })); });
+                            }).catch(() => { setLoadedData(prev => ({ ...prev, [layer.id]: { ...(prev[layer.id] || {}), type: expectedType, isFetching: false, bbox: fetchBbox } })); });
                     }
                     
                     if (cached && !cached.isFetching) {
