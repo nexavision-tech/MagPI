@@ -717,6 +717,15 @@ export default function Toolbox({
 
       if (response.ok) {
         setMetadata(prev => ({ ...prev, [nodeId]: { data, error: null, fetching: false } }));
+        // Automatically inject bounds into the node for footprint rendering & zooming
+        if (data.extent && Array.isArray(data.extent) && data.extent.length === 4) {
+             if (updateNodeParam) {
+                 updateNodeParam(nodeId, 'xmin', data.extent[0]);
+                 updateNodeParam(nodeId, 'ymin', data.extent[1]);
+                 updateNodeParam(nodeId, 'xmax', data.extent[2]);
+                 updateNodeParam(nodeId, 'ymax', data.extent[3]);
+             }
+        }
       } else {
         setMetadata(prev => ({ ...prev, [nodeId]: { data: null, error: data.error, fetching: false } }));
       }

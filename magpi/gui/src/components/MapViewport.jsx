@@ -14,11 +14,12 @@ window.type = '';
 const getAncestralExtent = (nodeId, nodes, connections) => {
     const node = nodes.find(n => n.id === nodeId);
     if (!node) return null;
-    if (node.toolId === 'core_extent' || node.toolId === 'mgt_clip') {
-        if (node.params && node.params.xmin && node.params.ymin && node.params.xmax && node.params.ymax) {
-            return node.params;
-        }
+    
+    // Check if the node itself has explicit bounds assigned (e.g. from Auto-Scan)
+    if (node.params && node.params.xmin !== undefined && node.params.ymin !== undefined && node.params.xmax !== undefined && node.params.ymax !== undefined) {
+        return { xmin: node.params.xmin, ymin: node.params.ymin, xmax: node.params.xmax, ymax: node.params.ymax };
     }
+
     const incomingCxs = connections ? connections.filter(c => c.to === nodeId) : [];
     for (const cx of incomingCxs) {
         const extent = getAncestralExtent(cx.from, nodes, connections);
