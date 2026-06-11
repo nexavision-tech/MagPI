@@ -285,78 +285,59 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                 else if (layer.filePath && !layer.id.includes('extent')) {
                     const cached = loadedData[layer.id];
                     if (cached && cached.type === 'geojson') {
-                        // Ensure features have an ID for VectorGrid interaction
-                        if (cached.data && cached.data.features && !cached.hasIds) {
-                            cached.data.features.forEach((f, i) => {
-                                if (!f.properties) f.properties = {};
-                                f.properties.magpi_id = `magpi_f_${i}`;
-                            });
-                            cached.hasIds = true;
-                        }
-
-                        const gjLayer = L.vectorGrid.slicer(cached.data, {
-                            rendererFactory: L.canvas.tile,
-                            vectorTileLayerStyles: {
-                                sliced: {
+                        const canvasRenderer = L.canvas({ padding: 0.5 });
+                        const gjLayer = L.geoJSON(cached.data, {
+                            renderer: canvasRenderer,
+                            style: (feature) => {
+                                return {
                                     weight: 1,
-                                    color: layer.vectorColor,
+                                    color: layer.vectorColor || '#3388ff',
                                     opacity: 1,
-                                    fillColor: layer.vectorColor,
-                                    fill: true,
-                                    fillOpacity: 0.4,
-                                    radius: 4
-                                }
+                                    fillColor: layer.vectorColor || '#3388ff',
+                                    fillOpacity: 0.4
+                                };
                             },
-                            interactive: true,
-                            indexMaxZoom: 24,
-                            maxNativeZoom: 24,
-                            maxZoom: 24,
-                            tolerance: 0,
-                            getFeatureId: (f) => f.properties.magpi_id
+                            pointToLayer: (feature, latlng) => {
+                                return L.circleMarker(latlng, {
+                                    radius: 4,
+                                    weight: 1,
+                                    color: layer.vectorColor || '#3388ff',
+                                    opacity: 1,
+                                    fillColor: layer.vectorColor || '#3388ff',
+                                    fillOpacity: 0.4
+                                });
+                            }
                         });
 
                         gjLayer.on('click', (e) => {
-                            if (!e.layer || !e.layer.properties) return;
+                            if (!e.layer || !e.layer.feature) return;
 
                             try {
                                 if (activeFeatureLayer.current && activeFeatureLayer.current.layer) {
-                                    activeFeatureLayer.current.layer.setFeatureStyle(
-                                        activeFeatureLayer.current.id,
-                                        { 
-                                            weight: 1.5,
-                                            color: activeFeatureLayer.current.originalColor || '#3388ff',
-                                            opacity: 1,
-                                            fillColor: activeFeatureLayer.current.originalColor || '#3388ff',
-                                            fill: true,
-                                            fillOpacity: activeFeatureLayer.current.originalOpacity || 0.2
-                                        }
-                                    );
-                                }
-
-                                const magpiId = e.layer.properties.magpi_id;
-                                if (magpiId) {
-                                    gjLayer.setFeatureStyle(magpiId, {
-                                        weight: 4,
-                                        color: '#00ffff',
-                                        opacity: 1,
-                                        fillColor: '#00ffff',
-                                        fill: true,
-                                        fillOpacity: 0.3
+                                    activeFeatureLayer.current.layer.setStyle({ 
+                                        weight: 1,
+                                        color: activeFeatureLayer.current.originalColor || '#3388ff',
+                                        fillColor: activeFeatureLayer.current.originalColor || '#3388ff',
+                                        fillOpacity: 0.4
                                     });
-
-                                    activeFeatureLayer.current = {
-                                        layer: gjLayer,
-                                        id: magpiId,
-                                        originalColor: layer.vectorColor || '#3388ff',
-                                        originalOpacity: 0.2
-                                    };
                                 }
+
+                                e.layer.setStyle({
+                                    weight: 4,
+                                    color: '#00ffff',
+                                    fillColor: '#00ffff',
+                                    fillOpacity: 0.3
+                                });
+
+                                activeFeatureLayer.current = {
+                                    layer: e.layer,
+                                    originalColor: layer.vectorColor || '#3388ff'
+                                };
                             } catch (err) {
                                 console.warn("Failed to highlight vector feature:", err);
                             }
 
-                            // Mock feature for toolbox selection
-                            const feature = { properties: e.layer.properties, geometry: { type: 'Geometry' } };
+                            const feature = e.layer.feature;
                             window.dispatchEvent(new CustomEvent('magpi-feature-selected', { detail: { feature: feature, layerName: layer.name || layer.id } }));
                         });
 
@@ -365,9 +346,11 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                         
                         if (autoZoom && layer.selected && lastZoomedNode.current !== layer.id) {
                             lastZoomedNode.current = layer.id;
-                            // Need standard geojson to get bounds since vectorgrid doesn't have getBounds easily accessible
-                            const tempGj = L.geoJSON(cached.data);
-                            map.fitBounds(tempGj.getBounds(), { animate: true, padding: [100, 100] });
+                            try {
+                                map.fitBounds(gjLayer.getBounds(), { animate: true, padding: [100, 100], maxZoom: 18 });
+                            } catch (err) {
+                                console.warn("Could not fit bounds to geojson layer", err);
+                            }
                         }
                     } else if (!cached || !cached.isFetching) {
                         setLoadedData(prev => ({ ...prev, [layer.id]: { isFetching: true } }));
