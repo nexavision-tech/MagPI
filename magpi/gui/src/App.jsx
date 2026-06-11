@@ -41,19 +41,34 @@ export default function App() {
 
   useEffect(() => {
      const handleSelect = (e) => {
-         setSelectedFeature(e.detail);
-         if (e.detail) {
-             setActiveRightTab('identify');
-             if (e.detail.nodeId) {
-                 setSelectedNodeId(e.detail.nodeId);
+         setSelectedFeature(prev => {
+             // If we clicked the same exact feature again, toggle it off
+             if (prev && e.detail && prev.layerId === e.detail.layerId && 
+                 JSON.stringify(prev.feature?.properties) === JSON.stringify(e.detail.feature?.properties)) {
+                 return null;
              }
-             setShowTerminal(true);
-             window.dispatchEvent(new CustomEvent('magpi-open-data-studio'));
-         }
+             return e.detail;
+         });
      };
      window.addEventListener('magpi-feature-selected', handleSelect);
      return () => window.removeEventListener('magpi-feature-selected', handleSelect);
   }, []);
+
+  // Separate side-effect for opening Data Studio & Identify Tab
+  useEffect(() => {
+      if (selectedFeature) {
+          setActiveRightTab('identify');
+          if (selectedFeature.nodeId) {
+              setSelectedNodeId(selectedFeature.nodeId);
+          }
+          setShowTerminal(true);
+          window.dispatchEvent(new CustomEvent('magpi-open-data-studio'));
+      } else {
+          // If toggled off, clear the identify view and hide the terminal
+          setActiveRightTab('params');
+          setShowTerminal(false);
+      }
+  }, [selectedFeature]);
 
   const [showScript, setShowScript] = useState(false);
   const [generatedCode, setGeneratedCode] = useState("");

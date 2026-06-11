@@ -915,7 +915,7 @@ def LaunchCanvas(port=8282):
                     "dataType": desc.dataType,
                     "shapeType": getattr(desc, 'shapeType', "N/A"),
                     "bandCount": getattr(desc, 'bandCount', 1),
-                    "extent": str(desc.extent) if desc.extent else "Unknown",
+                    "extent": [desc.extent.XMin, desc.extent.YMin, desc.extent.XMax, desc.extent.YMax] if (desc.extent and hasattr(desc.extent, 'XMin')) else "Unknown",
                     "spatialReference": sr_name,
                     # NEW: Send the WGS84 Extent to the Web Map!
                     "wgs84_extent": getattr(desc, 'wgs84_extent', None)

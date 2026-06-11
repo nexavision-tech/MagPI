@@ -53,7 +53,7 @@ class Describe:
                 with rasterio.open(dataset) as src:
                     self.bandCount = src.count
                     bounds = src.bounds
-                    self.extent = f"XMin: {bounds.left:.2f}, YMin: {bounds.bottom:.2f}, XMax: {bounds.right:.2f}, YMax: {bounds.top:.2f}"
+                    self.extent = Extent(bounds.left, bounds.bottom, bounds.right, bounds.top)
                     self.spatialReference = SpatialReference(src.crs)
                     
                     # MAGIC PROJECTION: Transform the native CRS to Lat/Lon (EPSG:4326) for the Leaflet UI!
@@ -71,9 +71,16 @@ class Describe:
             self.dataType = "FeatureClass"
             try:
                 import geopandas as gpd
+                import fiona
+                
+                # Use fiona to get the true total bounds without loading geometries into memory
+                with fiona.open(dataset) as src:
+                    bounds = src.bounds
+                    self.extent = Extent(bounds[0], bounds[1], bounds[2], bounds[3])
+                
+                # Still read 1 row just to get the shapeType for the UI
                 gdf = gpd.read_file(dataset, rows=1)
-                self.shapeType = gdf.geom_type[0]
-                self.extent = f"Bounds: {gdf.total_bounds}"
+                self.shapeType = gdf.geom_type[0] if len(gdf) > 0 else "Unknown"
                 self.spatialReference = SpatialReference(gdf.crs)
             except Exception as e:
                 logger.error(f"Failed to describe vector: {e}")

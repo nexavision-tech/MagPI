@@ -432,6 +432,15 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                                     fillColor: layer.vectorColor || '#3388ff',
                                     fillOpacity: 0.4
                                 });
+                            },
+                            onEachFeature: (feature, layerObj) => {
+                                if (isFishnet && feature.properties?.id) {
+                                    layerObj.bindTooltip(feature.properties.id, {
+                                        permanent: true,
+                                        direction: "center",
+                                        className: "bg-transparent text-emerald-400 font-bold text-[10px] border-none shadow-none"
+                                    });
+                                }
                             }
                         });
 
@@ -483,11 +492,11 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                 }
             });
             
-            if (!computedLayers.find(l => l.isBase)?.visible && map.hasLayer(osmLayerRef.current)) {
-                map.removeLayer(osmLayerRef.current);
-            }
+        if (!computedLayers.find(l => l.isBase)?.visible && map.hasLayer(osmLayerRef.current)) {
+            map.removeLayer(osmLayerRef.current);
         }
-    }, [computedLayers, activeWorkspace, loadedData]);
+    }
+}, [computedLayers, activeWorkspace, loadedData, selectedFeature]);
 
     // Handle clearing the feature selection from the UI side
     useEffect(() => {
