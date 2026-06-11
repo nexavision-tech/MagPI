@@ -121,6 +121,57 @@ export default function Terminal({ showTerminal, setShowTerminal, logs, isProces
     setTimeout(() => setCopied(false), 2000);
   };
 
+  useEffect(() => {
+    const handleMapSelect = (e) => {
+        if (!e.detail || e.detail.isFromTable) return; // Ignore if we generated it, or if it's a deselect
+        if (tableData && tableData.rows) {
+            const p2 = e.detail.feature.properties;
+            if (!p2) return;
+            
+            const idKeys = ['OBJECTID', 'FID', 'id', 'ID', 'uuid'];
+            let foundIndex = -1;
+
+            for (let i = 0; i < tableData.rows.length; i++) {
+                const p1 = tableData.rows[i];
+                let matchedById = false;
+                for (const key of idKeys) {
+                    if (p1[key] !== undefined && p2[key] !== undefined && String(p1[key]) === String(p2[key])) {
+                        matchedById = true;
+                        break;
+                    }
+                }
+                if (matchedById) {
+                    foundIndex = i;
+                    break;
+                } else {
+                    let matchCount = 0;
+                    let totalKeys = 0;
+                    for (const key in p2) {
+                        if (key !== 'geometry' && p2[key] !== null) {
+                            totalKeys++;
+                            if (String(p1[key]) === String(p2[key])) matchCount++;
+                        }
+                    }
+                    if (totalKeys > 0 && matchCount >= Math.min(3, totalKeys)) {
+                        foundIndex = i;
+                        break;
+                    }
+                }
+            }
+            if (foundIndex !== -1) {
+                setSelectedRowIndex(page * limit + foundIndex);
+                // Optional: scroll into view
+                const trs = document.querySelectorAll('.data-studio-row');
+                if (trs[foundIndex]) {
+                    trs[foundIndex].scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            }
+        }
+    };
+    window.addEventListener('magpi-feature-selected', handleMapSelect);
+    return () => window.removeEventListener('magpi-feature-selected', handleMapSelect);
+  }, [tableData, page, limit]);
+
   if (!showTerminal) return null;
 
   return (
@@ -224,7 +275,7 @@ export default function Terminal({ showTerminal, setShowTerminal, logs, isProces
                                       return (
                                           <tr 
                                               key={rIdx} 
-                                              className={`border-b border-slate-800/50 hover:bg-slate-800/80 transition-colors cursor-pointer ${isSelected ? 'bg-cyan-900/30' : ''}`}
+                                              className={`data-studio-row border-b border-slate-800/50 hover:bg-slate-800/80 transition-colors cursor-pointer ${isSelected ? 'bg-cyan-900/30' : ''}`}
                                               onClick={() => {
                                                   setSelectedRowIndex(page * limit + rIdx);
                                                   window.dispatchEvent(new CustomEvent('magpi-feature-selected', { 

@@ -157,9 +157,34 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                     if (gjLayer.magpi_layer_id === e.detail.nodeId && !foundLayer) {
                         gjLayer.eachLayer((featureLayer) => {
                             if (featureLayer.feature && featureLayer.feature.properties && !foundLayer) {
-                                // Simple exact match for properties
-                                if (JSON.stringify(featureLayer.feature.properties) === JSON.stringify(e.detail.feature.properties)) {
+                                const p1 = featureLayer.feature.properties;
+                                const p2 = e.detail.feature.properties;
+                                
+                                // 1. Try exact primary key match first
+                                const idKeys = ['OBJECTID', 'FID', 'id', 'ID', 'uuid'];
+                                let matchedById = false;
+                                for (const key of idKeys) {
+                                    if (p1[key] !== undefined && p2[key] !== undefined && String(p1[key]) === String(p2[key])) {
+                                        matchedById = true;
+                                        break;
+                                    }
+                                }
+                                
+                                if (matchedById) {
                                     foundLayer = featureLayer;
+                                } else {
+                                    // 2. Fallback to fuzzy property match (at least 3 attributes must match)
+                                    let matchCount = 0;
+                                    let totalKeys = 0;
+                                    for (const key in p2) {
+                                        if (key !== 'geometry' && p2[key] !== null) {
+                                            totalKeys++;
+                                            if (String(p1[key]) === String(p2[key])) matchCount++;
+                                        }
+                                    }
+                                    if (totalKeys > 0 && matchCount >= Math.min(3, totalKeys)) {
+                                        foundLayer = featureLayer;
+                                    }
                                 }
                             }
                         });
@@ -333,7 +358,32 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                 // Render GeoJSON
                 else if (layer.filePath && !layer.id.includes('extent')) {
                     const cached = loadedData[layer.id];
-                    if (cached && cached.type === 'geojson') {
+                    const needsFetch = !cached || (!cached.isFetching && (!cached.bbox || cached.bbox !== viewportBBox));
+
+                    if (needsFetch) {
+                        setLoadedData(prev => ({ ...prev, [layer.id]: { ...(prev[layer.id] || {}), isFetching: true, bbox: viewportBBox } }));
+                        const bboxParam = viewportBBox ? `&bbox=${encodeURIComponent(viewportBBox)}` : '';
+                        fetch(`http://${window.location.hostname}:${window.MAGPI_PORT || '8282'}/api/geojson?file=${encodeURIComponent(layer.filePath)}&layer_name=${encodeURIComponent(layer.layerName || '')}&limit=${globalEnv.vector_draw_limit || 10000}${bboxParam}`)
+                            .then(r => r.ok ? r.json() : null)
+                            .then(data => {
+                                if (data) {
+                                    setLoadedData(prev => {
+                                        const oldData = prev[layer.id]?.data;
+                                        // Accumulate features for smooth panning (acting as a client-side spatial database)
+                                        let mergedFeatures = data.features || [];
+                                        if (oldData && oldData.features) {
+                                            // Simple deduplication by stringified geometry coordinates (or properties) to prevent thick outlines
+                                            const existingHashes = new Set(oldData.features.map(f => JSON.stringify(f.geometry?.coordinates || [])));
+                                            const newUnique = mergedFeatures.filter(f => !existingHashes.has(JSON.stringify(f.geometry?.coordinates || [])));
+                                            mergedFeatures = [...oldData.features, ...newUnique];
+                                        }
+                                        return { ...prev, [layer.id]: { type: 'geojson', data: { ...data, features: mergedFeatures }, isFetching: false, bbox: viewportBBox } };
+                                    });
+                                }
+                            }).catch(() => { setLoadedData(prev => ({ ...prev, [layer.id]: { ...(prev[layer.id] || {}), isFetching: false, bbox: viewportBBox } })); });
+                    }
+                    
+                    if (cached && cached.type === 'geojson' && !cached.isFetching) {
                         const canvasRenderer = L.canvas({ padding: 0.5 });
                         const gjLayer = L.geoJSON(cached.data, {
                             renderer: canvasRenderer,
@@ -400,21 +450,6 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                             } catch (err) {
                                 console.warn("Could not fit bounds to geojson layer", err);
                             }
-                        }
-                    } else {
-                        // Check if we need to fetch or re-fetch because of panning
-                        const needsFetch = !cached || !cached.isFetching && (!cached.bbox || cached.bbox !== viewportBBox);
-                        
-                        if (needsFetch) {
-                            setLoadedData(prev => ({ ...prev, [layer.id]: { isFetching: true, bbox: viewportBBox } }));
-                            const bboxParam = viewportBBox ? `&bbox=${encodeURIComponent(viewportBBox)}` : '';
-                            fetch(`http://${window.location.hostname}:${window.MAGPI_PORT || '8282'}/api/geojson?file=${encodeURIComponent(layer.filePath)}&layer_name=${encodeURIComponent(layer.layerName || '')}&limit=${globalEnv.vector_draw_limit || 10000}${bboxParam}`)
-                                .then(r => r.ok ? r.json() : null)
-                                .then(data => {
-                                    if (data) {
-                                        setLoadedData(prev => ({ ...prev, [layer.id]: { type: 'geojson', data: data, isFetching: false, bbox: viewportBBox } }));
-                                    }
-                                }).catch(() => { setLoadedData(prev => ({ ...prev, [layer.id]: { isFetching: false, bbox: viewportBBox } })); });
                         }
                     }
                 }
