@@ -473,6 +473,7 @@ def LaunchCanvas(port=8282):
                 file_path = params.get('file', [''])[0]
                 limit = int(params.get('limit', ['100'])[0])
                 offset = int(params.get('offset', ['0'])[0])
+                layer_name = params.get('layer_name', [''])[0]
 
                 if not file_path:
                     raise ValueError("Missing file parameter")
@@ -482,11 +483,22 @@ def LaunchCanvas(port=8282):
 
                 import geopandas as gpd
                 import pandas as pd
+                import datetime
+                
+                def safe_serialize(obj):
+                    if pd.isna(obj):
+                        return None
+                    if isinstance(obj, (datetime.datetime, datetime.date)):
+                        return obj.isoformat()
+                    return str(obj)
                 
                 # Reading the entire shapefile can be slow for 471k rows, 
                 # but we'll read it and slice it for now. 
                 # Future optimization: use fiona to slice directly or read in chunks.
-                gdf = gpd.read_file(file_path, rows=slice(offset, offset + limit))
+                kwargs = {'rows': slice(offset, offset + limit)}
+                if layer_name:
+                    kwargs['layer'] = layer_name
+                gdf = gpd.read_file(file_path, **kwargs)
                 
                 # Convert geometry to WKT for display if it exists
                 if 'geometry' in gdf.columns:
@@ -502,16 +514,18 @@ def LaunchCanvas(port=8282):
                 columns = list(gdf.columns)
                 rows = gdf.to_dict(orient='records')
                 
-                self.send_response(200)
-                self.send_header('Content-type', 'application/json')
-                self.end_headers()
-                self.wfile.write(json.dumps({
+                response_body = json.dumps({
                     "columns": columns,
                     "rows": rows,
                     "count": len(rows),
                     "offset": offset,
                     "limit": limit
-                }).encode('utf-8'))
+                }, default=safe_serialize).encode('utf-8')
+                
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(response_body)
 
             except Exception as e:
                 import traceback
