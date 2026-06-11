@@ -135,6 +135,8 @@ def LaunchCanvas(port=8282):
                 self.wfile.write(json.dumps(list(JOB_REGISTRY.values())).encode('utf-8'))
             elif parsed_path.path == '/api/geojson':
                 self.handle_geojson(parsed_path.query)
+            elif parsed_path.path == '/api/vector_image':
+                self.handle_vector_image(parsed_path.query)
             elif parsed_path.path == '/api/raster':
                 self.handle_raster(parsed_path.query)
             elif parsed_path.path == '/api/raster_metadata':
@@ -552,6 +554,97 @@ def LaunchCanvas(port=8282):
                 self.wfile.write(json.dumps({"status": "success", "project_data": project_data}).encode('utf-8'))
             except Exception as e:
                 logger.error(f"Load Project API failed: {e}")
+                self.send_response(500)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": str(e)}).encode('utf-8'))
+
+        def handle_vector_image(self, query):
+            try:
+                import geopandas as gpd
+                import matplotlib
+                matplotlib.use('Agg')
+                import matplotlib.pyplot as plt
+                import io
+                import pyogrio
+                import os
+                
+                params = parse_qs(query)
+                file_path = params.get('file', [''])[0]
+                layer_name = params.get('layer_name', [''])[0]
+                bbox_str = params.get('bbox', [''])[0]
+                color = params.get('color', ['#3388ff'])[0]
+                
+                if not file_path or not bbox_str:
+                    raise ValueError("Missing file or bbox parameter")
+                
+                # Parse bbox: west, south, east, north
+                w, s, e, n = map(float, bbox_str.split(','))
+                bbox = (w, s, e, n)
+                
+                if file_path.startswith('~/'):
+                    file_path = os.path.expanduser(file_path)
+                
+                kwargs = {}
+                if layer_name:
+                    kwargs['layer'] = layer_name
+                
+                # Fetch only geometries within the bbox
+                gdf = pyogrio.read_dataframe(file_path, bbox=bbox, **kwargs)
+                
+                if gdf.empty:
+                    # Return empty transparent PNG
+                    fig, ax = plt.subplots(figsize=(8, 8))
+                    fig.patch.set_alpha(0.0)
+                    ax.axis('off')
+                    buf = io.BytesIO()
+                    plt.savefig(buf, format='png', transparent=True, bbox_inches='tight', pad_inches=0)
+                    plt.close(fig)
+                    buf.seek(0)
+                    self.send_response(200)
+                    self.send_header('Content-type', 'image/png')
+                    self.end_headers()
+                    self.wfile.write(buf.read())
+                    return
+
+                if gdf.crs and gdf.crs.to_epsg() != 4326:
+                    gdf = gdf.to_crs(epsg=4326)
+
+                # Generate image
+                # Width/height ratio based on bbox
+                aspect_ratio = (e - w) / (n - s) if (n - s) != 0 else 1
+                fig_width = 10
+                fig_height = fig_width / aspect_ratio
+                
+                fig, ax = plt.subplots(figsize=(fig_width, fig_height), dpi=100)
+                fig.patch.set_alpha(0.0)
+                ax.patch.set_alpha(0.0)
+                
+                # Plot
+                gdf.plot(ax=ax, facecolor=color, edgecolor=color, alpha=0.5, linewidth=0.5)
+                
+                # Force exact bounds!
+                ax.set_xlim(w, e)
+                ax.set_ylim(s, n)
+                ax.set_axis_off()
+                
+                # Remove margins
+                plt.subplots_adjust(top=1, bottom=0, right=1, left=0, hspace=0, wspace=0)
+                ax.margins(0, 0)
+                
+                buf = io.BytesIO()
+                plt.savefig(buf, format='png', transparent=True, pad_inches=0)
+                plt.close(fig)
+                buf.seek(0)
+                
+                self.send_response(200)
+                self.send_header('Content-type', 'image/png')
+                self.end_headers()
+                self.wfile.write(buf.read())
+                
+            except Exception as e:
+                import traceback
+                print("Vector image error:", traceback.format_exc())
                 self.send_response(500)
                 self.send_header('Content-type', 'application/json')
                 self.end_headers()

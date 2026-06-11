@@ -355,35 +355,62 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                             }).catch(() => { setLoadedData(prev => ({ ...prev, [layer.id]: { isFetching: false } })); });
                     }
                 }
-                // Render GeoJSON
+                // Render GeoJSON or Vector Image based on Zoom
                 else if (layer.filePath && !layer.id.includes('extent')) {
                     const cached = loadedData[layer.id];
-                    const needsFetch = !cached || (!cached.isFetching && (!cached.bbox || cached.bbox !== viewportBBox));
+                    // Strategy A: Macro view (vector image) for Z < 15, Micro view (geojson) for Z >= 15
+                    const isMacroView = currentZoom < 15;
+                    const expectedType = isMacroView ? 'vector_image' : 'geojson';
+                    
+                    const needsFetch = !cached || cached.type !== expectedType || (!cached.isFetching && (!cached.bbox || cached.bbox !== viewportBBox));
 
                     if (needsFetch) {
                         setLoadedData(prev => ({ ...prev, [layer.id]: { ...(prev[layer.id] || {}), isFetching: true, bbox: viewportBBox } }));
                         const bboxParam = viewportBBox ? `&bbox=${encodeURIComponent(viewportBBox)}` : '';
-                        fetch(`http://${window.location.hostname}:${window.MAGPI_PORT || '8282'}/api/geojson?file=${encodeURIComponent(layer.filePath)}&layer_name=${encodeURIComponent(layer.layerName || '')}&limit=${globalEnv.vector_draw_limit || 10000}${bboxParam}`)
-                            .then(r => r.ok ? r.json() : null)
-                            .then(data => {
-                                if (data) {
-                                    setLoadedData(prev => {
-                                        const oldData = prev[layer.id]?.data;
-                                        // Accumulate features for smooth panning (acting as a client-side spatial database)
-                                        let mergedFeatures = data.features || [];
-                                        if (oldData && oldData.features) {
-                                            // Simple deduplication by stringified geometry coordinates (or properties) to prevent thick outlines
-                                            const existingHashes = new Set(oldData.features.map(f => JSON.stringify(f.geometry?.coordinates || [])));
-                                            const newUnique = mergedFeatures.filter(f => !existingHashes.has(JSON.stringify(f.geometry?.coordinates || [])));
-                                            mergedFeatures = [...oldData.features, ...newUnique];
-                                        }
-                                        return { ...prev, [layer.id]: { type: 'geojson', data: { ...data, features: mergedFeatures }, isFetching: false, bbox: viewportBBox } };
-                                    });
-                                }
-                            }).catch(() => { setLoadedData(prev => ({ ...prev, [layer.id]: { ...(prev[layer.id] || {}), isFetching: false, bbox: viewportBBox } })); });
+                        
+                        if (isMacroView) {
+                            const colorParam = layer.vectorColor ? `&color=${encodeURIComponent(layer.vectorColor)}` : '';
+                            const url = `http://${window.location.hostname}:${window.MAGPI_PORT || '8282'}/api/vector_image?file=${encodeURIComponent(layer.filePath)}&layer_name=${encodeURIComponent(layer.layerName || '')}${bboxParam}${colorParam}`;
+                            
+                            fetch(url)
+                                .then(r => r.ok ? r.blob() : null)
+                                .then(blob => {
+                                    if (blob) {
+                                        const imageUrl = URL.createObjectURL(blob);
+                                        const [w, s, e, n] = viewportBBox.split(',').map(Number);
+                                        const bounds = [[s, w], [n, e]];
+                                        setLoadedData(prev => ({ ...prev, [layer.id]: { type: 'vector_image', imageUrl: imageUrl, bounds: bounds, isFetching: false, bbox: viewportBBox } }));
+                                    }
+                                }).catch(() => { setLoadedData(prev => ({ ...prev, [layer.id]: { ...(prev[layer.id] || {}), isFetching: false, bbox: viewportBBox } })); });
+                        } else {
+                            fetch(`http://${window.location.hostname}:${window.MAGPI_PORT || '8282'}/api/geojson?file=${encodeURIComponent(layer.filePath)}&layer_name=${encodeURIComponent(layer.layerName || '')}&limit=${globalEnv.vector_draw_limit || 10000}${bboxParam}`)
+                                .then(r => r.ok ? r.json() : null)
+                                .then(data => {
+                                    if (data) {
+                                        setLoadedData(prev => {
+                                            const oldData = prev[layer.id]?.data;
+                                            let mergedFeatures = data.features || [];
+                                            if (oldData && oldData.features) {
+                                                const existingHashes = new Set(oldData.features.map(f => JSON.stringify(f.geometry?.coordinates || [])));
+                                                const newUnique = mergedFeatures.filter(f => !existingHashes.has(JSON.stringify(f.geometry?.coordinates || [])));
+                                                mergedFeatures = [...oldData.features, ...newUnique];
+                                            }
+                                            return { ...prev, [layer.id]: { type: 'geojson', data: { ...data, features: mergedFeatures }, isFetching: false, bbox: viewportBBox } };
+                                        });
+                                    }
+                                }).catch(() => { setLoadedData(prev => ({ ...prev, [layer.id]: { ...(prev[layer.id] || {}), isFetching: false, bbox: viewportBBox } })); });
+                        }
                     }
                     
-                    if (cached && cached.type === 'geojson' && !cached.isFetching) {
+                    if (cached && !cached.isFetching) {
+                        if (cached.type === 'vector_image' && cached.imageUrl && cached.bounds) {
+                            const imgLayer = L.imageOverlay(cached.imageUrl, cached.bounds, {
+                                opacity: 1,
+                                interactive: false
+                            });
+                            imgLayer.magpi_layer_id = layer.id;
+                            highlightGroup.current.addLayer(imgLayer);
+                        } else if (cached.type === 'geojson' && cached.data) {
                         const canvasRenderer = L.canvas({ padding: 0.5 });
                         const gjLayer = L.geoJSON(cached.data, {
                             renderer: canvasRenderer,
@@ -451,6 +478,7 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                                 console.warn("Could not fit bounds to geojson layer", err);
                             }
                         }
+                        } // END geojson block
                     }
                 }
             });
