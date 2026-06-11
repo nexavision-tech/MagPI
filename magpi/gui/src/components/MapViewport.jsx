@@ -379,9 +379,11 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                                         const imageUrl = URL.createObjectURL(blob);
                                         const [w, s, e, n] = viewportBBox.split(',').map(Number);
                                         const bounds = [[s, w], [n, e]];
-                                        setLoadedData(prev => ({ ...prev, [layer.id]: { type: 'vector_image', imageUrl: imageUrl, bounds: bounds, isFetching: false, bbox: viewportBBox } }));
+                                        setLoadedData(prev => ({ ...prev, [layer.id]: { type: expectedType, imageUrl: imageUrl, bounds: bounds, isFetching: false, bbox: viewportBBox } }));
+                                    } else {
+                                        setLoadedData(prev => ({ ...prev, [layer.id]: { ...(prev[layer.id] || {}), type: expectedType, isFetching: false, bbox: viewportBBox } }));
                                     }
-                                }).catch(() => { setLoadedData(prev => ({ ...prev, [layer.id]: { ...(prev[layer.id] || {}), isFetching: false, bbox: viewportBBox } })); });
+                                }).catch(() => { setLoadedData(prev => ({ ...prev, [layer.id]: { ...(prev[layer.id] || {}), type: expectedType, isFetching: false, bbox: viewportBBox } })); });
                         } else {
                             fetch(`http://${window.location.hostname}:${window.MAGPI_PORT || '8282'}/api/geojson?file=${encodeURIComponent(layer.filePath)}&layer_name=${encodeURIComponent(layer.layerName || '')}&limit=${globalEnv.vector_draw_limit || 10000}${bboxParam}`)
                                 .then(r => r.ok ? r.json() : null)
@@ -395,10 +397,12 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                                                 const newUnique = mergedFeatures.filter(f => !existingHashes.has(JSON.stringify(f.geometry?.coordinates || [])));
                                                 mergedFeatures = [...oldData.features, ...newUnique];
                                             }
-                                            return { ...prev, [layer.id]: { type: 'geojson', data: { ...data, features: mergedFeatures }, isFetching: false, bbox: viewportBBox } };
+                                            return { ...prev, [layer.id]: { type: expectedType, data: { ...data, features: mergedFeatures }, isFetching: false, bbox: viewportBBox } };
                                         });
+                                    } else {
+                                        setLoadedData(prev => ({ ...prev, [layer.id]: { ...(prev[layer.id] || {}), type: expectedType, isFetching: false, bbox: viewportBBox } }));
                                     }
-                                }).catch(() => { setLoadedData(prev => ({ ...prev, [layer.id]: { ...(prev[layer.id] || {}), isFetching: false, bbox: viewportBBox } })); });
+                                }).catch(() => { setLoadedData(prev => ({ ...prev, [layer.id]: { ...(prev[layer.id] || {}), type: expectedType, isFetching: false, bbox: viewportBBox } })); });
                         }
                     }
                     
