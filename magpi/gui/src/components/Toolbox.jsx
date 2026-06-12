@@ -1014,7 +1014,7 @@ export default function Toolbox({
                       </div>
                     )}
 
-                    {metadata[selectedNode.id] && metadata[selectedNode.id].data && metadata[selectedNode.id].data.extent && (
+                    {metadata[selectedNode.id] && metadata[selectedNode.id].data && metadata[selectedNode.id].data.extent && selectedNode.toolId !== 'core_fishnet' && (
                         <button
                           onClick={() => setShowFishnetModal(true)}
                           className="w-full py-2 bg-emerald-900/40 hover:bg-emerald-600 text-emerald-300 hover:text-white text-xs font-bold rounded border border-emerald-800/50 hover:border-emerald-500 transition-all flex items-center justify-center mt-3 shadow-lg"
@@ -1174,6 +1174,12 @@ export default function Toolbox({
                         name: `Fishnet: ${selectedNode.name}`,
                         color: 'bg-emerald-600',
                         border: 'border-emerald-500',
+                        inputs: [
+                            { id: 'target_layer', name: 'Target Vector', type: 'vector' }
+                        ],
+                        outputs: [
+                            { id: 'fishnet_vector', name: 'Fishnet GeoJSON', type: 'vector' }
+                        ],
                         params: {
                             file_path: data.file,
                             target_layer: selectedNode.id,
@@ -1183,7 +1189,7 @@ export default function Toolbox({
                     if (addNode) {
                         const fishnetId = addNode(newTool, selectedNode.x + 150, selectedNode.y + 50);
                         if (addConnection) {
-                            addConnection(selectedNode.id, fishnetId);
+                            addConnection(selectedNode.id, fishnetId, 'vector', 'target_layer');
                         }
                     } else {
                         console.error("addNode prop is not available in Toolbox");
