@@ -656,7 +656,7 @@ export const TOOLBOX_CATEGORIES = [
 
 export default function Toolbox({
   activeRightTab, setActiveRightTab,
-  selectedNode, updateNodeParam, updateNodeName, deleteNode, addNode, duplicateNode,
+  selectedNode, updateNodeParam, updateNodeName, deleteNode, addNode, addConnection, duplicateNode,
   openFileBrowser, nodes, connections, handleRunUpToNode, masterReferences, masterGisServers,
   selectedFeature, setSelectedFeature
 }) {
@@ -1033,7 +1033,10 @@ export default function Toolbox({
                                           }
                                       };
                                       if (addNode) {
-                                          addNode(newTool, selectedNode.x + 150, selectedNode.y + 50);
+                                          const fishnetId = addNode(newTool, selectedNode.x + 150, selectedNode.y + 50);
+                                          if (addConnection) {
+                                              addConnection(selectedNode.id, fishnetId);
+                                          }
                                       } else {
                                           console.error("addNode prop is not available in Toolbox");
                                       }
