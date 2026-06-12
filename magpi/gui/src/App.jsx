@@ -293,10 +293,18 @@ export default function App() {
     }
     if (savedNodes && savedCxs) {
         try {
-            setNodes(JSON.parse(savedNodes));
-            setConnections(JSON.parse(savedCxs));
-            setLogs([{ type: 'success', msg: 'Previous matrix state auto-restored.' }]);
-            setShowTerminal(true);
+            const parsedNodes = JSON.parse(savedNodes);
+            if (parsedNodes.length > 0) {
+                if (window.confirm("Previous Matrix session detected. Would you like to restore your workspace?")) {
+                    setNodes(parsedNodes);
+                    setConnections(JSON.parse(savedCxs));
+                    setLogs([{ type: 'success', msg: 'Previous matrix state restored.' }]);
+                    setShowTerminal(true);
+                } else {
+                    localStorage.removeItem('magpi_autosave_nodes');
+                    localStorage.removeItem('magpi_autosave_cxs');
+                }
+            }
         } catch (e) { console.error("Failed to restore matrix state."); }
     }
   }, []);
@@ -407,6 +415,15 @@ export default function App() {
     setSelectedNodeId(newNode.id);
     setActiveRightTab('inspector');
     return newNodeId;
+  }, []);
+
+  const addConnection = useCallback((source, target, sourceHandle = 'out', targetHandle = 'in') => {
+      setConnections(prev => [...prev, {
+          from: source,
+          to: target,
+          sourceHandle: sourceHandle,
+          targetHandle: targetHandle
+      }]);
   }, []);
 
   const updateNodeParam = (nodeId, paramKey, value) => {
