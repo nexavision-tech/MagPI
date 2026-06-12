@@ -1,5 +1,6 @@
 import MiniMap from "./MiniMap";
 import StacQueryModal from "./StacQueryModal";
+import FishnetConfigModal from "./FishnetConfigModal";
 import React, { useState, useEffect } from 'react';
 import {
   Database, Layers, Cpu, Settings, Image as ImageIcon,
@@ -670,6 +671,7 @@ export default function Toolbox({
   const [loadingMeta, setLoadingMeta] = useState(false);
 
   const [stacModalOpen, setStacModalOpen] = useState(false);
+  const [showFishnetModal, setShowFishnetModal] = useState(false);
 
   const [stacResults, setStacResults] = useState([]);
   const [stacLoading, setStacLoading] = useState(false);
@@ -1014,37 +1016,7 @@ export default function Toolbox({
 
                     {metadata[selectedNode.id] && metadata[selectedNode.id].data && metadata[selectedNode.id].data.extent && (
                         <button
-                          onClick={async () => {
-                              const extent = metadata[selectedNode.id].data.extent;
-                              const url = `http://${window.location.hostname}:${window.MAGPI_PORT || '8282'}/api/fishnet?bbox=${encodeURIComponent(extent)}&rows=10&cols=10`;
-                              try {
-                                  const res = await fetch(url);
-                                  const data = await res.json();
-                                  if (data.status === 'success') {
-                                      const newTool = {
-                                          id: 'core_fishnet',
-                                          name: `Fishnet: ${selectedNode.name}`,
-                                          color: 'bg-emerald-600',
-                                          border: 'border-emerald-500',
-                                          params: {
-                                              file_path: data.file,
-                                              target_layer: selectedNode.id,
-                                              export_to_map: true
-                                          }
-                                      };
-                                      if (addNode) {
-                                          const fishnetId = addNode(newTool, selectedNode.x + 150, selectedNode.y + 50);
-                                          if (addConnection) {
-                                              addConnection(selectedNode.id, fishnetId);
-                                          }
-                                      } else {
-                                          console.error("addNode prop is not available in Toolbox");
-                                      }
-                                  }
-                              } catch (e) {
-                                  console.error("Fishnet failed:", e);
-                              }
-                          }}
+                          onClick={() => setShowFishnetModal(true)}
                           className="w-full py-2 bg-emerald-900/40 hover:bg-emerald-600 text-emerald-300 hover:text-white text-xs font-bold rounded border border-emerald-800/50 hover:border-emerald-500 transition-all flex items-center justify-center mt-3 shadow-lg"
                         >
                           <Grid size={14} className="mr-2" />
@@ -1183,6 +1155,44 @@ export default function Toolbox({
         nodes={nodes}
         connections={connections}
         updateNodeParam={updateNodeParam}
+      />
+      
+      <FishnetConfigModal 
+        isOpen={showFishnetModal} 
+        onClose={() => setShowFishnetModal(false)}
+        sourceName={selectedNode?.name}
+        onExecute={async (config) => {
+            setShowFishnetModal(false);
+            const extent = metadata[selectedNode.id].data.extent;
+            const url = `http://${window.location.hostname}:${window.MAGPI_PORT || '8282'}/api/fishnet?bbox=${encodeURIComponent(extent)}&rows=${config.rows}&cols=${config.cols}`;
+            try {
+                const res = await fetch(url);
+                const data = await res.json();
+                if (data.status === 'success') {
+                    const newTool = {
+                        id: 'core_fishnet',
+                        name: `Fishnet: ${selectedNode.name}`,
+                        color: 'bg-emerald-600',
+                        border: 'border-emerald-500',
+                        params: {
+                            file_path: data.file,
+                            target_layer: selectedNode.id,
+                            export_to_map: true
+                        }
+                    };
+                    if (addNode) {
+                        const fishnetId = addNode(newTool, selectedNode.x + 150, selectedNode.y + 50);
+                        if (addConnection) {
+                            addConnection(selectedNode.id, fishnetId);
+                        }
+                    } else {
+                        console.error("addNode prop is not available in Toolbox");
+                    }
+                }
+            } catch (e) {
+                console.error("Fishnet failed:", e);
+            }
+        }}
       />
     </div>
   );
