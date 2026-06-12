@@ -780,7 +780,8 @@ export default function App() {
         </div>
         <div className={`w-[320px] shrink-0 relative ${['builder', 'planar'].includes(activeWorkspace) ? 'flex' : 'hidden'} flex-col z-20`}>
             <Toolbox 
-            addNode={addNode} 
+            addNode={addNode}
+            addConnection={addConnection}
             activeRightTab={activeRightTab} 
             setActiveRightTab={setActiveRightTab} 
             selectedNode={selectedNode}
