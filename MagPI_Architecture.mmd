@@ -1,6 +1,10 @@
 graph TD
-    A[MagPI React Frontend IDE] -->|JSON Payload| B(Daemon API - port 8080)
+    A[MagPI React Frontend IDE] -->|JSON Payload| B(Daemon API - port 8282)
     B -->|Code Gen| C(Python Pipeline Executor)
+    
+    A -.->|Hybrid UI Render| V[Vector/Raster Glassmorphism Map]
+    V -->|User Cell Click| X[Cellular Transcription Request]
+    X --> B
     
     Z[Legacy User Script] -->|import magpi as arcpy| C
     
@@ -8,15 +12,17 @@ graph TD
     D --> D1(arcpy.env Singleton)
     D --> D2(Result Object Duck-Type)
     D --> D3(Describe Object Duck-Type)
+    D --> D4(MagPI Reference System: MRS Grid)
     
     C --> E{Processing Modules}
     
-    E -->|arcpy.management| F[Data Mgmt]
+    E -->|arcpy.management| F[Data Mgmt & Adaptive Seamlines]
     E -->|arcpy.sa / ia| G[Spatial / Image Analyst]
     E -->|arcpy.wfs| H[Sovereign Data Pull]
     E -->|arcpy.ml| I[Tensor Brew Deep Learning]
     
-    F --> J[GeoPandas / Shapely]
+    D4 -.->|Cellular Paging| I
+    F --> J[GeoPandas / Shapely / Fiona]
     G --> K[Rasterio / SciPy / NumPy]
     H --> L[Requests / STAC AWS / Copernicus]
     I --> M[PyTorch / CUDA / TorchVision]

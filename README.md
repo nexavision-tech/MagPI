@@ -48,6 +48,14 @@ npm run dev
 Navigate to http://localhost:5173 to access the IDE.
 
 
+## 🌐 The MagPI Reference System (MRS) & Cellular Transcription
+Traditional GIS engines attempt to load massive 50GB vector files into system memory all at once, leading to crashes and computational bottlenecks. MagPI resolves this using the **MagPI Reference System (MRS)**—a scalable, dynamic cellular architecture inspired by the military grid reference system (MGRS).
+
+- **Hybrid Cellular Transcription**: MagPI never brute-forces rendering. Massive datasets are first visualized as glassmorphism "footprints". Users generate an MRS grid (a "Fishnet") over the footprint, and interactively transcribe specific grid cells to trigger high-resolution spatial queries on-demand.
+- **Adaptive Seamline Buffers & Centroid Ownership**: To prevent building polygons from being split in half across grid lines, MagPI utilizes centroid-based ownership and adaptive seamline buffers. This ensures complete structural integrity for Computer Vision and Deep Learning pipelines.
+- **Tensor Brew Integration**: By breaking massive regions into standardized MRS cells, MagPI can pipe perfectly standardized data chunks directly into the PyTorch-powered **Tensor Brew** engine for parallel processing and object detection.
+
+
 ## 🏗️ Architecture & Routing
 MagPI operates by mapping proprietary modules to their open-source C-backed equivalents.
 
