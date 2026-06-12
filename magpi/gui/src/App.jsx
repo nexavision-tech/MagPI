@@ -92,6 +92,9 @@ export default function App() {
   const [mapLayers, setMapLayers] = useState([
     { id: 'base', name: 'Base Map (OSM)', visible: true, opacity: 100, isBase: true }
   ]);
+  
+  const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, title: "", message: "", confirmText: "OK", onConfirm: null, onCancel: null });
+  const [promptDialog, setPromptDialog] = useState({ isOpen: false, title: "", message: "", defaultValue: "", confirmText: "OK", onConfirm: null, onCancel: null });
 
   // Keep mapLayers synced with node outputs
   useEffect(() => {
@@ -295,15 +298,24 @@ export default function App() {
         try {
             const parsedNodes = JSON.parse(savedNodes);
             if (parsedNodes.length > 0) {
-                if (window.confirm("Previous Matrix session detected. Would you like to restore your workspace?")) {
-                    setNodes(parsedNodes);
-                    setConnections(JSON.parse(savedCxs));
-                    setLogs([{ type: 'success', msg: 'Previous matrix state restored.' }]);
-                    setShowTerminal(true);
-                } else {
-                    localStorage.removeItem('magpi_autosave_nodes');
-                    localStorage.removeItem('magpi_autosave_cxs');
-                }
+                setConfirmDialog({
+                    isOpen: true,
+                    title: "Matrix Session Found",
+                    message: "A previous Matrix session was detected. Would you like to restore your workspace?",
+                    confirmText: "Restore Session",
+                    onConfirm: () => {
+                        setNodes(parsedNodes);
+                        setConnections(JSON.parse(savedCxs));
+                        setLogs([{ type: 'success', msg: 'Previous matrix state restored.' }]);
+                        setShowTerminal(true);
+                        setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+                    },
+                    onCancel: () => {
+                        localStorage.removeItem('magpi_autosave_nodes');
+                        localStorage.removeItem('magpi_autosave_cxs');
+                        setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+                    }
+                });
             }
         } catch (e) { console.error("Failed to restore matrix state."); }
     }
@@ -497,21 +509,38 @@ export default function App() {
   };
 
   const handleClear = () => {
-    if (window.confirm("Are you sure you want to initialize a New Project? This will clear the current canvas. Unsaved changes will be lost.")) {
-        const d = new Date();
-        const pad = n => n.toString().padStart(2, '0');
-        const defaultName = `Untitled_${d.getFullYear()}_${pad(d.getMonth() + 1)}_${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
-        
-        const newName = window.prompt("Enter a name for the New Project:", defaultName);
-        if (newName === null) return; // user cancelled the prompt
-        
-        setNodes([]); setConnections([]); setSelectedNodeId(null); setNodeStatuses({});
-        localStorage.removeItem('magpi_autosave_nodes'); localStorage.removeItem('magpi_autosave_cxs');
-        setActiveRightTab('toolbox'); setLogs([{ type: 'info', msg: `Started a new Tabula Rasa session: ${newName}` }]);
-        setShowTerminal(true);
-        setProjectDir(null);
-        setProjectName(newName || defaultName);
-    }
+    setConfirmDialog({
+        isOpen: true,
+        title: "New Project",
+        message: "Are you sure you want to initialize a New Project? This will clear the current canvas. Unsaved changes will be lost.",
+        confirmText: "Start Fresh",
+        onConfirm: () => {
+            setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+            
+            const d = new Date();
+            const pad = n => n.toString().padStart(2, '0');
+            const defaultName = `Untitled_${d.getFullYear()}_${pad(d.getMonth() + 1)}_${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+            
+            setPromptDialog({
+                isOpen: true,
+                title: "Name Project",
+                message: "Enter a name for the New Project:",
+                defaultValue: defaultName,
+                confirmText: "Create",
+                onConfirm: (newName) => {
+                    setPromptDialog(prev => ({ ...prev, isOpen: false }));
+                    setNodes([]); setConnections([]); setSelectedNodeId(null); setNodeStatuses({});
+                    localStorage.removeItem('magpi_autosave_nodes'); localStorage.removeItem('magpi_autosave_cxs');
+                    setActiveRightTab('toolbox'); setLogs([{ type: 'info', msg: `Started a new Tabula Rasa session: ${newName}` }]);
+                    setShowTerminal(true);
+                    setProjectDir(null);
+                    setProjectName(newName || defaultName);
+                },
+                onCancel: () => setPromptDialog(prev => ({ ...prev, isOpen: false }))
+            });
+        },
+        onCancel: () => setConfirmDialog(prev => ({ ...prev, isOpen: false }))
+    });
   };
 
   const selectedNode = nodes.find(n => n.id === selectedNodeId);
@@ -836,6 +865,51 @@ export default function App() {
       <FileBrowserModal isOpen={browserConfig.isOpen} onClose={() => setBrowserConfig(prev => ({ ...prev, isOpen: false }))} onSelect={handleFileSelected} initialPath={browserConfig.initialPath} />
       <FileBrowserModal isOpen={saveBrowserConfig.isOpen} onClose={() => setSaveBrowserConfig(prev => ({ ...prev, isOpen: false }))} onSelect={handleSaveConfirm} initialPath={saveBrowserConfig.initialPath} isSaveMode={true} defaultSaveName={projectName} />
       <EnvSettingsModal isOpen={showEnvSettings} onClose={() => setShowEnvSettings(false)} globalEnv={globalEnv} setGlobalEnv={setGlobalEnv} openFileBrowser={openFileBrowser} />
+      
+      {/* Custom Confirm Dialog */}
+      {confirmDialog.isOpen && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[100] backdrop-blur-sm px-4">
+          <div className="bg-slate-900 border border-slate-700 rounded-lg p-6 max-w-md w-full shadow-2xl flex flex-col">
+            <h2 className="text-lg font-bold text-slate-200 mb-3 flex items-center">
+                <AlertTriangle size={18} className="mr-2 text-yellow-500" />
+                {confirmDialog.title}
+            </h2>
+            <p className="text-slate-400 text-sm mb-6">{confirmDialog.message}</p>
+            <div className="flex justify-end space-x-3">
+              <button onClick={confirmDialog.onCancel} className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold uppercase rounded border border-slate-600 transition-colors">Cancel</button>
+              <button onClick={confirmDialog.onConfirm} className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold uppercase rounded border border-emerald-500 transition-colors shadow-lg shadow-emerald-900/50">{confirmDialog.confirmText}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Custom Prompt Dialog */}
+      {promptDialog.isOpen && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[100] backdrop-blur-sm px-4">
+          <div className="bg-slate-900 border border-slate-700 rounded-lg p-6 max-w-md w-full shadow-2xl flex flex-col">
+            <h2 className="text-lg font-bold text-slate-200 mb-3 flex items-center">
+                <Edit3 size={18} className="mr-2 text-blue-400" />
+                {promptDialog.title}
+            </h2>
+            <p className="text-slate-400 text-sm mb-4">{promptDialog.message}</p>
+            <input 
+                type="text" 
+                defaultValue={promptDialog.defaultValue}
+                id="magpi_custom_prompt_input"
+                className="w-full bg-slate-950 border border-slate-700 rounded px-3 py-2 text-sm text-slate-200 mb-6 focus:outline-none focus:border-blue-500"
+                autoFocus
+                onKeyDown={(e) => {
+                    if (e.key === 'Enter') promptDialog.onConfirm(e.target.value);
+                    if (e.key === 'Escape') promptDialog.onCancel();
+                }}
+            />
+            <div className="flex justify-end space-x-3">
+              <button onClick={promptDialog.onCancel} className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold uppercase rounded border border-slate-600 transition-colors">Cancel</button>
+              <button onClick={() => promptDialog.onConfirm(document.getElementById('magpi_custom_prompt_input').value)} className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold uppercase rounded border border-blue-500 transition-colors shadow-lg shadow-blue-900/50">{promptDialog.confirmText}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
