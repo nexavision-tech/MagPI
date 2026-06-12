@@ -52,8 +52,18 @@ Navigate to http://localhost:5173 to access the IDE.
 Traditional GIS engines attempt to load massive 50GB vector files into system memory all at once, leading to crashes and computational bottlenecks. MagPI resolves this using the **MagPI Reference System (MRS)**—a scalable, dynamic cellular architecture inspired by the military grid reference system (MGRS).
 
 - **Hybrid Cellular Transcription**: MagPI never brute-forces rendering. Massive datasets are first visualized as glassmorphism "footprints". Users generate an MRS grid (a "Fishnet") over the footprint, and interactively transcribe specific grid cells to trigger high-resolution spatial queries on-demand.
+- **Surgical Grid Parsing & Topological Routing**: Users can surgically define grid dimensions (Rows/Columns) via the UI. MagPI guarantees data lineage by topologically auto-routing new Fishnet nodes to their parent vector inputs with physical bezier edges.
 - **Adaptive Seamline Buffers & Centroid Ownership**: To prevent building polygons from being split in half across grid lines, MagPI utilizes centroid-based ownership and adaptive seamline buffers. This ensures complete structural integrity for Computer Vision and Deep Learning pipelines.
 - **Tensor Brew Integration**: By breaking massive regions into standardized MRS cells, MagPI can pipe perfectly standardized data chunks directly into the PyTorch-powered **Tensor Brew** engine for parallel processing and object detection.
+
+## 🔐 Optimistic Spatial Checkouts (Serverless Collaboration)
+A major innovation within MagPI is how it handles multi-user collaboration without the overhead of a massive Spatial Database Engine (SDE) like PostGIS or Enterprise Geodatabases. 
+
+By leveraging the **MRS Fishnet Grid**, MagPI enables "Optimistic Spatial Checkouts":
+1. **Centroid-Based Locking**: Users can select a specific Fishnet grid cell on the map.
+2. **Sidecar Generation**: MagPI generates a lightweight `.lock` sidecar file for that specific grid ID.
+3. **Local Editing**: The specific chunk of the parent GeoJSON/Shapefile is checked out into a local edit session. Other users are warned that the grid is "locked".
+4. **DNA Splicing**: Once edits are complete, the user "zips" the chunk back up, and MagPI automatically splices the delta back into the master dataset and releases the lock.
 
 
 ## 🏗️ Architecture & Routing
@@ -67,12 +77,14 @@ graph TD
     classDef engine fill:#334155,stroke:#8b5cf6,stroke-width:2px,color:#f1f5f9
     classDef disk fill:#020617,stroke:#64748b,stroke-width:2px,color:#94a3b8
     classDef airflow fill:#4338ca,stroke:#818cf8,stroke-width:2px,color:#f1f5f9
+    classDef lock fill:#7f1d1d,stroke:#f87171,stroke-width:2px,color:#fef2f2
 
     %% Nodes
     subgraph UI["Web Browser (React/Vite)"]
         Canvas[Node Canvas IDE]:::ui
         Script[Code Generator]:::ui
         AirflowExport[Airflow DAG Generator]:::ui
+        FishnetUI[Spatial Checkout UI]:::ui
     end
 
     subgraph DAEMON["Local Python Server (Port 8080)"]
@@ -86,16 +98,21 @@ graph TD
         GeoPandas[Vector Engine: geopandas/shapely]:::engine
         Rasterio[Raster Engine: rasterio/scipy]:::engine
         Community[Community Plugins]:::engine
+        CheckoutLogic[MRS Lock Manager]:::engine
     end
 
     subgraph OS["Linux File System"]
         Inputs[(Raw Imagery / Shp)]:::disk
         Outputs[(Clipped / GeoAI Chips)]:::disk
+        Locks[(".lock Sidecar Files")]:::lock
     end
 
     %% Connections
     Canvas -->|Compiles Pipeline| Script
     Canvas -->|Exports Pipeline| AirflowExport
+    Canvas -->|Requests Grid Lock| FishnetUI
+    FishnetUI -->|POST /api/lock| API
+    
     AirflowExport -->|Deploys to| Airflow[Apache Airflow Orchestration]:::airflow
     Script -->|POST /api/run| API
     Canvas -->|Fetches Citations| Registry
@@ -103,8 +120,11 @@ graph TD
     API -->|Executes Payload| Interpreter
     Interpreter --> ArcpyBridge
     Interpreter --> Community
+    Interpreter --> CheckoutLogic
+    
     ArcpyBridge --> GeoPandas
     ArcpyBridge --> Rasterio
+    CheckoutLogic -->|Generates/Releases| Locks
     
     Inputs -->|Read| Rasterio
     Inputs -->|Read| GeoPandas
