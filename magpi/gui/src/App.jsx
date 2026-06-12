@@ -106,7 +106,7 @@ export default function App() {
             if (node.params && node.params.export_to_map === false) return;
             
             const status = nodeStatuses[node.id];
-            if (status === 'success' || node.toolId.startsWith('load_') || node.toolId === 'core_extent' || node.toolId.startsWith('wfs_') || node.toolId.startsWith('core_input_')) {
+            if (status === 'success' || node.toolId.startsWith('load_') || node.toolId === 'core_extent' || node.toolId === 'core_fishnet' || node.toolId.startsWith('wfs_') || node.toolId.startsWith('core_input_')) {
                 let layerName = node.name || node.toolId;
                 if (node.params && node.params.out_raster) {
                     layerName = `${node.name} (${node.params.out_raster})`;
