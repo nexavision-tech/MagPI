@@ -376,8 +376,8 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                     
                     let activeTranscriptionBbox = null;
                     if (selectedFeature && nodes) {
-                        const selNode = nodes.find(n => n.id === selectedFeature.layerId);
-                        if (selNode && selNode.toolId === 'core_fishnet' && selNode.params.target_layer === layer.id) {
+                        const selNode = nodes.find(n => n.id === selectedFeature.nodeId);
+                        if (selNode && selNode.toolId === 'core_fishnet') {
                             const coords = selectedFeature.feature?.geometry?.coordinates?.[0];
                             if (coords) {
                                 const xs = coords.map(c => c[0]);
