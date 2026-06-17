@@ -407,7 +407,7 @@ export const TOOLBOX_CATEGORIES = [
         params: { out_crs: "EPSG:6438", out_feature_class: "projected_vector.shp" }
       },
       {
-        id: 'mgt_create_fishnet', name: "Create Fishnet (Tiling)", type: 'process', icon: <Grid size={14} />, color: 'bg-slate-600', border: 'border-slate-500',
+        id: 'core_fishnet', name: "Create Fishnet (Tiling)", type: 'process', icon: <Grid size={14} />, color: 'bg-slate-600', border: 'border-slate-500',
         description: "Creates a grid of rectangular cells (tessellation) over an extent. Essential for batch-processing massive areas.",
         params: { cell_width: 2560, cell_height: 2560 }
       },

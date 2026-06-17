@@ -257,3 +257,49 @@ class ExportPostGISNode(Node):
         logger.info("Successfully pushed to PostGIS.")
         
         self.output = f"postgis://{conn_name}/{table_name}"
+
+@register_node('core_fishnet')
+class FishnetNode(Node):
+    def execute(self):
+        in_extent = self.inputs.get("extent")
+        
+        # If in_extent is None, we need to try to parse from another input like a vector
+        if not in_extent:
+            # Fallback to manual extent if provided directly via params
+            p_xmin = self.params.get("xmin")
+            if p_xmin is not None:
+                from ..types import MagPI_AOI
+                in_extent = MagPI_AOI(self.params.get("xmin"), self.params.get("ymin"), self.params.get("xmax"), self.params.get("ymax"))
+            else:
+                raise ValueError("Fishnet requires an input Spatial Extent (AOI) to define bounds.")
+                
+        p = self.params
+        rows = int(p.get("rows", 10))
+        cols = int(p.get("cols", 10))
+            
+        out_filename = p.get('out_feature_class', f"fishnet_{self.id[-4:] if hasattr(self, 'id') else '1'}.geojson")
+        out_path = __import__('os').path.join(__import__('os').environ.get('MAGPI_OUTPUT', '.'), out_filename)
+        
+        logger.info(f"Creating Fishnet ({rows}x{cols}) grid at {out_path}")
+        
+        import geopandas as gpd
+        import shapely.geometry
+        import numpy as np
+        
+        xmin, ymin, xmax, ymax = float(in_extent.xmin), float(in_extent.ymin), float(in_extent.xmax), float(in_extent.ymax)
+        
+        x_steps = np.linspace(xmin, xmax, cols + 1)
+        y_steps = np.linspace(ymin, ymax, rows + 1)
+        
+        polygons = []
+        ids = []
+        for i in range(cols):
+            for j in range(rows):
+                poly = shapely.geometry.box(x_steps[i], y_steps[j], x_steps[i+1], y_steps[j+1])
+                polygons.append(poly)
+                ids.append(f"R{j}_C{i}")
+                
+        gdf = gpd.GeoDataFrame({'id': ids, 'geometry': polygons}, crs="EPSG:4326")
+        gdf.to_file(out_path, driver='GeoJSON')
+        
+        self.output = out_path
