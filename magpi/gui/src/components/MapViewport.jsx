@@ -320,6 +320,19 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                         });
                         
                         rect.magpi_layer_id = layer.id;
+                        
+                        // Add click handler to the footprint rectangle so users can select the layer even when vectors aren't fully rendered
+                        rect.on('click', (e) => {
+                            window.dispatchEvent(new CustomEvent('magpi-feature-selected', { 
+                                detail: { 
+                                    layerName: layer.name || layer.id, 
+                                    nodeId: layer.id,
+                                    isFootprint: true,
+                                    bounds: { xmin, ymin, xmax, ymax }
+                                } 
+                            }));
+                        });
+                        
                         highlightGroup.current.addLayer(rect);
                         
                         if (autoZoom && isSelected && lastZoomedNode.current !== layer.id) {
