@@ -789,6 +789,14 @@ export default function App() {
             <CatalogPane 
                 mapLayers={mapLayers} 
                 setMapLayers={setMapLayers} 
+                reorderLayers={(startIndex, endIndex) => {
+                    setMapLayers(prev => {
+                        const result = Array.from(prev);
+                        const [removed] = result.splice(startIndex, 1);
+                        result.splice(endIndex, 0, removed);
+                        return result;
+                    });
+                }}
                 activeWorkspace={activeWorkspace}
                 nodes={nodes}
                 setNodes={setNodes}

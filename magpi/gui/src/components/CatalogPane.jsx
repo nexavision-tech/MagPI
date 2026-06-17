@@ -183,7 +183,7 @@ const FileNode = ({ node, level, globalEnv, copiedPath, setCopiedPath }) => {
   );
 };
 
-export default function CatalogPane({ mapLayers = [], setMapLayers, activeWorkspace, nodes = [], setNodes, setSelectedNodeId, openFileBrowser, globalEnv, isDaemonAlive, autoZoom, setAutoZoom }) {
+export default function CatalogPane({ mapLayers = [], setMapLayers, reorderLayers, activeWorkspace, nodes = [], setNodes, setSelectedNodeId, openFileBrowser, globalEnv, isDaemonAlive, autoZoom, setAutoZoom }) {
   const [catalog, setCatalog] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [expandedLayers, setExpandedLayers] = useState({});
@@ -359,10 +359,46 @@ export default function CatalogPane({ mapLayers = [], setMapLayers, activeWorksp
                  Drag spatial files here to add them to the map.
              </div>
           )}
-          {mapLayers.map(layer => {
+          {mapLayers.map((layer, index) => {
               const isExpanded = expandedLayers[layer.id];
               return (
-              <div key={layer.id} className={`p-2 rounded-md ${layer.selected ? 'bg-cyan-900/40 border border-cyan-700/50' : 'bg-slate-800/60 border border-transparent'} hover:bg-slate-700/60 transition-colors flex flex-col`}>
+              <div 
+                  key={layer.id} 
+                  draggable
+                  onDragStart={(e) => {
+                      e.dataTransfer.setData('application/magpi-layer-index', index.toString());
+                      e.dataTransfer.effectAllowed = 'move';
+                  }}
+                  onDragOver={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                  }}
+                  onDrop={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      const sourceIndexStr = e.dataTransfer.getData('application/magpi-layer-index');
+                      if (sourceIndexStr) {
+                          const sourceIndex = parseInt(sourceIndexStr, 10);
+                          if (!isNaN(sourceIndex) && sourceIndex !== index && reorderLayers) {
+                              reorderLayers(sourceIndex, index);
+                          }
+                      } else {
+                          // Allow standard map dropping if dragged from catalog
+                          let data = null;
+                          if (window.__draggedMagPITool) {
+                              data = window.__draggedMagPITool;
+                              window.__draggedMagPITool = null;
+                          } else {
+                              const dataStr = e.dataTransfer.getData('application/reactflow');
+                              if (dataStr) { try { data = JSON.parse(dataStr); } catch(err) {} }
+                          }
+                          if (data) {
+                              window.dispatchEvent(new CustomEvent('magpi-map-drop', { detail: data }));
+                          }
+                      }
+                  }}
+                  className={`p-2 rounded-md ${layer.selected ? 'bg-cyan-900/40 border border-cyan-700/50' : 'bg-slate-800/60 border border-transparent'} hover:bg-slate-700/60 transition-colors flex flex-col cursor-move`}
+              >
                   <div className="flex items-center justify-between mb-1">
                       <button 
                           onClick={() => setExpandedLayers(prev => ({ ...prev, [layer.id]: !prev[layer.id] }))}
