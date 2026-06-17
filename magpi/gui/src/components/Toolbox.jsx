@@ -131,6 +131,13 @@ export const TOOLBOX_CATEGORIES = [
     name: "Open Data WFS (Free)", icon: <Cloud size={18} className="text-cyan-400" />,
     tools: [
       {
+        id: 'icgem_extract', name: "ICGEM 3D Geoid", type: 'input', icon: <Globe size={14} />, color: 'bg-cyan-700', border: 'border-cyan-500',
+        description: "Downloads high-precision 3D gravity field models (.gdf) directly from the ICGEM Calculation Service for precise geodetic mapping.",
+        inputs: [{ id: 'extent', type: 'EXTENT', label: 'AOI' }],
+        outputs: [{ id: 'raster', type: 'RASTER', label: 'GEOID' }],
+        params: { model: { value: "EGM2008", type: "select", options: ["EGM2008", "EIGEN-6C4", "GOCO06s"] }, functional: { value: "geoid", type: "select", options: ["geoid", "gravity_anomaly", "gravity_disturbance"] }, step: 0.5 }
+      },
+      {
         id: 'wfs_sentinel2', name: "Sentinel-2 (AWS)", type: 'input', icon: <Cloud size={14} />, color: 'bg-cyan-700', border: 'border-cyan-500',
         description: "Streams Cloud Optimized GeoTIFFs (COGs) from AWS Earth Search based on an AOI. Includes temporal filtering.",
         inputs: [{ id: 'extent', type: 'EXTENT', label: 'AOI' }],
