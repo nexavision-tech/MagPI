@@ -265,13 +265,33 @@ class FishnetNode(Node):
         
         # If in_extent is None, we need to try to parse from another input like a vector
         if not in_extent:
+            in_vector = self.inputs.get("in")
+            if in_vector:
+                # in_vector could be a path to a shapefile
+                import geopandas as gpd
+                try:
+                    # If it's a tuple (path, layer_name) or dict from load_vector
+                    v_path = in_vector
+                    if isinstance(in_vector, dict) and 'vector' in in_vector:
+                        v_path = in_vector['vector']
+                    if isinstance(v_path, tuple):
+                        v_path = v_path[0]
+                        
+                    gdf = gpd.read_file(v_path)
+                    bounds = gdf.total_bounds
+                    from ..types import MagPI_AOI
+                    in_extent = MagPI_AOI(bounds[0], bounds[1], bounds[2], bounds[3])
+                except Exception as e:
+                    logger.warning(f"Could not parse extent from vector input: {e}")
+                    
+        if not in_extent:
             # Fallback to manual extent if provided directly via params
             p_xmin = self.params.get("xmin")
             if p_xmin is not None:
                 from ..types import MagPI_AOI
                 in_extent = MagPI_AOI(self.params.get("xmin"), self.params.get("ymin"), self.params.get("xmax"), self.params.get("ymax"))
             else:
-                raise ValueError("Fishnet requires an input Spatial Extent (AOI) to define bounds.")
+                raise ValueError("Fishnet requires an input Spatial Extent (AOI) or Vector to define bounds.")
                 
         p = self.params
         rows = int(p.get("rows", 10))
