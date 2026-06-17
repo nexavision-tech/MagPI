@@ -11,3 +11,4 @@ from .optical_nodes import *
 from .humangeo_nodes import *
 from .photogrammetry_nodes import *
 from .plenum_nodes import *
+from .icgem_nodes import *
