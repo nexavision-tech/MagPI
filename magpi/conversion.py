@@ -153,9 +153,10 @@ def ExportToPostGIS(in_features, connection_string, table_name):
     try:
         import geopandas as gpd
         from sqlalchemy import create_engine
+        from magpi.db import fix_connection_string
         
         gdf = gpd.read_file(in_features)
-        engine = create_engine(connection_string)
+        engine = create_engine(fix_connection_string(connection_string))
         gdf.to_postgis(table_name, engine, if_exists='replace')
         
         logger.info(f"Export to PostGIS complete: {table_name}")

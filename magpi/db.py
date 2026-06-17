@@ -1,7 +1,23 @@
 # magpi/db.py
 import geopandas as gpd
 import logging
+import urllib.parse
 from .objects import Result
+
+def fix_connection_string(conn_str):
+    if not isinstance(conn_str, str) or "://" not in conn_str:
+        return conn_str
+    try:
+        scheme, rest = conn_str.split("://", 1)
+        if "@" in rest:
+            userpass, hostdb = rest.rsplit("@", 1)
+            if ":" in userpass:
+                user, password = userpass.split(":", 1)
+                safe_password = urllib.parse.quote_plus(urllib.parse.unquote_plus(password))
+                return f"{scheme}://{user}:{safe_password}@{hostdb}"
+    except Exception:
+        pass
+    return conn_str
 
 logger = logging.getLogger("MagPI_Database")
 
@@ -22,6 +38,7 @@ class ArcSDESQLExecute:
 
         try:
             from sqlalchemy import create_engine, text
+            self.conn_str = fix_connection_string(self.conn_str)
             self.engine = create_engine(self.conn_str)
             logger.info("PostGIS connection established via SQLAlchemy C-backend.")
         except ImportError:

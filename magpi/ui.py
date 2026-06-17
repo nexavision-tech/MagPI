@@ -1105,8 +1105,9 @@ def LaunchCanvas(port=8282):
                 # Use sqlalchemy to get tables
                 from sqlalchemy import create_engine
                 from sqlalchemy import inspect
+                from magpi.db import fix_connection_string
                 
-                engine = create_engine(conn_str)
+                engine = create_engine(fix_connection_string(conn_str))
                 inspector = inspect(engine)
                 schemas = inspector.get_schema_names()
                 
@@ -1326,7 +1327,8 @@ def LaunchCanvas(port=8282):
                                 "layers": []
                             }
                             try:
-                                engine = sqlalchemy.create_engine(conn["connection_string"])
+                                from magpi.db import fix_connection_string
+                                engine = sqlalchemy.create_engine(fix_connection_string(conn["connection_string"]))
                                 inspector = sqlalchemy.inspect(engine)
                                 db_entry["layers"] = inspector.get_table_names()
                             except Exception as inner_e:

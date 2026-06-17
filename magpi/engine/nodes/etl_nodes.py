@@ -96,7 +96,8 @@ class PostGISWriterNode(Node):
         
         try:
             gdf = gpd.read_file(input_data)
-            engine = create_engine(conn_string)
+            from magpi.db import fix_connection_string
+            engine = create_engine(fix_connection_string(conn_string))
             gdf.to_postgis(name=table_name, con=engine, if_exists='replace')
             logger.info(f"Successfully wrote data to {table_name}")
             self.output = f"db://{table_name}"

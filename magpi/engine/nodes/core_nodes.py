@@ -251,7 +251,8 @@ class ExportPostGISNode(Node):
         logger.info(f"Exporting data to PostGIS: {conn_name} -> table: {table_name}")
         
         gdf = _resolve_features(in_features)
-        engine = sqlalchemy.create_engine(conn_string)
+        from magpi.db import fix_connection_string
+        engine = sqlalchemy.create_engine(fix_connection_string(conn_string))
         
         gdf.to_postgis(table_name, engine, if_exists=if_exists)
         logger.info("Successfully pushed to PostGIS.")
