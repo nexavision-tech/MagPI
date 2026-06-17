@@ -1125,16 +1125,36 @@ export default function Toolbox({
                             </tr>
                         </thead>
                         <tbody>
-                            {Object.entries(selectedFeature.feature.properties || {}).map(([key, value], idx) => (
-                                <tr key={idx} className="hover:bg-slate-800/50 border-b border-slate-800/50 transition-colors group">
-                                    <td className="px-4 py-3 text-xs font-mono text-cyan-400 align-top group-hover:text-cyan-300">{key}</td>
-                                    <td className="px-4 py-3 text-xs text-slate-300 break-words">{value?.toString() || 'null'}</td>
-                                </tr>
-                            ))}
-                            {(!selectedFeature.feature.properties || Object.keys(selectedFeature.feature.properties).length === 0) && (
-                                <tr>
-                                    <td colSpan="2" className="px-4 py-8 text-center text-xs text-slate-500 italic">No attributes found for this feature.</td>
-                                </tr>
+                            {selectedFeature.isFootprint ? (
+                                <>
+                                    <tr className="hover:bg-slate-800/50 border-b border-slate-800/50 transition-colors group">
+                                        <td className="px-4 py-3 text-xs font-mono text-cyan-400 align-top group-hover:text-cyan-300">Feature Type</td>
+                                        <td className="px-4 py-3 text-xs text-slate-300 break-words">Spatial Footprint</td>
+                                    </tr>
+                                    <tr className="hover:bg-slate-800/50 border-b border-slate-800/50 transition-colors group">
+                                        <td className="px-4 py-3 text-xs font-mono text-cyan-400 align-top group-hover:text-cyan-300">Bounds (W, S, E, N)</td>
+                                        <td className="px-4 py-3 text-[10px] text-slate-300 break-words font-mono">
+                                            {selectedFeature.bounds ? 
+                                                `${selectedFeature.bounds.xmin.toFixed(4)}, ${selectedFeature.bounds.ymin.toFixed(4)}, ${selectedFeature.bounds.xmax.toFixed(4)}, ${selectedFeature.bounds.ymax.toFixed(4)}` 
+                                                : 'N/A'
+                                            }
+                                        </td>
+                                    </tr>
+                                </>
+                            ) : (
+                                <>
+                                    {Object.entries(selectedFeature.feature?.properties || {}).map(([key, value], idx) => (
+                                        <tr key={idx} className="hover:bg-slate-800/50 border-b border-slate-800/50 transition-colors group">
+                                            <td className="px-4 py-3 text-xs font-mono text-cyan-400 align-top group-hover:text-cyan-300">{key}</td>
+                                            <td className="px-4 py-3 text-xs text-slate-300 break-words">{value?.toString() || 'null'}</td>
+                                        </tr>
+                                    ))}
+                                    {(!selectedFeature.feature?.properties || Object.keys(selectedFeature.feature.properties).length === 0) && (
+                                        <tr>
+                                            <td colSpan="2" className="px-4 py-8 text-center text-xs text-slate-500 italic">No attributes found for this feature.</td>
+                                        </tr>
+                                    )}
+                                </>
                             )}
                         </tbody>
                     </table>

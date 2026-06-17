@@ -750,9 +750,27 @@ def LaunchCanvas(port=8282):
                 if bbox_str:
                     try:
                         minx, miny, maxx, maxy = map(float, bbox_str.split(','))
-                        kwargs['bbox'] = (minx, miny, maxx, maxy)
-                    except ValueError:
-                        pass
+                        bbox_tuple = (minx, miny, maxx, maxy)
+                        
+                        # Read file info to get CRS
+                        import pyogrio
+                        from shapely.geometry import box
+                        
+                        info_kwargs = {}
+                        if layer_name:
+                            info_kwargs['layer'] = layer_name
+                        file_info = pyogrio.read_info(target_file, **info_kwargs)
+                        file_crs = file_info.get('crs')
+                        
+                        if file_crs:
+                            bbox_gdf = gpd.GeoDataFrame(geometry=[box(*bbox_tuple)], crs="EPSG:4326")
+                            bbox_gdf = bbox_gdf.to_crs(file_crs)
+                            kwargs['bbox'] = tuple(bbox_gdf.total_bounds)
+                        else:
+                            kwargs['bbox'] = bbox_tuple
+                            
+                    except Exception as bbox_err:
+                        logger.warning(f"Failed to parse or reproject bbox: {bbox_err}")
                     
                 gdf = gpd.read_file(target_file, **kwargs)
                 if len(gdf) == limit:

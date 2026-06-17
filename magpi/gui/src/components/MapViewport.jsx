@@ -315,7 +315,7 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                         
                         rect.bindTooltip(layer.name, { 
                             permanent: isSelected, 
-                            direction: "center", 
+                            direction: "top", 
                             className: "bg-slate-900 text-white font-bold text-[10px] border-none shadow-lg" 
                         });
                         
@@ -460,7 +460,7 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                                 if (isFishnet && feature.properties?.id) {
                                     layerObj.bindTooltip(feature.properties.id, {
                                         permanent: true,
-                                        direction: "center",
+                                        direction: "top",
                                         className: "bg-transparent text-white/50 font-bold text-[11px] border-none shadow-none pointer-events-none"
                                     });
                                 }

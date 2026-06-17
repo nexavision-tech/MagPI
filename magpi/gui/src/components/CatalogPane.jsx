@@ -367,6 +367,7 @@ export default function CatalogPane({ mapLayers = [], setMapLayers, reorderLayer
                   draggable
                   onDragStart={(e) => {
                       e.dataTransfer.setData('application/magpi-layer-index', index.toString());
+                      e.dataTransfer.setData('text/plain', `magpi-layer:${index}`);
                       e.dataTransfer.effectAllowed = 'move';
                   }}
                   onDragOver={(e) => {
@@ -376,7 +377,13 @@ export default function CatalogPane({ mapLayers = [], setMapLayers, reorderLayer
                   onDrop={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
-                      const sourceIndexStr = e.dataTransfer.getData('application/magpi-layer-index');
+                      let sourceIndexStr = e.dataTransfer.getData('application/magpi-layer-index');
+                      if (!sourceIndexStr) {
+                          const textData = e.dataTransfer.getData('text/plain');
+                          if (textData && textData.startsWith('magpi-layer:')) {
+                              sourceIndexStr = textData.split(':')[1];
+                          }
+                      }
                       if (sourceIndexStr) {
                           const sourceIndex = parseInt(sourceIndexStr, 10);
                           if (!isNaN(sourceIndex) && sourceIndex !== index && reorderLayers) {
@@ -389,10 +396,15 @@ export default function CatalogPane({ mapLayers = [], setMapLayers, reorderLayer
                               data = window.__draggedMagPITool;
                               window.__draggedMagPITool = null;
                           } else {
-                              const dataStr = e.dataTransfer.getData('application/reactflow');
-                              if (dataStr) { try { data = JSON.parse(dataStr); } catch(err) {} }
+                              const dataStr = e.dataTransfer.getData('application/reactflow') || e.dataTransfer.getData('text/plain');
+                              if (dataStr) { 
+                                  try { data = JSON.parse(dataStr); } 
+                                  catch(err) {
+                                      // If it was just text but not valid JSON, ignore
+                                  } 
+                              }
                           }
-                          if (data) {
+                          if (data && typeof data === 'object' && data.id) {
                               window.dispatchEvent(new CustomEvent('magpi-map-drop', { detail: data }));
                           }
                       }
