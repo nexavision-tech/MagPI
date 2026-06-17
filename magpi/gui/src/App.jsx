@@ -100,7 +100,7 @@ export default function App() {
   useEffect(() => {
     setMapLayers(prev => {
         const baseLayer = prev.find(l => l.id === 'base') || { id: 'base', name: 'Base Map (OSM)', visible: true, opacity: 100, isBase: true };
-        const newLayers = [baseLayer];
+        const extractedLayers = [];
         
         nodes.forEach(node => {
             if (node.params && node.params.export_to_map === false) return;
@@ -115,7 +115,7 @@ export default function App() {
                 }
                 
                 const existingLayer = prev.find(l => l.id === node.id);
-                newLayers.push({
+                extractedLayers.push({
                     id: node.id,
                     name: layerName,
                     visible: existingLayer ? existingLayer.visible : true,
@@ -125,6 +125,19 @@ export default function App() {
                 });
             }
         });
+
+        // Preserve Z-Stack Order!
+        const prevOrder = prev.map(l => l.id);
+        extractedLayers.sort((a, b) => {
+            const indexA = prevOrder.indexOf(a.id);
+            const indexB = prevOrder.indexOf(b.id);
+            if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+            if (indexA !== -1) return -1;
+            if (indexB !== -1) return 1;
+            return 0;
+        });
+
+        const newLayers = [baseLayer, ...extractedLayers];
         
         // Deep compare to avoid unnecessary re-renders
         const isDifferent = JSON.stringify(prev) !== JSON.stringify(newLayers);
