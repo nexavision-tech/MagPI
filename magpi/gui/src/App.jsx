@@ -33,6 +33,8 @@ export default function App() {
   const [showEnvSettings, setShowEnvSettings] = useState(false);
   const [profiles, setProfiles] = useState([]);
   const [activeProfile, setActiveProfile] = useState(null);
+  
+  const activeRole = profiles.find(p => p.id === activeProfile)?.role || 'analyst';
 
   const [nodes, setNodes] = useState([]);
   const [connections, setConnections] = useState([]);
@@ -811,7 +813,7 @@ export default function App() {
   return (
     <div className="absolute inset-0 w-full h-full flex flex-col bg-slate-900 text-slate-200 font-sans overflow-hidden select-none">
       <div className="flex-none z-40 shadow-md">
-        <TopRibbon activeWorkspace={activeWorkspace} globalEnv={globalEnv} setGlobalEnv={setGlobalEnv} crs={crs} setCrs={setCrs} processingScope={processingScope} setProcessingScope={setProcessingScope} onGenerate={handleGenerate} onSave={handleSave} onLoad={handleLoad} onClear={handleClear} onAutoLayout={handleAutoLayout} onOpenEnvSettings={() => setShowEnvSettings(true)} onImportENVI={handleImportENVI} isDaemonAlive={isDaemonAlive} projectName={projectName} profiles={profiles} activeProfile={activeProfile} onProfileChange={handleProfileChange} />
+        <TopRibbon activeWorkspace={activeWorkspace} globalEnv={globalEnv} setGlobalEnv={setGlobalEnv} crs={crs} setCrs={setCrs} processingScope={processingScope} setProcessingScope={setProcessingScope} onGenerate={handleGenerate} onSave={handleSave} onLoad={handleLoad} onClear={handleClear} onAutoLayout={handleAutoLayout} onOpenEnvSettings={() => setShowEnvSettings(true)} onImportENVI={handleImportENVI} isDaemonAlive={isDaemonAlive} projectName={projectName} profiles={profiles} activeProfile={activeProfile} activeRole={activeRole} onProfileChange={handleProfileChange} />
         <div className="flex bg-slate-900 border-b border-slate-700 px-4 pt-2">
             <button onClick={() => setActiveWorkspace('planar')} className={`px-6 py-2 text-xs font-bold uppercase tracking-widest rounded-t-lg transition-colors flex items-center border border-b-0 ${activeWorkspace === 'planar' ? 'bg-slate-800 text-purple-400 border-slate-600' : 'bg-transparent text-slate-500 border-transparent hover:bg-slate-800/50 hover:text-slate-300'}`}><Edit3 size={14} className="mr-2" /> Planar View</button>
             <button onClick={() => setActiveWorkspace('builder')} className={`px-6 py-2 text-xs font-bold uppercase tracking-widest rounded-t-lg transition-colors flex items-center border border-b-0 ml-1 ${activeWorkspace === 'builder' ? 'bg-slate-800 text-emerald-400 border-slate-600' : 'bg-transparent text-slate-500 border-transparent hover:bg-slate-800/50 hover:text-slate-300'}`}><Wrench size={14} className="mr-2" /> Model Builder</button>
