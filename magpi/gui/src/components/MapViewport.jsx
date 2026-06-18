@@ -395,7 +395,7 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                     }
                 }
                 // Render GeoJSON or Vector Image based on Zoom
-                else if (layer.filePath && !layer.id.includes('extent')) {
+                else if ((layer.filePath || layer.syntheticType) && !layer.id.includes('extent')) {
                     const cached = loadedData[layer.id];
                     const isFishnet = layer.toolId === 'core_fishnet';
                     
@@ -427,7 +427,19 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                         setLoadedData(prev => ({ ...prev, [layer.id]: { ...(prev[layer.id] || {}), isFetching: true, bbox: fetchBbox } }));
                         const bboxParam = fetchBbox ? `&bbox=${encodeURIComponent(fetchBbox)}` : '';
                         
-                        fetch(`http://${window.location.hostname}:${window.MAGPI_PORT || '8282'}/api/geojson?file=${encodeURIComponent(layer.filePath)}&layer_name=${encodeURIComponent(layer.layerName || '')}&limit=${globalEnv.vector_draw_limit || 10000}${bboxParam}`)
+                        let fetchPromise;
+                        if (layer.syntheticType === 'wfs_osm_buildings') {
+                            const [w, s, e, n] = fetchBbox.split(',').map(Number);
+                            fetchPromise = fetch(`http://${window.location.hostname}:${window.MAGPI_PORT || '8282'}/api/stac_query`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ sensor: 'wfs_osm_buildings', bbox: [w, s, e, n] })
+                            });
+                        } else {
+                            fetchPromise = fetch(`http://${window.location.hostname}:${window.MAGPI_PORT || '8282'}/api/geojson?file=${encodeURIComponent(layer.filePath)}&layer_name=${encodeURIComponent(layer.layerName || '')}&limit=${globalEnv.vector_draw_limit || 10000}${bboxParam}`);
+                        }
+                        
+                        fetchPromise
                             .then(r => r.ok ? r.json() : null)
                             .then(data => {
                                 if (data) {

@@ -627,7 +627,7 @@ export default function App() {
     if (window.dagre) {
         try {
             const g = new window.dagre.graphlib.Graph();
-            g.setGraph({ rankdir: 'LR', align: 'UL', ranksep: 150, nodesep: 50 });
+            g.setGraph({ rankdir: 'LR', align: 'UL', ranksep: 250, nodesep: 100 });
             g.setDefaultEdgeLabel(() => ({}));
             
             const NODE_WIDTH = 250;
