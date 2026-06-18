@@ -189,6 +189,7 @@ export default function CatalogPane({ mapLayers = [], setMapLayers, reorderLayer
   const [expandedLayers, setExpandedLayers] = useState({});
   const [copiedPath, setCopiedPath] = useState(null);
   const [dragOverIndex, setDragOverIndex] = useState(null);
+  const [dragSourceIndex, setDragSourceIndex] = useState(null);
   const reactFlow = useReactFlow();
 
   const handleNodeClick = (node) => {
@@ -382,9 +383,14 @@ export default function CatalogPane({ mapLayers = [], setMapLayers, reorderLayer
                   key={layer.id} 
                   draggable
                   onDragStart={(e) => {
-                      e.dataTransfer.setData('application/magpi-layer-index', index.toString());
-                      e.dataTransfer.setData('text/plain', `magpi-layer:${index}`);
+                      setDragSourceIndex(index);
                       e.dataTransfer.effectAllowed = 'move';
+                      // Fallback for tools outside React state
+                      e.dataTransfer.setData('text/plain', `magpi-layer:${index}`);
+                  }}
+                  onDragEnd={(e) => {
+                      setDragSourceIndex(null);
+                      setDragOverIndex(null);
                   }}
                   onDragEnter={(e) => {
                       e.preventDefault();
@@ -402,22 +408,13 @@ export default function CatalogPane({ mapLayers = [], setMapLayers, reorderLayer
                       e.preventDefault();
                       e.stopPropagation();
                       
+                      const targetIndex = index;
                       setDragOverIndex(null);
                       
-                      let sourceIndexStr = e.dataTransfer.getData('application/magpi-layer-index');
-                      if (!sourceIndexStr) {
-                          const textData = e.dataTransfer.getData('text/plain');
-                          if (textData && textData.startsWith('magpi-layer:')) {
-                              sourceIndexStr = textData.split(':')[1];
-                          }
+                      if (dragSourceIndex !== null && dragSourceIndex !== targetIndex && reorderLayers) {
+                          reorderLayers(dragSourceIndex, targetIndex);
                       }
-                      
-                      if (sourceIndexStr) {
-                          const sourceIndex = parseInt(sourceIndexStr, 10);
-                          if (!isNaN(sourceIndex) && sourceIndex !== index && reorderLayers) {
-                              reorderLayers(sourceIndex, index);
-                          }
-                      }
+                      setDragSourceIndex(null);
                   }}
                   className={`p-2 rounded-md ${layer.selected ? 'bg-cyan-900/40 border border-cyan-700/50' : 'bg-slate-800/60 border border-transparent'} hover:bg-slate-700/60 transition-colors flex flex-col cursor-move relative`}
               >
@@ -426,7 +423,11 @@ export default function CatalogPane({ mapLayers = [], setMapLayers, reorderLayer
                   )}
                   <div className="flex items-center justify-between mb-1">
                       <button 
-                          onClick={() => setExpandedLayers(prev => ({ ...prev, [layer.id]: !prev[layer.id] }))}
+                          onPointerDown={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setExpandedLayers(prev => ({ ...prev, [layer.id]: !prev[layer.id] }));
+                          }}
                           className="mr-1 text-slate-400 hover:text-emerald-400 shrink-0"
                       >
                           {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
@@ -434,7 +435,8 @@ export default function CatalogPane({ mapLayers = [], setMapLayers, reorderLayer
                       <span 
                           className="text-[11px] font-medium text-slate-200 truncate flex-1 cursor-pointer hover:text-cyan-400 transition-colors" 
                           title={layer.name}
-                          onClick={() => {
+                          onPointerDown={(e) => {
+                              e.stopPropagation();
                               if (setSelectedNodeId && layer.id !== 'base') {
                                   setSelectedNodeId(layer.id);
                               }
@@ -444,7 +446,9 @@ export default function CatalogPane({ mapLayers = [], setMapLayers, reorderLayer
                       </span>
                       <div className="flex items-center ml-2 shrink-0 space-x-1">
                           <button 
-                              onClick={() => {
+                              onPointerDown={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
                                   window.dispatchEvent(new CustomEvent('magpi-zoom-layer', { detail: { layerId: layer.id } }));
                               }}
                               className="text-slate-400 hover:text-cyan-400"
@@ -453,7 +457,9 @@ export default function CatalogPane({ mapLayers = [], setMapLayers, reorderLayer
                               <Search size={12} />
                           </button>
                           <button 
-                              onClick={() => {
+                              onPointerDown={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
                                   if (setMapLayers) {
                                       setMapLayers(prev => prev.map(l => l.id === layer.id ? { ...l, visible: !l.visible } : l));
                                   }
@@ -464,7 +470,9 @@ export default function CatalogPane({ mapLayers = [], setMapLayers, reorderLayer
                               {layer.visible ? <Eye size={12} className="text-emerald-400" /> : <EyeOff size={12} className="text-slate-600" />}
                           </button>
                           <button
-                              onClick={() => {
+                              onPointerDown={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
                                   if (setNodes) {
                                       setNodes(prev => prev.map(n => n.id === layer.id ? { ...n, params: { ...n.params, export_to_map: false } } : n));
                                   }
