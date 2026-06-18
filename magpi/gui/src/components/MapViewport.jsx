@@ -41,6 +41,7 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
     const [currentZoom, setCurrentZoom] = React.useState(2);
     const [viewportBBox, setViewportBBox] = React.useState("");
     const [viewportBBoxTimestamp, setViewportBBoxTimestamp] = React.useState(0);
+    const [explicitRenderBbox, setExplicitRenderBbox] = React.useState(null);
 
     useEffect(() => {
         if (!mapRef.current) return;
@@ -246,11 +247,17 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
         window.addEventListener('magpi-feature-selected', handleFeatureSelect);
         window.addEventListener('magpi-draw-aoi', handleDrawAoi);
         window.addEventListener('magpi-zoom-layer', handleZoomLayer);
+
+        const handleRenderFishnet = (e) => {
+            setExplicitRenderBbox(e.detail.bbox);
+        };
+        window.addEventListener('magpi-render-fishnet', handleRenderFishnet);
         
         return () => {
             window.removeEventListener('magpi-feature-selected', handleFeatureSelect);
             window.removeEventListener('magpi-draw-aoi', handleDrawAoi);
             window.removeEventListener('magpi-zoom-layer', handleZoomLayer);
+            window.removeEventListener('magpi-render-fishnet', handleRenderFishnet);
         };
     }, [loadedData]);
 
@@ -376,26 +383,14 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                     const cached = loadedData[layer.id];
                     const isFishnet = layer.toolId === 'core_fishnet';
                     
-                    let activeTranscriptionBbox = null;
-                    if (selectedFeature && nodes) {
-                        const selNode = nodes.find(n => n.id === selectedFeature.nodeId);
-                        if (selNode && selNode.toolId === 'core_fishnet') {
-                            const coords = selectedFeature.feature?.geometry?.coordinates?.[0];
-                            if (coords) {
-                                const xs = coords.map(c => c[0]);
-                                const ys = coords.map(c => c[1]);
-                                activeTranscriptionBbox = `${Math.min(...xs)},${Math.min(...ys)},${Math.max(...xs)},${Math.max(...ys)}`;
-                            }
-                        }
-                    }
-
-                    const renderMode = activeTranscriptionBbox ? 'full' : (layer.renderMode || 'footprint');
+                    // Check if explicit render is requested, otherwise fall back to rendering based on zoom level and viewport
+                    const renderMode = explicitRenderBbox ? 'full' : (layer.renderMode || 'footprint');
                     
                     if (!isFishnet && renderMode !== 'full') {
                         return;
                     }
 
-                    const fetchBbox = activeTranscriptionBbox || viewportBBox;
+                    const fetchBbox = explicitRenderBbox || viewportBBox;
                     const expectedType = 'geojson';
                     
                     const needsFetch = fetchBbox && (!cached || cached.type !== expectedType || (!cached.isFetching && (!cached.bbox || cached.bbox !== fetchBbox)));
@@ -472,10 +467,29 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                             },
                             onEachFeature: (feature, layerObj) => {
                                 if (isFishnet && feature.properties?.id) {
-                                    layerObj.bindTooltip(feature.properties.id, {
-                                        permanent: true,
-                                        direction: "top",
-                                        className: "bg-transparent text-white/50 font-bold text-[11px] border-none shadow-none pointer-events-none"
+                                    // Use a popup instead of tooltip for interaction
+                                    const coords = feature.geometry?.coordinates?.[0];
+                                    let bboxStr = "";
+                                    if (coords) {
+                                        const xs = coords.map(c => c[0]);
+                                        const ys = coords.map(c => c[1]);
+                                        bboxStr = `${Math.min(...xs)},${Math.min(...ys)},${Math.max(...xs)},${Math.max(...ys)}`;
+                                    }
+                                    
+                                    const popupContent = `
+                                        <div class="p-2 text-center bg-slate-800 text-white rounded">
+                                            <div class="font-bold text-sm mb-2">Grid Cell: ${feature.properties.id}</div>
+                                            <button 
+                                                onclick="window.dispatchEvent(new CustomEvent('magpi-render-fishnet', { detail: { bbox: '${bboxStr}' } }))"
+                                                class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-1 px-3 rounded shadow transition-colors"
+                                            >
+                                                RENDER ${feature.properties.id} FEATURES
+                                            </button>
+                                        </div>
+                                    `;
+                                    
+                                    layerObj.bindPopup(popupContent, {
+                                        className: 'magpi-dark-popup'
                                     });
                                 }
                             }
