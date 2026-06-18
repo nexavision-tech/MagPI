@@ -44,8 +44,9 @@ export default function App() {
   useEffect(() => {
      const handleSelect = (e) => {
          setSelectedFeature(prev => {
+             if (!e.detail) return null;
              // If we clicked the same exact feature again, toggle it off
-             if (prev && e.detail && prev.layerId === e.detail.layerId && 
+             if (prev && e.detail && prev.nodeId === e.detail.nodeId && 
                  JSON.stringify(prev.feature?.properties) === JSON.stringify(e.detail.feature?.properties)) {
                  return null;
              }
