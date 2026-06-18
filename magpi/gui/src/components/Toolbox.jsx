@@ -10,7 +10,7 @@ import {
   Search, Copy, Info, Fingerprint, Loader2, AlertCircle,
   Cloud, Map as MapIcon, Satellite, Box, Globe, DownloadCloud, PaintBucket,
   FileOutput, LineChart, Brain, Sparkles, RefreshCcw, Activity, BrainCircuit, Play, Compass, Calendar,
-  BookOpen, ExternalLink, AlertTriangle, Users, Hash, ToggleLeft, FileJson, Target
+  BookOpen, ExternalLink, AlertTriangle, Users, Hash, ToggleLeft, FileJson, Crosshair
 } from 'lucide-react';
 
 const GdbLayerSelector = ({ selectedNode, updateNodeParam }) => {
@@ -1161,7 +1161,7 @@ export default function Toolbox({
                             }}
                             className="w-full mt-4 flex justify-center items-center py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded shadow-lg transition-colors border border-emerald-500"
                         >
-                            <Target size={14} className="mr-2" />
+                            <Crosshair size={14} className="mr-2" />
                             Create AOI from Feature
                         </button>
                     )}

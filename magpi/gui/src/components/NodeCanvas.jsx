@@ -24,7 +24,7 @@ import {
   Layers, Grid, DownloadCloud, Map as MapIcon, Globe, 
   ImageIcon, Box, Leaf, Cpu, Crosshair, Scissors, 
   CircleDashed, Settings, PaintBucket, FileOutput, LineChart,
-  Database, SlidersHorizontal, Network, Target
+  Database, SlidersHorizontal, Network
 } from 'lucide-react';
 
 

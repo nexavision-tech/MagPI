@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useReactFlow } from '@xyflow/react';
-import { Folder, Database, File, ChevronRight, ChevronDown, RefreshCw, Box, Map, Image as ImageIcon, Layers, Eye, EyeOff, Network, Target, FolderOpen, Search, Trash2, FolderPlus, MinusCircle, Link, Copy, Check } from 'lucide-react';
+import { Folder, Database, File, ChevronRight, ChevronDown, RefreshCw, Box, Map, Image as ImageIcon, Layers, Eye, EyeOff, Network, Crosshair, FolderOpen, Search, Trash2, FolderPlus, MinusCircle, Link, Copy, Check } from 'lucide-react';
 import { TOOLBOX_CATEGORIES } from './Toolbox';
 
 const DebouncedColorPicker = ({ color, onChange }) => {
@@ -309,7 +309,7 @@ export default function CatalogPane({ mapLayers = [], setMapLayers, reorderLayer
                         onClick={() => handleNodeClick(node)}
                         className="px-3 py-2 text-sm text-slate-300 hover:bg-slate-700 hover:text-white rounded cursor-pointer transition-colors flex items-center group"
                     >
-                        <Target size={14} className="mr-2 opacity-50 group-hover:opacity-100 group-hover:text-emerald-400 transition-opacity shrink-0" />
+                        <Crosshair size={14} className="mr-2 opacity-50 group-hover:opacity-100 group-hover:text-emerald-400 transition-opacity shrink-0" />
                         <span className="truncate flex-1">{node.name || node.toolId}</span>
                     </div>
                     ))}
@@ -330,7 +330,7 @@ export default function CatalogPane({ mapLayers = [], setMapLayers, reorderLayer
                   className={`flex items-center text-[10px] uppercase font-bold tracking-widest px-2 py-0.5 rounded border ${autoZoom ? 'bg-cyan-900/50 text-cyan-300 border-cyan-700/50' : 'bg-slate-900 text-slate-500 border-slate-700 hover:text-slate-300'} transition-colors`}
                   title="Toggle Auto-Zoom to new layers"
                 >
-                  <Target size={12} className="mr-1" /> Auto-Zoom
+                  <Crosshair size={12} className="mr-1" /> Auto-Zoom
                 </button>
                 </div>
         <div 
