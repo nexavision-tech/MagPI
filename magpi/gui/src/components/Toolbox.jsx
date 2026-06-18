@@ -1116,48 +1116,55 @@ export default function Toolbox({
                         <Trash2 size={14} />
                     </button>
                 </div>
-                <div className="flex-1 overflow-auto p-0">
-                    <table className="w-full text-left border-collapse">
-                        <thead className="bg-slate-950/80 sticky top-0 shadow backdrop-blur-sm z-10">
-                            <tr>
-                                <th className="px-4 py-2 text-[10px] font-bold text-slate-400 uppercase border-b border-slate-700">Field</th>
-                                <th className="px-4 py-2 text-[10px] font-bold text-slate-400 uppercase border-b border-slate-700">Value</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {selectedFeature.isFootprint ? (
-                                <>
-                                    <tr className="hover:bg-slate-800/50 border-b border-slate-800/50 transition-colors group">
-                                        <td className="px-4 py-3 text-xs font-mono text-cyan-400 align-top group-hover:text-cyan-300">Feature Type</td>
-                                        <td className="px-4 py-3 text-xs text-slate-300 break-words">Spatial Footprint</td>
-                                    </tr>
-                                    <tr className="hover:bg-slate-800/50 border-b border-slate-800/50 transition-colors group">
-                                        <td className="px-4 py-3 text-xs font-mono text-cyan-400 align-top group-hover:text-cyan-300">Bounds (W, S, E, N)</td>
-                                        <td className="px-4 py-3 text-[10px] text-slate-300 break-words font-mono">
-                                            {selectedFeature.bounds ? 
-                                                `${selectedFeature.bounds.xmin.toFixed(4)}, ${selectedFeature.bounds.ymin.toFixed(4)}, ${selectedFeature.bounds.xmax.toFixed(4)}, ${selectedFeature.bounds.ymax.toFixed(4)}` 
-                                                : 'N/A'
-                                            }
-                                        </td>
-                                    </tr>
-                                </>
-                            ) : (
-                                <>
-                                    {Object.entries(selectedFeature.feature?.properties || {}).map(([key, value], idx) => (
-                                        <tr key={idx} className="hover:bg-slate-800/50 border-b border-slate-800/50 transition-colors group">
-                                            <td className="px-4 py-3 text-xs font-mono text-cyan-400 align-top group-hover:text-cyan-300">{key}</td>
-                                            <td className="px-4 py-3 text-xs text-slate-300 break-words">{value?.toString() || 'null'}</td>
-                                        </tr>
-                                    ))}
-                                    {(!selectedFeature.feature?.properties || Object.keys(selectedFeature.feature.properties).length === 0) && (
-                                        <tr>
-                                            <td colSpan="2" className="px-4 py-8 text-center text-xs text-slate-500 italic">No attributes found for this feature.</td>
-                                        </tr>
-                                    )}
-                                </>
-                            )}
-                        </tbody>
-                    </table>
+                <div className="flex-1 overflow-auto p-4 space-y-4">
+                    {selectedFeature.isFootprint && (
+                        <div className="space-y-2">
+                            <div className="flex justify-between border-b border-slate-700/50 pb-1">
+                                <span className="text-slate-500 font-medium">Feature Type</span>
+                                <span className="text-cyan-400 font-mono text-xs">Spatial Footprint</span>
+                            </div>
+                            <div className="flex justify-between border-b border-slate-700/50 pb-1">
+                                <span className="text-slate-500 font-medium">Bounds (W, S, E, N)</span>
+                                <span className="text-slate-300 font-mono text-[10px]">
+                                    {selectedFeature.bounds ? 
+                                        `${selectedFeature.bounds.xmin.toFixed(4)}, ${selectedFeature.bounds.ymin.toFixed(4)}, ${selectedFeature.bounds.xmax.toFixed(4)}, ${selectedFeature.bounds.ymax.toFixed(4)}` 
+                                        : 'N/A'
+                                    }
+                                </span>
+                            </div>
+                        </div>
+                    )}
+                    
+                    <div>
+                        <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-700 pb-1 mb-2">Attributes</h4>
+                        {Object.entries(selectedFeature.feature?.properties || {}).map(([key, value], idx) => (
+                            <div key={idx} className="flex justify-between border-b border-slate-700/50 pb-1 mb-1">
+                                <span className="text-slate-500 font-medium text-xs">{key}</span>
+                                <span className="text-slate-300 text-right text-xs truncate max-w-[150px]" title={String(value)}>{String(value)}</span>
+                            </div>
+                        ))}
+                        {(!selectedFeature.feature?.properties || Object.keys(selectedFeature.feature.properties).length === 0) && (
+                            <div className="text-center italic text-slate-500 py-2 text-xs">No attributes</div>
+                        )}
+                    </div>
+
+                    {selectedFeature.bounds && (
+                        <button 
+                            onClick={() => {
+                                const { xmin, ymin, xmax, ymax } = selectedFeature.bounds;
+                                window.dispatchEvent(new CustomEvent('magpi-create-aoi-node', { 
+                                    detail: { 
+                                        name: `AOI: ${selectedFeature.layerName}`,
+                                        xmin, ymin, xmax, ymax 
+                                    }
+                                }));
+                            }}
+                            className="w-full mt-4 flex justify-center items-center py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded shadow-lg transition-colors border border-emerald-500"
+                        >
+                            <Target size={14} className="mr-2" />
+                            Create AOI from Feature
+                        </button>
+                    )}
                 </div>
               </>
             ) : (

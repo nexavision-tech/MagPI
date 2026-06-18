@@ -188,6 +188,7 @@ export default function CatalogPane({ mapLayers = [], setMapLayers, reorderLayer
   const [isLoading, setIsLoading] = useState(false);
   const [expandedLayers, setExpandedLayers] = useState({});
   const [copiedPath, setCopiedPath] = useState(null);
+  const [dragOverIndex, setDragOverIndex] = useState(null);
   const reactFlow = useReactFlow();
 
   const handleNodeClick = (node) => {
@@ -337,19 +338,48 @@ export default function CatalogPane({ mapLayers = [], setMapLayers, reorderLayer
               e.preventDefault();
               e.stopPropagation();
               e.dataTransfer.dropEffect = 'move';
+              // If we drag over the empty space at the bottom, reset index or assume end
+              if (e.target === e.currentTarget) {
+                  setDragOverIndex(null);
+              }
+          }}
+          onDragLeave={(e) => {
+              if (e.target === e.currentTarget) {
+                  setDragOverIndex(null);
+              }
           }}
           onDrop={(e) => {
               e.preventDefault();
               e.stopPropagation();
+              
+              const targetIndex = dragOverIndex;
+              setDragOverIndex(null);
+              
+              let sourceIndexStr = e.dataTransfer.getData('application/magpi-layer-index');
+              if (!sourceIndexStr) {
+                  const textData = e.dataTransfer.getData('text/plain');
+                  if (textData && textData.startsWith('magpi-layer:')) {
+                      sourceIndexStr = textData.split(':')[1];
+                  }
+              }
+              
+              if (sourceIndexStr && targetIndex !== null) {
+                  const sourceIndex = parseInt(sourceIndexStr, 10);
+                  if (!isNaN(sourceIndex) && sourceIndex !== targetIndex && reorderLayers) {
+                      reorderLayers(sourceIndex, targetIndex);
+                  }
+                  return;
+              }
+              
               let data = null;
               if (window.__draggedMagPITool) {
                   data = window.__draggedMagPITool;
                   window.__draggedMagPITool = null;
               } else {
-                  const dataStr = e.dataTransfer.getData('application/reactflow');
+                  const dataStr = e.dataTransfer.getData('application/reactflow') || e.dataTransfer.getData('text/plain');
                   if (dataStr) { try { data = JSON.parse(dataStr); } catch(err) {} }
               }
-              if (data) {
+              if (data && typeof data === 'object' && data.id) {
                   window.dispatchEvent(new CustomEvent('magpi-map-drop', { detail: data }));
               }
           }}
@@ -373,43 +403,10 @@ export default function CatalogPane({ mapLayers = [], setMapLayers, reorderLayer
                   onDragOver={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
+                      e.dataTransfer.dropEffect = 'move';
+                      setDragOverIndex(index);
                   }}
-                  onDrop={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      let sourceIndexStr = e.dataTransfer.getData('application/magpi-layer-index');
-                      if (!sourceIndexStr) {
-                          const textData = e.dataTransfer.getData('text/plain');
-                          if (textData && textData.startsWith('magpi-layer:')) {
-                              sourceIndexStr = textData.split(':')[1];
-                          }
-                      }
-                      if (sourceIndexStr) {
-                          const sourceIndex = parseInt(sourceIndexStr, 10);
-                          if (!isNaN(sourceIndex) && sourceIndex !== index && reorderLayers) {
-                              reorderLayers(sourceIndex, index);
-                          }
-                      } else {
-                          // Allow standard map dropping if dragged from catalog
-                          let data = null;
-                          if (window.__draggedMagPITool) {
-                              data = window.__draggedMagPITool;
-                              window.__draggedMagPITool = null;
-                          } else {
-                              const dataStr = e.dataTransfer.getData('application/reactflow') || e.dataTransfer.getData('text/plain');
-                              if (dataStr) { 
-                                  try { data = JSON.parse(dataStr); } 
-                                  catch(err) {
-                                      // If it was just text but not valid JSON, ignore
-                                  } 
-                              }
-                          }
-                          if (data && typeof data === 'object' && data.id) {
-                              window.dispatchEvent(new CustomEvent('magpi-map-drop', { detail: data }));
-                          }
-                      }
-                  }}
-                  className={`p-2 rounded-md ${layer.selected ? 'bg-cyan-900/40 border border-cyan-700/50' : 'bg-slate-800/60 border border-transparent'} hover:bg-slate-700/60 transition-colors flex flex-col cursor-move`}
+                  className={`p-2 rounded-md ${layer.selected ? 'bg-cyan-900/40 border border-cyan-700/50' : 'bg-slate-800/60 border border-transparent'} hover:bg-slate-700/60 transition-colors flex flex-col cursor-move relative ${dragOverIndex === index ? 'border-t-2 border-t-emerald-500' : ''}`}
               >
                   <div className="flex items-center justify-between mb-1">
                       <button 

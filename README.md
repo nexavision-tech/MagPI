@@ -135,6 +135,12 @@ graph TD
 ```
 ###
 
+# 📚 **The MagPI Spatial Lexicon**
+To ensure precision across engine workflows and the visual IDE, MagPI standardizes the following spatial terminology:
+- **Extent**: Universal spatial bounding coordinates (the universal frame of reference).
+- **Footprint**: The coverage area of a sensor collection, or specific discrete geometries (e.g., building footprints, satellite swath).
+- **AOI (Area of Interest)**: A user-defined polygon/extent explicitly used for clipping, filtering, and defining the bounds of an analytical workflow. Also referred to as Study Area, Area of Project Focus, or Processing Focus.
+
 # 🗺️ **Project Roadmap & GitHub Projects**
 The translation of an entire proprietary ecosystem is a massive undertaking. We are tracking progress via GitHub Projects (Kanban). The core modules are currently in the following states of development:
 

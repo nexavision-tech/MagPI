@@ -13,7 +13,13 @@ export default function DataStudio() {
   
   const [showNewConnectionModal, setShowNewConnectionModal] = useState(false);
   const [newConnName, setNewConnName] = useState("");
-  const [newConnString, setNewConnString] = useState("postgresql://user:password@localhost:5432/dbname");
+  
+  const [connHost, setConnHost] = useState("localhost");
+  const [connPort, setConnPort] = useState("5432");
+  const [connDb, setConnDb] = useState("");
+  const [connUser, setConnUser] = useState("postgres");
+  const [connPass, setConnPass] = useState("");
+  const [savePassword, setSavePassword] = useState(true);
   
   const bottomPanelRef = useRef(null);
 
@@ -76,7 +82,16 @@ export default function DataStudio() {
   };
 
   const handleAddConnection = async () => {
-    if (!newConnName || !newConnString) return;
+    if (!newConnName || !connHost || !connDb || !connUser) return;
+    
+    let finalPass = savePassword ? connPass : "";
+    let authPart = connUser;
+    if (finalPass) {
+        authPart += ":" + encodeURIComponent(finalPass);
+    }
+    
+    const newConnString = `postgresql://${authPart}@${connHost}:${connPort}/${connDb}`;
+
     try {
       const res = await fetch(`http://${window.location.hostname}:${window.MAGPI_PORT || '8282'}/api/db_connections`, {
         method: 'POST',
@@ -87,6 +102,7 @@ export default function DataStudio() {
       if (data.status === 'success') {
         setShowNewConnectionModal(false);
         setNewConnName("");
+        setConnPass("");
         fetchDatabases();
       } else {
         alert("Error saving connection: " + data.error);
@@ -109,14 +125,38 @@ export default function DataStudio() {
             <h2 className="text-lg font-bold text-white mb-4 flex items-center">
               <Server size={20} className="mr-2 text-emerald-500" /> Add PostGIS Connection
             </h2>
-            <div className="space-y-4">
+            <div className="space-y-3">
               <div>
                 <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Connection Name</label>
-                <input type="text" className="w-full bg-[#1e1e1e] border border-[#444] rounded p-2 text-sm text-slate-200 outline-none focus:border-emerald-500" placeholder="e.g. Gaza Master DB" value={newConnName} onChange={e => setNewConnName(e.target.value)} />
+                <input type="text" className="w-full bg-[#1e1e1e] border border-[#444] rounded p-2 text-sm text-slate-200 outline-none focus:border-emerald-500" placeholder="e.g. Master DB" value={newConnName} onChange={e => setNewConnName(e.target.value)} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                    <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Host</label>
+                    <input type="text" className="w-full bg-[#1e1e1e] border border-[#444] rounded p-2 text-sm text-slate-200 outline-none focus:border-emerald-500" placeholder="localhost" value={connHost} onChange={e => setConnHost(e.target.value)} />
+                </div>
+                <div>
+                    <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Port</label>
+                    <input type="text" className="w-full bg-[#1e1e1e] border border-[#444] rounded p-2 text-sm text-slate-200 outline-none focus:border-emerald-500" placeholder="5432" value={connPort} onChange={e => setConnPort(e.target.value)} />
+                </div>
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Connection String (SQLAlchemy)</label>
-                <input type="text" className="w-full bg-[#1e1e1e] border border-[#444] rounded p-2 text-sm text-slate-200 outline-none focus:border-emerald-500 font-mono" placeholder="postgresql://user:password@localhost:5432/dbname" value={newConnString} onChange={e => setNewConnString(e.target.value)} />
+                <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Database Name</label>
+                <input type="text" className="w-full bg-[#1e1e1e] border border-[#444] rounded p-2 text-sm text-slate-200 outline-none focus:border-emerald-500" placeholder="dbname" value={connDb} onChange={e => setConnDb(e.target.value)} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                    <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Username</label>
+                    <input type="text" className="w-full bg-[#1e1e1e] border border-[#444] rounded p-2 text-sm text-slate-200 outline-none focus:border-emerald-500" placeholder="postgres" value={connUser} onChange={e => setConnUser(e.target.value)} />
+                </div>
+                <div>
+                    <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Password</label>
+                    <input type="password" className="w-full bg-[#1e1e1e] border border-[#444] rounded p-2 text-sm text-slate-200 outline-none focus:border-emerald-500" placeholder="••••••••" value={connPass} onChange={e => setConnPass(e.target.value)} />
+                </div>
+              </div>
+              <div className="flex items-center pt-1 pb-2">
+                  <input type="checkbox" id="savePass" checked={savePassword} onChange={e => setSavePassword(e.target.checked)} className="mr-2 cursor-pointer" />
+                  <label htmlFor="savePass" className="text-xs text-slate-400 cursor-pointer select-none">Save password locally</label>
               </div>
               <button onClick={handleAddConnection} className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 rounded text-white font-bold transition-colors shadow-lg">Save Connection</button>
             </div>
