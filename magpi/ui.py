@@ -157,6 +157,8 @@ def LaunchCanvas(port=8282):
                 self.handle_databases()
             elif parsed_path.path == '/api/db_connections':
                 self.handle_db_connections_get()
+            elif parsed_path.path == '/api/profiles':
+                self.handle_profiles_get()
             elif parsed_path.path == '/api/list_files':
                 self.handle_list_files(parsed_path.query)
             elif parsed_path.path == '/api/db_tables':
@@ -363,6 +365,80 @@ def LaunchCanvas(port=8282):
                     self.send_header('Content-type', 'application/json')
                     self.end_headers()
                     self.wfile.write(json.dumps({"error": str(e)}).encode('utf-8'))
+                    
+            elif parsed_path.path == '/api/profiles':
+                content_length = int(self.headers['Content-Length'])
+                post_data = self.rfile.read(content_length)
+                try:
+                    payload = json.loads(post_data.decode('utf-8'))
+                    self.handle_profiles_post(payload)
+                except Exception as e:
+                    logger.error(f"Profiles POST API failed: {e}")
+                    self.send_response(500)
+                    self.send_header('Content-type', 'application/json')
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"error": str(e)}).encode('utf-8'))
+
+        def handle_profiles_get(self):
+            try:
+                profiles_path = os.path.join(os.getcwd(), 'magpi_workspace', 'profiles.json')
+                current_profile_path = os.path.join(os.getcwd(), 'magpi_workspace', 'current_profile.txt')
+                
+                profiles = []
+                if os.path.exists(profiles_path):
+                    with open(profiles_path, 'r') as f:
+                        profiles = json.load(f)
+                else:
+                    profiles = [
+                        {"id": "test_user1", "name": "Analyst (test_user1)", "role": "analyst"},
+                        {"id": "test_user2", "name": "Analyst (test_user2)", "role": "analyst"},
+                        {"id": "gda", "name": "System Admin (GDA)", "role": "admin"}
+                    ]
+                    os.makedirs(os.path.dirname(profiles_path), exist_ok=True)
+                    with open(profiles_path, 'w') as f:
+                        json.dump(profiles, f, indent=2)
+                        
+                current_profile_id = "test_user1"
+                if os.path.exists(current_profile_path):
+                    with open(current_profile_path, 'r') as f:
+                        current_profile_id = f.read().strip()
+                        
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({
+                    "status": "success",
+                    "profiles": profiles,
+                    "current_profile_id": current_profile_id
+                }).encode('utf-8'))
+            except Exception as e:
+                logger.error(f"Profiles GET failed: {e}")
+                self.send_response(500)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": str(e)}).encode('utf-8'))
+
+        def handle_profiles_post(self, payload):
+            try:
+                current_profile_path = os.path.join(os.getcwd(), 'magpi_workspace', 'current_profile.txt')
+                profile_id = payload.get('profile_id')
+                if not profile_id:
+                    raise ValueError("Missing profile_id")
+                
+                os.makedirs(os.path.dirname(current_profile_path), exist_ok=True)
+                with open(current_profile_path, 'w') as f:
+                    f.write(profile_id)
+                    
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"status": "success", "profile_id": profile_id}).encode('utf-8'))
+            except Exception as e:
+                logger.error(f"Profiles POST failed: {e}")
+                self.send_response(500)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": str(e)}).encode('utf-8'))
 
         def handle_raster_metadata(self, query):
             qs = parse_qs(query)

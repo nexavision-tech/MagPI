@@ -400,14 +400,23 @@ export default function CatalogPane({ mapLayers = [], setMapLayers, reorderLayer
                       e.dataTransfer.setData('text/plain', `magpi-layer:${index}`);
                       e.dataTransfer.effectAllowed = 'move';
                   }}
+                  onDragEnter={(e) => {
+                      e.preventDefault();
+                      setDragOverIndex(index);
+                  }}
                   onDragOver={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
                       e.dataTransfer.dropEffect = 'move';
-                      setDragOverIndex(index);
+                      if (dragOverIndex !== index) {
+                          setDragOverIndex(index);
+                      }
                   }}
-                  className={`p-2 rounded-md ${layer.selected ? 'bg-cyan-900/40 border border-cyan-700/50' : 'bg-slate-800/60 border border-transparent'} hover:bg-slate-700/60 transition-colors flex flex-col cursor-move relative ${dragOverIndex === index ? 'border-t-2 border-t-emerald-500' : ''}`}
+                  className={`p-2 rounded-md ${layer.selected ? 'bg-cyan-900/40 border border-cyan-700/50' : 'bg-slate-800/60 border border-transparent'} hover:bg-slate-700/60 transition-colors flex flex-col cursor-move relative`}
               >
+                  {dragOverIndex === index && (
+                      <div className="absolute top-0 left-0 right-0 h-1 bg-emerald-500 z-50 rounded-t-md pointer-events-none shadow-[0_0_10px_rgba(16,185,129,0.8)]" />
+                  )}
                   <div className="flex items-center justify-between mb-1">
                       <button 
                           onClick={() => setExpandedLayers(prev => ({ ...prev, [layer.id]: !prev[layer.id] }))}

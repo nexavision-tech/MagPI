@@ -1,11 +1,11 @@
 import React from 'react';
-import { Compass, Server, Code, Save, Globe, Cpu, FolderUp, Trash2, Rss, Map as MapIcon, Layers, XCircle, Edit, Crosshair, ClipboardCheck, Network, FilePlus } from 'lucide-react';
+import { Compass, Server, Code, Save, Globe, Cpu, FolderUp, Trash2, Rss, Map as MapIcon, Layers, XCircle, Edit, Crosshair, ClipboardCheck, Network, FilePlus, User } from 'lucide-react';
 
 export default function TopRibbon({ 
   activeWorkspace, globalEnv, setGlobalEnv, crs, setCrs, 
   processingScope, setProcessingScope, 
   onGenerate, onSave, onLoad, onClear, onAutoLayout, onOpenEnvSettings, onImportENVI,
-  isDaemonAlive, projectName
+  isDaemonAlive, projectName, profiles = [], activeProfile, onProfileChange
 }) {
   const hiddenFileInput = React.useRef(null);
   return (
@@ -21,6 +21,18 @@ export default function TopRibbon({
           <button onClick={onOpenEnvSettings} className="text-[10px] text-slate-300 hover:text-white font-bold uppercase tracking-widest flex items-center bg-slate-800 hover:bg-slate-700 px-2 py-0.5 rounded border border-slate-700 transition-colors">
               <Globe size={12} className="mr-1" /> GLOBALS
           </button>
+          <div className="flex items-center space-x-2 bg-slate-900 px-2 py-0.5 rounded text-[10px] border border-slate-700">
+            <User size={12} className="text-amber-400" />
+            <select 
+              className="bg-transparent outline-none cursor-pointer text-slate-300 font-bold tracking-wider"
+              value={activeProfile || ''} onChange={(e) => onProfileChange && onProfileChange(e.target.value)}
+            >
+              <option value="" disabled>Select Profile...</option>
+              {profiles.map(p => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
+          </div>
           <div className="flex items-center space-x-2 bg-slate-900 px-2 py-0.5 rounded text-[10px] border border-slate-700">
             <Cpu size={12} className="text-purple-400" />
             <span className="text-slate-500 uppercase font-bold">Engine:</span>

@@ -675,6 +675,7 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                                     fill={Color.fromCssColorString(layer.vectorColor || '#22d3ee').withAlpha(0.3)}
                                     markerColor={Color.fromCssColorString(layer.vectorColor || '#22d3ee')}
                                     markerSize={5}
+                                    markerSymbol={""}
                                     clampToGround={false}
                                 />
                             ))}

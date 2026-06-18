@@ -31,6 +31,8 @@ export default function App() {
     external_dirs: []
   });
   const [showEnvSettings, setShowEnvSettings] = useState(false);
+  const [profiles, setProfiles] = useState([]);
+  const [activeProfile, setActiveProfile] = useState(null);
 
   const [nodes, setNodes] = useState([]);
   const [connections, setConnections] = useState([]);
@@ -163,7 +165,32 @@ export default function App() {
         }
       })
       .catch(err => console.error("Failed to load GIS servers", err));
+      
+    fetch(`http://${window.location.hostname}:${window.MAGPI_PORT || '8282'}/api/profiles`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.status === 'success' && data.profiles) {
+          setProfiles(data.profiles);
+          setActiveProfile(data.current_profile_id);
+        }
+      })
+      .catch(err => console.error("Failed to load profiles", err));
   }, []);
+
+  const handleProfileChange = async (profileId) => {
+    try {
+      const response = await fetch(`http://${window.location.hostname}:${window.MAGPI_PORT || '8282'}/api/profiles`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ profile_id: profileId })
+      });
+      if (response.ok) {
+        setActiveProfile(profileId);
+      }
+    } catch (e) {
+      console.error("Failed to set profile", e);
+    }
+  };
 
   // --- JOB POLLING ENGINE ---
   useEffect(() => {
@@ -783,7 +810,7 @@ export default function App() {
   return (
     <div className="absolute inset-0 w-full h-full flex flex-col bg-slate-900 text-slate-200 font-sans overflow-hidden select-none">
       <div className="flex-none z-40 shadow-md">
-        <TopRibbon activeWorkspace={activeWorkspace} globalEnv={globalEnv} setGlobalEnv={setGlobalEnv} crs={crs} setCrs={setCrs} processingScope={processingScope} setProcessingScope={setProcessingScope} onGenerate={handleGenerate} onSave={handleSave} onLoad={handleLoad} onClear={handleClear} onAutoLayout={handleAutoLayout} onOpenEnvSettings={() => setShowEnvSettings(true)} onImportENVI={handleImportENVI} isDaemonAlive={isDaemonAlive} projectName={projectName} />
+        <TopRibbon activeWorkspace={activeWorkspace} globalEnv={globalEnv} setGlobalEnv={setGlobalEnv} crs={crs} setCrs={setCrs} processingScope={processingScope} setProcessingScope={setProcessingScope} onGenerate={handleGenerate} onSave={handleSave} onLoad={handleLoad} onClear={handleClear} onAutoLayout={handleAutoLayout} onOpenEnvSettings={() => setShowEnvSettings(true)} onImportENVI={handleImportENVI} isDaemonAlive={isDaemonAlive} projectName={projectName} profiles={profiles} activeProfile={activeProfile} onProfileChange={handleProfileChange} />
         <div className="flex bg-slate-900 border-b border-slate-700 px-4 pt-2">
             <button onClick={() => setActiveWorkspace('planar')} className={`px-6 py-2 text-xs font-bold uppercase tracking-widest rounded-t-lg transition-colors flex items-center border border-b-0 ${activeWorkspace === 'planar' ? 'bg-slate-800 text-purple-400 border-slate-600' : 'bg-transparent text-slate-500 border-transparent hover:bg-slate-800/50 hover:text-slate-300'}`}><Edit3 size={14} className="mr-2" /> Planar View</button>
             <button onClick={() => setActiveWorkspace('builder')} className={`px-6 py-2 text-xs font-bold uppercase tracking-widest rounded-t-lg transition-colors flex items-center border border-b-0 ml-1 ${activeWorkspace === 'builder' ? 'bg-slate-800 text-emerald-400 border-slate-600' : 'bg-transparent text-slate-500 border-transparent hover:bg-slate-800/50 hover:text-slate-300'}`}><Wrench size={14} className="mr-2" /> Model Builder</button>
