@@ -349,27 +349,11 @@ export default function CatalogPane({ mapLayers = [], setMapLayers, reorderLayer
               }
           }}
           onDrop={(e) => {
+              // Only handle map dropping here (for dragging new tools onto the pane)
               e.preventDefault();
               e.stopPropagation();
               
-              const targetIndex = dragOverIndex;
               setDragOverIndex(null);
-              
-              let sourceIndexStr = e.dataTransfer.getData('application/magpi-layer-index');
-              if (!sourceIndexStr) {
-                  const textData = e.dataTransfer.getData('text/plain');
-                  if (textData && textData.startsWith('magpi-layer:')) {
-                      sourceIndexStr = textData.split(':')[1];
-                  }
-              }
-              
-              if (sourceIndexStr && targetIndex !== null) {
-                  const sourceIndex = parseInt(sourceIndexStr, 10);
-                  if (!isNaN(sourceIndex) && sourceIndex !== targetIndex && reorderLayers) {
-                      reorderLayers(sourceIndex, targetIndex);
-                  }
-                  return;
-              }
               
               let data = null;
               if (window.__draggedMagPITool) {
@@ -377,7 +361,9 @@ export default function CatalogPane({ mapLayers = [], setMapLayers, reorderLayer
                   window.__draggedMagPITool = null;
               } else {
                   const dataStr = e.dataTransfer.getData('application/reactflow') || e.dataTransfer.getData('text/plain');
-                  if (dataStr) { try { data = JSON.parse(dataStr); } catch(err) {} }
+                  if (dataStr && !dataStr.startsWith('magpi-layer:')) { 
+                      try { data = JSON.parse(dataStr); } catch(err) {} 
+                  }
               }
               if (data && typeof data === 'object' && data.id) {
                   window.dispatchEvent(new CustomEvent('magpi-map-drop', { detail: data }));
@@ -410,6 +396,27 @@ export default function CatalogPane({ mapLayers = [], setMapLayers, reorderLayer
                       e.dataTransfer.dropEffect = 'move';
                       if (dragOverIndex !== index) {
                           setDragOverIndex(index);
+                      }
+                  }}
+                  onDrop={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      
+                      setDragOverIndex(null);
+                      
+                      let sourceIndexStr = e.dataTransfer.getData('application/magpi-layer-index');
+                      if (!sourceIndexStr) {
+                          const textData = e.dataTransfer.getData('text/plain');
+                          if (textData && textData.startsWith('magpi-layer:')) {
+                              sourceIndexStr = textData.split(':')[1];
+                          }
+                      }
+                      
+                      if (sourceIndexStr) {
+                          const sourceIndex = parseInt(sourceIndexStr, 10);
+                          if (!isNaN(sourceIndex) && sourceIndex !== index && reorderLayers) {
+                              reorderLayers(sourceIndex, index);
+                          }
                       }
                   }}
                   className={`p-2 rounded-md ${layer.selected ? 'bg-cyan-900/40 border border-cyan-700/50' : 'bg-slate-800/60 border border-transparent'} hover:bg-slate-700/60 transition-colors flex flex-col cursor-move relative`}
