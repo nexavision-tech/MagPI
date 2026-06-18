@@ -240,7 +240,43 @@ def LaunchCanvas(port=8282):
                     date_range = payload.get('date_range', '2023-01-01/2023-12-31')
                     sensor = payload.get('sensor', 'wfs_sentinel2')
                     
-                    if sensor == 'wfs_sentinel1':
+                    if sensor == 'wfs_osm_buildings':
+                        import requests
+                        w, s, e, n = bbox
+                        overpass_query = f"""
+                        [out:json];
+                        (
+                          way["building"]({s},{w},{n},{e});
+                          relation["building"]({s},{w},{n},{e});
+                        );
+                        out geom;
+                        """
+                        headers = {'User-Agent': 'MagPI/1.0'}
+                        r = requests.post("https://overpass-api.de/api/interpreter", headers=headers, data={'data': overpass_query})
+                        
+                        features = []
+                        if r.status_code == 200:
+                            data = r.json()
+                            for el in data.get('elements', []):
+                                if 'geometry' in el:
+                                    coords = [[pt['lon'], pt['lat']] for pt in el['geometry']]
+                                    # Make sure it's closed
+                                    if coords[0] != coords[-1]:
+                                        coords.append(coords[0])
+                                    features.append({
+                                        "type": "Feature",
+                                        "geometry": {
+                                            "type": "Polygon",
+                                            "coordinates": [coords]
+                                        },
+                                        "properties": el.get('tags', {})
+                                    })
+                        
+                        res_obj = {
+                            "type": "FeatureCollection",
+                            "features": features
+                        }
+                    elif sensor == 'wfs_sentinel1':
                         from magpi.wfs import QuerySentinel1
                         res_obj = QuerySentinel1(bbox, date_range)
                     else:
@@ -248,7 +284,7 @@ def LaunchCanvas(port=8282):
                         max_cloud_cover = payload.get('max_cloud_cover', 20)
                         res_obj = QuerySentinel2(bbox, max_cloud_cover, date_range)
                         
-                    if isinstance(res_obj, dict) and "results" in res_obj:
+                    if isinstance(res_obj, dict) and ("results" in res_obj or "features" in res_obj):
                         payload = res_obj
                     else:
                         payload = {"results": res_obj}
