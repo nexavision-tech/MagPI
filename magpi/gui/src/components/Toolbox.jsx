@@ -10,7 +10,7 @@ import {
   Search, Copy, Info, Fingerprint, Loader2, AlertCircle,
   Cloud, Map as MapIcon, Satellite, Box, Globe, DownloadCloud, PaintBucket,
   FileOutput, LineChart, Brain, Sparkles, RefreshCcw, Activity, BrainCircuit, Play, Compass, Calendar,
-  BookOpen, ExternalLink, AlertTriangle, Users, Hash, ToggleLeft, FileJson
+  BookOpen, ExternalLink, AlertTriangle, Users, Hash, ToggleLeft, FileJson, Target
 } from 'lucide-react';
 
 const GdbLayerSelector = ({ selectedNode, updateNodeParam }) => {
