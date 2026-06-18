@@ -5,7 +5,7 @@ export default function TopRibbon({
   activeWorkspace, globalEnv, setGlobalEnv, crs, setCrs, 
   processingScope, setProcessingScope, 
   onGenerate, onSave, onLoad, onClear, onAutoLayout, onOpenEnvSettings, onImportENVI,
-  isDaemonAlive, projectName, profiles = [], activeProfile, onProfileChange
+  isDaemonAlive, projectName, profiles = [], activeProfile, activeRole, onProfileChange
 }) {
   const hiddenFileInput = React.useRef(null);
   return (
@@ -18,9 +18,11 @@ export default function TopRibbon({
             <Compass size={16} className="mr-2" /> MAGPI
           </span>
           <span className="bg-slate-800 px-2 py-0.5 rounded border border-slate-700">Project: {projectName || "Untitled_1"}</span>
-          <button onClick={onOpenEnvSettings} className="text-[10px] text-slate-300 hover:text-white font-bold uppercase tracking-widest flex items-center bg-slate-800 hover:bg-slate-700 px-2 py-0.5 rounded border border-slate-700 transition-colors">
-              <Globe size={12} className="mr-1" /> GLOBALS
-          </button>
+          {activeRole !== 'analyst' && (
+            <button onClick={onOpenEnvSettings} className="text-[10px] text-slate-300 hover:text-white font-bold uppercase tracking-widest flex items-center bg-slate-800 hover:bg-slate-700 px-2 py-0.5 rounded border border-slate-700 transition-colors">
+                <Globe size={12} className="mr-1" /> GLOBALS
+            </button>
+          )}
           <div className="flex items-center space-x-2 bg-slate-900 px-2 py-0.5 rounded text-[10px] border border-slate-700">
             <User size={12} className="text-amber-400" />
             <select 

@@ -435,7 +435,7 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                                         color: isSelected ? '#00ffff' : '#ff8c00', // Cyan when selected, Orange outline
                                         opacity: 0.8,
                                         fillColor: isSelected ? '#00ffff' : '#ff8c00',
-                                        fillOpacity: isSelected ? 0.15 : 0.05 // Nearly transparent grid so buildings are visible!
+                                        fillOpacity: isSelected ? 0.0 : 0.05 // Transparent grid so footprints are clearly visible!
                                     };
                                 }
                                 return {
