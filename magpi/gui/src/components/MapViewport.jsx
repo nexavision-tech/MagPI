@@ -256,7 +256,7 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
 
     // Compute extents and file paths purely for rendering
     const computedLayers = React.useMemo(() => {
-        return mapLayers.map(layer => {
+        const computed = mapLayers.map(layer => {
             if (layer.isBase) return layer;
             const node = nodes.find(n => n.id === layer.id);
             if (!node) return layer;
@@ -284,7 +284,32 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                 _bboxTimestamp: viewportBBoxTimestamp // Mix timestamp into dependency
             };
         });
-    }, [mapLayers, nodes, connections, viewportBBoxTimestamp]);
+
+        // Auto-inject OSM Buildings layer if a Fishnet grid cell is selected
+        if (selectedFeature && nodes) {
+            const selNode = nodes.find(n => n.id === selectedFeature.nodeId);
+            if (selNode && selNode.toolId === 'core_fishnet') {
+                const coords = selectedFeature.feature?.geometry?.coordinates?.[0];
+                if (coords) {
+                    const xs = coords.map(c => c[0]);
+                    const ys = coords.map(c => c[1]);
+                    const bbox = `${Math.min(...xs)},${Math.min(...ys)},${Math.max(...xs)},${Math.max(...ys)}`;
+                    computed.push({
+                        id: `synthetic_osm_buildings_${bbox}`,
+                        name: "OSM Building Footprints",
+                        visible: true,
+                        opacity: 80,
+                        vectorColor: '#ff00ff', // Magenta buildings
+                        renderMode: 'full',
+                        syntheticType: 'wfs_osm_buildings',
+                        bbox: bbox
+                    });
+                }
+            }
+        }
+        
+        return computed;
+    }, [mapLayers, nodes, connections, viewportBBoxTimestamp, selectedFeature]);
     useEffect(() => {
         if (activeWorkspace === 'planar' && mapInstance.current) {
             const map = mapInstance.current;
