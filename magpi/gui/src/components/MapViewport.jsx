@@ -41,7 +41,7 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
     const [currentZoom, setCurrentZoom] = React.useState(2);
     const [viewportBBox, setViewportBBox] = React.useState("");
     const [viewportBBoxTimestamp, setViewportBBoxTimestamp] = React.useState(0);
-    const [explicitRenderBbox, setExplicitRenderBbox] = React.useState(null);
+    const [explicitRender, setExplicitRender] = React.useState(null); // { bbox, sourceLayerId }
 
     useEffect(() => {
         if (!mapRef.current) return;
@@ -249,7 +249,8 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
         window.addEventListener('magpi-zoom-layer', handleZoomLayer);
 
         const handleRenderFishnet = (e) => {
-            setExplicitRenderBbox(e.detail.bbox);
+            console.log('[MagPI] Fishnet render event received:', e.detail);
+            setExplicitRender({ bbox: e.detail.bbox, sourceLayerId: e.detail.sourceLayerId || null });
         };
         window.addEventListener('magpi-render-fishnet', handleRenderFishnet);
         
@@ -363,7 +364,7 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                         imgLayer.magpi_layer_id = layer.id;
                         highlightGroup.current.addLayer(imgLayer);
                         
-                        if (autoZoom && layer.selected && lastZoomedNode.current !== layer.id) {
+                        if (autoZoom && selectedNode && selectedNode.id === layer.id && lastZoomedNode.current !== layer.id) {
                             lastZoomedNode.current = layer.id;
                             map.fitBounds(cached.bounds, { animate: true, padding: [100, 100] });
                         }
@@ -383,14 +384,15 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                     const cached = loadedData[layer.id];
                     const isFishnet = layer.toolId === 'core_fishnet';
                     
-                    // Check if explicit render is requested, otherwise fall back to rendering based on zoom level and viewport
-                    const renderMode = explicitRenderBbox ? 'full' : (layer.renderMode || 'footprint');
+                    // Check if this layer is the explicit render target (a fishnet grid cell was clicked)
+                    const isExplicitTarget = explicitRender && explicitRender.sourceLayerId === layer.id;
+                    const renderMode = isExplicitTarget ? 'full' : (layer.renderMode || 'footprint');
                     
                     if (!isFishnet && renderMode !== 'full') {
                         return;
                     }
 
-                    const fetchBbox = explicitRenderBbox || viewportBBox;
+                    const fetchBbox = isExplicitTarget ? explicitRender.bbox : viewportBBox;
                     const expectedType = 'geojson';
                     
                     const needsFetch = fetchBbox && (!cached || cached.type !== expectedType || (!cached.isFetching && (!cached.bbox || cached.bbox !== fetchBbox)));
@@ -476,11 +478,27 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                                         bboxStr = `${Math.min(...xs)},${Math.min(...ys)},${Math.max(...xs)},${Math.max(...ys)}`;
                                     }
                                     
+                                    // Find the parent vector node connected to this fishnet node
+                                    // by traversing the connections graph
+                                    const incomingConnections = connections.filter(c => c.to === layer.id);
+                                    let parentVectorId = '';
+                                    for (const cx of incomingConnections) {
+                                        const parentNode = nodes.find(n => n.id === cx.from);
+                                        if (parentNode && (parentNode.toolId.startsWith('load_') || parentNode.toolId.startsWith('wfs_') || parentNode.toolId.startsWith('core_input_'))) {
+                                            parentVectorId = parentNode.id;
+                                            break;
+                                        }
+                                    }
+                                    // If no direct parent vector found, fall back to ANY parent
+                                    if (!parentVectorId && incomingConnections.length > 0) {
+                                        parentVectorId = incomingConnections[0].from;
+                                    }
+                                    
                                     const popupContent = `
                                         <div class="p-2 text-center bg-slate-800 text-white rounded">
                                             <div class="font-bold text-sm mb-2">Grid Cell: ${feature.properties.id}</div>
                                             <button 
-                                                onclick="window.dispatchEvent(new CustomEvent('magpi-render-fishnet', { detail: { bbox: '${bboxStr}' } }))"
+                                                onclick="window.dispatchEvent(new CustomEvent('magpi-render-fishnet', { detail: { bbox: '${bboxStr}', sourceLayerId: '${parentVectorId}' } }))"
                                                 class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-1 px-3 rounded shadow transition-colors"
                                             >
                                                 RENDER ${feature.properties.id} FEATURES
@@ -530,7 +548,7 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                         gjLayer.magpi_layer_id = layer.id;
                         highlightGroup.current.addLayer(gjLayer);
                         
-                        if (autoZoom && layer.selected && lastZoomedNode.current !== layer.id) {
+                        if (autoZoom && selectedNode && selectedNode.id === layer.id && lastZoomedNode.current !== layer.id) {
                             lastZoomedNode.current = layer.id;
                             try {
                                 map.fitBounds(gjLayer.getBounds(), { animate: true, padding: [100, 100], maxZoom: 18 });

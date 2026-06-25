@@ -126,7 +126,8 @@ export default function App() {
                     visible: existingLayer ? existingLayer.visible : true,
                     opacity: existingLayer ? existingLayer.opacity : 100,
                     isBase: false,
-                    selected: selectedNodeId === node.id
+                    vectorColor: existingLayer ? existingLayer.vectorColor : undefined,
+                    cmap: existingLayer ? existingLayer.cmap : undefined
                 });
             }
         });
@@ -148,7 +149,7 @@ export default function App() {
         const isDifferent = JSON.stringify(prev) !== JSON.stringify(newLayers);
         return isDifferent ? newLayers : prev;
     });
-  }, [nodes, nodeStatuses, selectedNodeId]);
+  }, [nodes, nodeStatuses]);
 
   useEffect(() => {
     fetch(`http://${window.location.hostname}:${window.MAGPI_PORT || '8282'}/api/references`)
@@ -843,6 +844,7 @@ export default function App() {
                 activeWorkspace={activeWorkspace}
                 nodes={nodes}
                 setNodes={setNodes}
+                selectedNodeId={selectedNodeId}
                 setSelectedNodeId={setSelectedNodeId}
                 openFileBrowser={openFileBrowser}
                 globalEnv={globalEnv}

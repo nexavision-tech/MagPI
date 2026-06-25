@@ -183,7 +183,7 @@ const FileNode = ({ node, level, globalEnv, copiedPath, setCopiedPath }) => {
   );
 };
 
-export default function CatalogPane({ mapLayers = [], setMapLayers, reorderLayers, activeWorkspace, nodes = [], setNodes, setSelectedNodeId, openFileBrowser, globalEnv, isDaemonAlive, autoZoom, setAutoZoom }) {
+export default function CatalogPane({ mapLayers = [], setMapLayers, reorderLayers, activeWorkspace, nodes = [], setNodes, selectedNodeId, setSelectedNodeId, openFileBrowser, globalEnv, isDaemonAlive, autoZoom, setAutoZoom }) {
   const [catalog, setCatalog] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [expandedLayers, setExpandedLayers] = useState({});
@@ -416,7 +416,7 @@ export default function CatalogPane({ mapLayers = [], setMapLayers, reorderLayer
                       }
                       setDragSourceIndex(null);
                   }}
-                  className={`p-2 rounded-md ${layer.selected ? 'bg-cyan-900/40 border border-cyan-700/50' : 'bg-slate-800/60 border border-transparent'} hover:bg-slate-700/60 transition-colors flex flex-col cursor-move relative`}
+                  className={`p-2 rounded-md ${selectedNodeId === layer.id ? 'bg-cyan-900/40 border border-cyan-700/50' : 'bg-slate-800/60 border border-transparent'} hover:bg-slate-700/60 transition-colors flex flex-col cursor-move relative`}
               >
                   {dragOverIndex === index && (
                       <div className="absolute top-0 left-0 right-0 h-1 bg-emerald-500 z-50 rounded-t-md pointer-events-none shadow-[0_0_10px_rgba(16,185,129,0.8)]" />
