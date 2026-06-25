@@ -712,12 +712,12 @@ def LaunchCanvas(port=8282):
         def handle_vector_image(self, query):
             try:
                 import geopandas as gpd
-                import matplotlib
-                matplotlib.use('Agg')
-                import matplotlib.pyplot as plt
+                import pandas as pd
                 import io
                 import pyogrio
                 import os
+                import geolibre_wasm as gl
+                from shapely.geometry import Polygon
                 
                 params = parse_qs(query)
                 file_path = params.get('file', [''])[0]
@@ -739,62 +739,78 @@ def LaunchCanvas(port=8282):
                 if layer_name:
                     kwargs['layer'] = layer_name
                 
-                # Fetch only geometries within the bbox, capped at 5,000 to ensure fast Matplotlib plotting
-                gdf = pyogrio.read_dataframe(file_path, bbox=bbox, max_features=5000, **kwargs)
+                # Fetch geometries within the bbox instantly using pyogrio spatial index
+                gdf = pyogrio.read_dataframe(file_path, bbox=bbox, max_features=50000, **kwargs)
                 
                 if gdf.empty:
-                    # Return empty transparent PNG
-                    fig, ax = plt.subplots(figsize=(8, 8))
-                    fig.patch.set_alpha(0.0)
-                    ax.axis('off')
-                    buf = io.BytesIO()
-                    plt.savefig(buf, format='png', transparent=True, bbox_inches='tight', pad_inches=0)
-                    plt.close(fig)
-                    buf.seek(0)
+                    # Return empty transparent 1x1 PNG
                     self.send_response(200)
                     self.send_header('Content-type', 'image/png')
                     self.end_headers()
-                    self.wfile.write(buf.read())
+                    self.wfile.write(b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\x0bIDAT\x08\x99c\xf8\x0f\x04\x00\x09\xfb\x03\xfd\xe3U\xf2\x9c\x00\x00\x00\x00IEND\xaeB`\x82')
                     return
 
                 if gdf.crs and gdf.crs.to_epsg() != 4326:
                     gdf = gdf.to_crs(epsg=4326)
 
-                # Generate image
-                # Width/height ratio based on bbox
+                # EXTENT TRICK: Add 4 microscopic polygons at the exact bounding box corners.
+                # This forces GeoLibre's rendering canvas to match the exact dimensions of the
+                # requested Leaflet map tile without distorting the interior buildings!
+                epsilon = 1e-8
+                bl = Polygon([(w, s), (w+epsilon, s), (w, s+epsilon)])
+                br = Polygon([(e, s), (e-epsilon, s), (e, s+epsilon)])
+                tl = Polygon([(w, n), (w+epsilon, n), (w, n-epsilon)])
+                tr = Polygon([(e, n), (e-epsilon, n), (e, n-epsilon)])
+                
+                corner_gdf = gpd.GeoDataFrame(geometry=[bl, br, tl, tr], crs="EPSG:4326")
+                # Ensure geometry column exists and matches
+                if 'geometry' in gdf.columns:
+                    # Drop other columns to make json export smaller and faster
+                    gdf = gdf[['geometry']]
+                
+                gdf = gpd.GeoDataFrame(pd.concat([gdf, corner_gdf], ignore_index=True), crs="EPSG:4326")
+                geojson_bytes = gdf.to_json().encode('utf-8')
+                
+                # Image dimensions based on precise aspect ratio
                 aspect_ratio = (e - w) / (n - s) if (n - s) != 0 else 1
-                fig_width = 10
-                fig_height = fig_width / aspect_ratio
+                out_w = 800
+                out_h = int(out_w / aspect_ratio)
                 
-                fig, ax = plt.subplots(figsize=(fig_width, fig_height), dpi=100)
-                fig.patch.set_alpha(0.0)
-                ax.patch.set_alpha(0.0)
+                # Process color for GeoLibre (#rrggbbaa)
+                if len(color) == 7:
+                    fill_color = color + "80" # 50% opacity
+                    stroke_color = color + "ff"
+                else:
+                    fill_color = color
+                    stroke_color = color
+
+                # Run pure-Rust WASM vector renderer!
+                res = gl.run_tool(
+                    "render_vector_png",
+                    args=[
+                        "--input=/work/in.geojson",
+                        "--output=/work/out.png",
+                        f"--width={out_w}",
+                        f"--height={out_h}",
+                        f"--fill={fill_color}",
+                        f"--stroke={stroke_color}",
+                        "--stroke_width=1.0",
+                        "--background=transparent"
+                    ],
+                    input={"in.geojson": geojson_bytes}
+                )
                 
-                # Plot
-                gdf.plot(ax=ax, facecolor=color, edgecolor=color, alpha=0.5, linewidth=0.5)
-                
-                # Force exact bounds!
-                ax.set_xlim(w, e)
-                ax.set_ylim(s, n)
-                ax.set_axis_off()
-                
-                # Remove margins
-                plt.subplots_adjust(top=1, bottom=0, right=1, left=0, hspace=0, wspace=0)
-                ax.margins(0, 0)
-                
-                buf = io.BytesIO()
-                plt.savefig(buf, format='png', transparent=True, pad_inches=0)
-                plt.close(fig)
-                buf.seek(0)
-                
+                if res.exit_code != 0:
+                    raise Exception(f"GeoLibre WASM failed: {res.stdout.decode('utf-8', errors='ignore')}")
+
                 self.send_response(200)
                 self.send_header('Content-type', 'image/png')
                 self.end_headers()
-                self.wfile.write(buf.read())
+                self.wfile.write(res.files['out.png'])
                 
             except Exception as e:
                 import traceback
-                print("Vector image error:", traceback.format_exc())
+                logger.error(f"GeoLibre vector image error: {traceback.format_exc()}")
                 self.send_response(500)
                 self.send_header('Content-type', 'application/json')
                 self.end_headers()
