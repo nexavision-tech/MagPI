@@ -679,6 +679,7 @@ export default function Toolbox({
 
   const [stacModalOpen, setStacModalOpen] = useState(false);
   const [showFishnetModal, setShowFishnetModal] = useState(false);
+  const [fishnetTargetNodeId, setFishnetTargetNodeId] = useState(null);
 
   const [stacResults, setStacResults] = useState([]);
   const [stacLoading, setStacLoading] = useState(false);
@@ -753,6 +754,28 @@ export default function Toolbox({
       }
     }
   }, [activeRightTab, selectedNode?.id, selectedNode?.params?.file_path]);
+
+  React.useEffect(() => {
+    const handleOpenFishnet = (e) => {
+        const { nodeId } = e.detail;
+        if (!nodeId) return;
+        setFishnetTargetNodeId(nodeId);
+        
+        if (metadata[nodeId] && metadata[nodeId].data && metadata[nodeId].data.extent) {
+            setShowFishnetModal(true);
+        } else {
+            // Need to fetch it first if we haven't
+            const node = nodes.find(n => n.id === nodeId);
+            if (node && node.params && node.params.file_path) {
+                fetchMetadata(node.params.file_path, nodeId).then(() => {
+                    setShowFishnetModal(true);
+                });
+            }
+        }
+    };
+    window.addEventListener('magpi-open-fishnet-modal', handleOpenFishnet);
+    return () => window.removeEventListener('magpi-open-fishnet-modal', handleOpenFishnet);
+  }, [metadata, nodes]);
 
   const fetchStacCatalog = async (nodeId, bbox, max_cloud_cover, date_range) => {
     setStacLoading(true);
@@ -1215,10 +1238,13 @@ export default function Toolbox({
       <FishnetConfigModal 
         isOpen={showFishnetModal} 
         onClose={() => setShowFishnetModal(false)}
-        sourceName={selectedNode?.name}
+        sourceName={fishnetTargetNodeId ? nodes.find(n => n.id === fishnetTargetNodeId)?.name : selectedNode?.name}
         onExecute={async (config) => {
             setShowFishnetModal(false);
-            const extent = metadata[selectedNode.id].data.extent;
+            const targetId = fishnetTargetNodeId || selectedNode?.id;
+            if (!targetId || !metadata[targetId] || !metadata[targetId].data || !metadata[targetId].data.extent) return;
+            const targetNode = nodes.find(n => n.id === targetId);
+            const extent = metadata[targetId].data.extent;
             const url = `http://${window.location.hostname}:${window.MAGPI_PORT || '8282'}/api/fishnet?bbox=${encodeURIComponent(extent)}&rows=${config.rows}&cols=${config.cols}`;
             try {
                 const res = await fetch(url);
@@ -1226,7 +1252,7 @@ export default function Toolbox({
                 if (data.status === 'success') {
                     const newTool = {
                         id: 'core_fishnet',
-                        name: `Fishnet: ${selectedNode.name}`,
+                        name: `Fishnet: ${targetNode?.name || 'Vector'}`,
                         color: 'bg-emerald-600',
                         border: 'border-emerald-500',
                         inputs: [
@@ -1237,14 +1263,15 @@ export default function Toolbox({
                         ],
                         params: {
                             file_path: data.file,
-                            target_layer: selectedNode.id,
+                            target_layer: targetId,
                             export_to_map: true
                         }
                     };
                     if (addNode) {
-                        const fishnetId = addNode(newTool, selectedNode.x + 150, selectedNode.y + 50);
+                        const baseNode = targetNode || selectedNode || {x: 100, y: 100};
+                        const fishnetId = addNode(newTool, baseNode.x + 150, baseNode.y + 50);
                         if (addConnection) {
-                            addConnection(selectedNode.id, fishnetId, 'vector', 'target_layer');
+                            addConnection(targetId, fishnetId, 'vector', 'target_layer');
                         }
                     } else {
                         console.error("addNode prop is not available in Toolbox");

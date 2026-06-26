@@ -503,21 +503,7 @@ export default function CatalogPane({ mapLayers = [], setMapLayers, reorderLayer
                                           {node.toolId !== 'core_fishnet' && (
                                               <button
                                                   onClick={() => {
-                                                      const newNodeId = `node_${Date.now()}`;
-                                                      const newNode = {
-                                                          id: newNodeId,
-                                                          toolId: 'core_fishnet',
-                                                          name: `Fishnet (${node.name || 'Vector'})`,
-                                                          icon: 'core_fishnet',
-                                                          x: node.x + 50,
-                                                          y: node.y + 100,
-                                                          color: 'bg-purple-600',
-                                                          border: 'border-purple-500',
-                                                          params: { grid_size: 100, export_to_map: true }
-                                                      };
-                                                      // Tell the global state to add this node
-                                                      if (setNodes) setNodes(prev => [...prev, newNode]);
-                                                      if (setSelectedNodeId) setSelectedNodeId(newNodeId);
+                                                      window.dispatchEvent(new CustomEvent('magpi-open-fishnet-modal', { detail: { nodeId: node.id } }));
                                                   }}
                                                   className="flex items-center justify-center text-[10px] w-full py-1.5 bg-purple-600 hover:bg-purple-500 rounded font-bold text-white uppercase tracking-wider shadow transition-colors"
                                               >
@@ -525,16 +511,29 @@ export default function CatalogPane({ mapLayers = [], setMapLayers, reorderLayer
                                               </button>
                                           )}
 
-                                          <button
-                                              onClick={() => {
-                                                  if (setMapLayers) {
-                                                      setMapLayers(prev => prev.map(l => l.id === layer.id ? { ...l, showLabels: !l.showLabels } : l));
-                                                  }
-                                              }}
-                                              className="flex items-center justify-center text-[10px] w-full py-1.5 bg-slate-700 hover:bg-slate-600 rounded font-bold text-slate-300 uppercase tracking-wider shadow transition-colors"
-                                          >
-                                              <Type size={12} className="mr-2" /> {layer.showLabels ? "Hide Labels" : "Show Labels"}
-                                          </button>
+                                          <div className="flex items-center space-x-2">
+                                              <input
+                                                  type="text"
+                                                  placeholder="Label Field (e.g. ID, name)"
+                                                  value={layer.labelField || ''}
+                                                  onChange={(e) => {
+                                                      if (setMapLayers) {
+                                                          setMapLayers(prev => prev.map(l => l.id === layer.id ? { ...l, labelField: e.target.value } : l));
+                                                      }
+                                                  }}
+                                                  className="flex-1 bg-slate-800 text-[10px] text-slate-300 border border-slate-700 rounded px-2 py-1.5 outline-none focus:border-cyan-500 placeholder-slate-500 font-mono"
+                                              />
+                                              <button
+                                                  onClick={() => {
+                                                      if (setMapLayers) {
+                                                          setMapLayers(prev => prev.map(l => l.id === layer.id ? { ...l, showLabels: !l.showLabels } : l));
+                                                      }
+                                                  }}
+                                                  className={`flex items-center justify-center text-[10px] px-3 py-1.5 rounded font-bold uppercase tracking-wider shadow transition-colors shrink-0 ${layer.showLabels ? 'bg-cyan-600 hover:bg-cyan-500 text-white' : 'bg-slate-700 hover:bg-slate-600 text-slate-300'}`}
+                                              >
+                                                  <Type size={12} className="mr-2" /> {layer.showLabels ? "Hide Labels" : "Show Labels"}
+                                              </button>
+                                          </div>
                                       </div>
                                   );
                               }

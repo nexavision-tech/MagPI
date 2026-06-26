@@ -614,10 +614,15 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                                 
                                 if (layer.showLabels && feature.properties) {
                                     const props = feature.properties;
-                                    let labelText = props.name || props.NAME || props.Name || props.id || props.ID || props.uuid || props.OBJECTID || props.FID;
-                                    if (!labelText) {
-                                        const keys = Object.keys(props);
-                                        if (keys.length > 0 && keys[0] !== 'geometry') labelText = String(props[keys[0]]);
+                                    let labelText = '';
+                                    if (layer.labelField && props[layer.labelField] !== undefined) {
+                                        labelText = String(props[layer.labelField]);
+                                    } else {
+                                        labelText = props.name || props.NAME || props.Name || props.id || props.ID || props.uuid || props.OBJECTID || props.FID;
+                                        if (!labelText) {
+                                            const keys = Object.keys(props);
+                                            if (keys.length > 0 && keys[0] !== 'geometry') labelText = String(props[keys[0]]);
+                                        }
                                     }
                                     if (labelText) {
                                         layerObj.bindTooltip(String(labelText), {
