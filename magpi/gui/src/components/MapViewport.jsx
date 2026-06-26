@@ -330,7 +330,7 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                     const y1 = parseFloat(ymin), x1 = parseFloat(xmin), y2 = parseFloat(ymax), x2 = parseFloat(xmax);
                     if (!isNaN(y1) && !isNaN(x1) && !isNaN(y2) && !isNaN(x2)) {
                         const bounds = [[y1, x1], [y2, x2]];
-                        const isSelected = selectedFeatures && selectedFeatures.some(f => f.nodeId === layer.id && f.isFootprint);
+                        const isSelected = selectedFeatures && selectedFeatures.some(f => f?.nodeId === layer.id && f?.isFootprint);
                         const isExtent = layer.toolId === 'core_extent';
                         const isFishnet = layer.toolId === 'core_fishnet';
                         
@@ -489,7 +489,7 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                                 interactive: isActiveLayer, // Restrict interaction to ONLY the highlighted layer in the CatalogPane
                                 style: (feature) => {
                                     // Use nodeId instead of layerId because the dispatcher sets nodeId
-                                    const isSelected = selectedFeatures && selectedFeatures.some(sf => sf.nodeId === layer.id && JSON.stringify(sf.feature?.properties) === JSON.stringify(feature.properties));
+                                    const isSelected = selectedFeatures && selectedFeatures.some(sf => sf?.nodeId === layer.id && JSON.stringify(sf?.feature?.properties) === JSON.stringify(feature.properties));
                                     if (isFishnet) {
                                         return {
                                             weight: isSelected ? 4 : 2,

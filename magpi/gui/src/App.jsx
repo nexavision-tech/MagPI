@@ -50,15 +50,15 @@ export default function App() {
              
              // If multi-select (shiftKey)
              if (e.detail.shiftKey) {
-                 const exists = prev.find(f => f.nodeId === e.detail.nodeId && JSON.stringify(f.feature?.properties) === JSON.stringify(e.detail.feature?.properties));
+                 const exists = prev.find(f => f?.nodeId === e.detail.nodeId && JSON.stringify(f?.feature?.properties) === JSON.stringify(e.detail.feature?.properties));
                  if (exists) {
-                     return prev.filter(f => !(f.nodeId === e.detail.nodeId && JSON.stringify(f.feature?.properties) === JSON.stringify(e.detail.feature?.properties)));
+                     return prev.filter(f => !(f?.nodeId === e.detail.nodeId && JSON.stringify(f?.feature?.properties) === JSON.stringify(e.detail.feature?.properties)));
                  } else {
                      return [...prev, e.detail];
                  }
              } else {
                  // For single select, if clicking the EXACT same feature, toggle it off
-                 if (prev.length === 1 && prev[0].nodeId === e.detail.nodeId && JSON.stringify(prev[0].feature?.properties) === JSON.stringify(e.detail.feature?.properties)) {
+                 if (prev.length === 1 && prev[0]?.nodeId === e.detail.nodeId && JSON.stringify(prev[0]?.feature?.properties) === JSON.stringify(e.detail.feature?.properties)) {
                      return [];
                  }
                  return [e.detail];
@@ -73,7 +73,7 @@ export default function App() {
   useEffect(() => {
       if (selectedFeatures && selectedFeatures.length > 0) {
           setActiveRightTab('identify');
-          if (selectedFeatures[0].nodeId) {
+          if (selectedFeatures[0]?.nodeId) {
               setSelectedNodeId(selectedFeatures[0].nodeId);
           }
           setShowTerminal(true);
