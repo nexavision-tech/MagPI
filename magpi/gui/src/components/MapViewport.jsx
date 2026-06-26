@@ -630,9 +630,10 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                     if (isFishnet) {
                         childLayer.setStyle({
                             weight: isSelected ? 4 : 2,
-                            color: isSelected ? '#00ffff' : cLayer.vectorColor,
-                            fillOpacity: 0.0,
-                            dashArray: '5, 5'
+                            color: isSelected ? '#00ffff' : '#ff8c00',
+                            opacity: 0.8,
+                            fillColor: isSelected ? '#00ffff' : '#ff8c00',
+                            fillOpacity: isSelected ? 0.2 : 0.05
                         });
                     } else {
                         childLayer.setStyle({
