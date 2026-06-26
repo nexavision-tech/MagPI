@@ -133,6 +133,16 @@ export default function TopRibbon({
                 <Crosshair size={18} />
                 <span className="text-[10px] mt-1 font-medium">Lasso</span>
               </button>
+
+              <button 
+                onClick={() => window.dispatchEvent(new CustomEvent('magpi-clear-selection'))} 
+                className="flex flex-col items-center justify-center p-2 hover:bg-red-900/50 hover:text-red-400 rounded text-slate-400 transition-colors ml-1 border-r border-slate-700 pr-4 mr-1" 
+                title="Clear Selection"
+              >
+                <XCircle size={18} />
+                <span className="text-[10px] mt-1 font-medium">Clear</span>
+              </button>
+
               <button className="flex flex-col items-center justify-center p-2 hover:bg-slate-700 rounded text-slate-500 transition-colors ml-1" title="Edit Polygons (Coming Soon)">
                 <Network size={18} />
                 <span className="text-[10px] mt-1 font-medium">Edit Vector</span>

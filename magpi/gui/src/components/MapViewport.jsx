@@ -305,11 +305,19 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
         };
         window.addEventListener('magpi-render-fishnet', handleRenderFishnet);
         
+        const handleClearSelection = () => {
+            console.log('[MagPI] Clearing selection and render locks.');
+            setExplicitRender(null);
+            window.dispatchEvent(new CustomEvent('magpi-feature-selected', { detail: null }));
+        };
+        window.addEventListener('magpi-clear-selection', handleClearSelection);
+        
         return () => {
             window.removeEventListener('magpi-feature-selected', handleFeatureSelect);
             window.removeEventListener('magpi-draw-aoi', handleDrawAoi);
             window.removeEventListener('magpi-zoom-layer', handleZoomLayer);
             window.removeEventListener('magpi-render-fishnet', handleRenderFishnet);
+            window.removeEventListener('magpi-clear-selection', handleClearSelection);
         };
     }, [loadedData]);
 
@@ -468,7 +476,8 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                     const useGeolibre = false; // Reverted to raw GeoJSON editing flow per user request
                     const expectedType = useGeolibre ? 'vector_image' : 'geojson';
                     
-                    const needsFetch = fetchBbox && (!cached || cached.type !== expectedType || (!cached.isFetching && (!cached.bbox || cached.bbox !== fetchBbox)));
+                    const isFullRender = isExplicitTarget && explicitRender.bbox === null;
+                    const needsFetch = (fetchBbox || isFullRender) && (!cached || cached.type !== expectedType || (!cached.isFetching && (!cached.bbox || cached.bbox !== fetchBbox)));
 
                     if (needsFetch) {
                         setLoadedData(prev => ({ ...prev, [layer.id]: { ...(prev[layer.id] || {}), isFetching: true, bbox: fetchBbox } }));
