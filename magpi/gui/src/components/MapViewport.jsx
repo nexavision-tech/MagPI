@@ -316,6 +316,15 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                     }
                     osmLayerRef.current.setOpacity(layer.opacity / 100);                } 
                 
+                // Create a guaranteed Z-Index Pane for this layer based on MapLayers catalog order!
+                const paneName = `magpi_pane_${layer.id}`;
+                if (!map.getPane(paneName)) {
+                    map.createPane(paneName);
+                }
+                const layerIndex = mapLayers.findIndex(l => l.id === layer.id);
+                // The item at the TOP of the CatalogBrowser (index 0) gets the HIGHEST Z-index.
+                map.getPane(paneName).style.zIndex = 400 + ((mapLayers.length - layerIndex) * 10);
+
                 if (layer.extent) {
                     const { xmin, ymin, xmax, ymax } = layer.extent;
                     const y1 = parseFloat(ymin), x1 = parseFloat(xmin), y2 = parseFloat(ymax), x2 = parseFloat(xmax);
@@ -330,7 +339,8 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                             weight: isSelected ? 4 : 2, 
                             fillOpacity: isFishnet ? 0.0 : 0.2, 
                             dashArray: isExtent ? '4, 4' : null,
-                            interactive: !isFishnet // Crucial: lets clicks pass through to the fishnet cells!
+                            interactive: !isFishnet, // Crucial: lets clicks pass through to the fishnet cells!
+                            pane: paneName // Assign to guaranteed Z-index pane!
                         });
                         
                         rect.bindTooltip(layer.name, { 
@@ -405,7 +415,7 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                     const fetchBbox = isExplicitTarget ? explicitRender.bbox : viewportBBox;
                     
                     // Use GeoLibre WASM for rendering local vector files over an explicit grid cell!
-                    const useGeolibre = isExplicitTarget && layer.filePath && !layer.syntheticType;
+                    const useGeolibre = false; // Reverted to raw GeoJSON editing flow per user request
                     const expectedType = useGeolibre ? 'vector_image' : 'geojson';
                     
                     const needsFetch = fetchBbox && (!cached || cached.type !== expectedType || (!cached.isFetching && (!cached.bbox || cached.bbox !== fetchBbox)));
@@ -466,12 +476,12 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                         if (cached.type === 'vector_image' && cached.imageUrl) {
                             const imgLayer = L.imageOverlay(cached.imageUrl, cached.bounds, {
                                 opacity: layer.opacity !== undefined ? layer.opacity / 100 : 1,
-                                interactive: false
+                                interactive: false,
+                                pane: paneName
                             });
                             highlightGroup.current.addLayer(imgLayer);
-                            imgLayer.bringToFront();
                         } else if (cached.type === 'geojson' && cached.data) {
-                            const canvasRenderer = L.canvas({ padding: 0.5 });
+                            const canvasRenderer = L.canvas({ padding: 0.5, pane: paneName });
 
                             const gjLayer = L.geoJSON(cached.data, {
                                 renderer: canvasRenderer,
@@ -502,7 +512,8 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                                     color: layer.vectorColor || '#3388ff',
                                     opacity: 1,
                                     fillColor: layer.vectorColor || '#3388ff',
-                                    fillOpacity: 0.5
+                                    fillOpacity: 0.5,
+                                    pane: paneName // Ensure points obey Z-Index!
                                 });
                             },
                             onEachFeature: (feature, layerObj) => {
@@ -587,7 +598,6 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
 
                         gjLayer.magpi_layer_id = layer.id;
                         highlightGroup.current.addLayer(gjLayer);
-                        gjLayer.bringToFront();
                         
                         if (autoZoom && selectedNode && selectedNode.id === layer.id && lastZoomedNode.current !== layer.id) {
                             lastZoomedNode.current = layer.id;
