@@ -48,7 +48,7 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
         if (mapInstance.current) return; 
 
         // Zeroized global extent [0, 0] zoom 2
-        const map = L.map(mapRef.current, { zoomControl: false }).setView([0, 0], 2);
+        const map = L.map(mapRef.current, { zoomControl: false, doubleClickZoom: false }).setView([0, 0], 2);
         mapInstance.current = map;
         map.on('zoomend', () => {
             setCurrentZoom(map.getZoom());
@@ -60,6 +60,13 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
             const bboxStr = `${bounds.getWest()},${bounds.getSouth()},${bounds.getEast()},${bounds.getNorth()}`;
             setViewportBBox(bboxStr);
             setViewportBBoxTimestamp(Date.now());
+        });
+
+        // Global map click to deselect features
+        map.on('click', (e) => {
+            if (!e.originalEvent || !e.originalEvent._magpiFeatureClicked) {
+                window.dispatchEvent(new CustomEvent('magpi-feature-selected', { detail: null }));
+            }
         });
 
         osmLayerRef.current = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -462,16 +469,9 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                                 interactive: false
                             });
                             highlightGroup.current.addLayer(imgLayer);
+                            imgLayer.bringToFront();
                         } else if (cached.type === 'geojson' && cached.data) {
                             const canvasRenderer = L.canvas({ padding: 0.5 });
-                            
-                            // Allow clicking the map background to deselect features
-                            mapInstance.current.on('click', (e) => {
-                                // If the click didn't originate from a feature, clear selection
-                                if (!e.originalEvent._magpiFeatureClicked) {
-                                    window.dispatchEvent(new CustomEvent('magpi-feature-selected', { detail: null }));
-                                }
-                            });
 
                             const gjLayer = L.geoJSON(cached.data, {
                                 renderer: canvasRenderer,
@@ -587,6 +587,7 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
 
                         gjLayer.magpi_layer_id = layer.id;
                         highlightGroup.current.addLayer(gjLayer);
+                        gjLayer.bringToFront();
                         
                         if (autoZoom && selectedNode && selectedNode.id === layer.id && lastZoomedNode.current !== layer.id) {
                             lastZoomedNode.current = layer.id;
