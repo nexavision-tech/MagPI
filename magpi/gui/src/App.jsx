@@ -41,18 +41,28 @@ export default function App() {
   
   const [activeRightTab, setActiveRightTab] = useState('toolbox');
   const [selectedNodeId, setSelectedNodeId] = useState(null);
-  const [selectedFeature, setSelectedFeature] = useState(null);
+  const [selectedFeatures, setSelectedFeatures] = useState([]);
 
   useEffect(() => {
      const handleSelect = (e) => {
-         setSelectedFeature(prev => {
-             if (!e.detail) return null;
-             // If we clicked the same exact feature again, toggle it off
-             if (prev && e.detail && prev.nodeId === e.detail.nodeId && 
-                 JSON.stringify(prev.feature?.properties) === JSON.stringify(e.detail.feature?.properties)) {
-                 return null;
+         setSelectedFeatures(prev => {
+             if (!e.detail) return [];
+             
+             // If multi-select (shiftKey)
+             if (e.detail.shiftKey) {
+                 const exists = prev.find(f => f.nodeId === e.detail.nodeId && JSON.stringify(f.feature?.properties) === JSON.stringify(e.detail.feature?.properties));
+                 if (exists) {
+                     return prev.filter(f => !(f.nodeId === e.detail.nodeId && JSON.stringify(f.feature?.properties) === JSON.stringify(e.detail.feature?.properties)));
+                 } else {
+                     return [...prev, e.detail];
+                 }
+             } else {
+                 // For single select, if clicking the EXACT same feature, toggle it off
+                 if (prev.length === 1 && prev[0].nodeId === e.detail.nodeId && JSON.stringify(prev[0].feature?.properties) === JSON.stringify(e.detail.feature?.properties)) {
+                     return [];
+                 }
+                 return [e.detail];
              }
-             return e.detail;
          });
      };
      window.addEventListener('magpi-feature-selected', handleSelect);
@@ -61,10 +71,10 @@ export default function App() {
 
   // Separate side-effect for opening Data Studio & Identify Tab
   useEffect(() => {
-      if (selectedFeature) {
+      if (selectedFeatures && selectedFeatures.length > 0) {
           setActiveRightTab('identify');
-          if (selectedFeature.nodeId) {
-              setSelectedNodeId(selectedFeature.nodeId);
+          if (selectedFeatures[0].nodeId) {
+              setSelectedNodeId(selectedFeatures[0].nodeId);
           }
           setShowTerminal(true);
           window.dispatchEvent(new CustomEvent('magpi-open-data-studio'));
@@ -73,7 +83,7 @@ export default function App() {
           setActiveRightTab('params');
           setShowTerminal(false);
       }
-  }, [selectedFeature]);
+  }, [selectedFeatures]);
 
   const [showScript, setShowScript] = useState(false);
   const [generatedCode, setGeneratedCode] = useState("");
@@ -858,7 +868,7 @@ export default function App() {
             <NodeCanvas nodes={nodes} setNodes={setNodes} connections={connections} setConnections={setConnections} selectedNodeId={selectedNodeId} setSelectedNodeId={setSelectedNodeId} setActiveRightTab={setActiveRightTab} nodeStatuses={nodeStatuses} removeConnection={removeConnection} addNode={addNode} />
         </div>
         <div className={`relative ${['globe', 'planar'].includes(activeWorkspace) ? 'flex-1 w-full min-w-0' : 'hidden'} flex-col shadow-[-10px_0_20px_rgba(0,0,0,0.3)] z-10 border-l border-r border-slate-800`}>
-            <MapViewport onAoiDrawn={handleAoiDrawn} onAoiImported={handleAoiImported} selectedNode={nodes.find(n => n.id === selectedNodeId)} activeWorkspace={activeWorkspace} nodes={nodes} nodeStatuses={nodeStatuses} connections={connections} globalEnv={globalEnv} mapLayers={mapLayers} autoZoom={autoZoom} selectedFeature={selectedFeature} setSelectedFeature={setSelectedFeature} />
+            <MapViewport onAoiDrawn={handleAoiDrawn} onAoiImported={handleAoiImported} selectedNode={nodes.find(n => n.id === selectedNodeId)} activeWorkspace={activeWorkspace} nodes={nodes} nodeStatuses={nodeStatuses} connections={connections} globalEnv={globalEnv} mapLayers={mapLayers} autoZoom={autoZoom} selectedFeatures={selectedFeatures} setSelectedFeatures={setSelectedFeatures} />
         </div>
         <div className={`w-[320px] shrink-0 relative ${['builder', 'planar'].includes(activeWorkspace) ? 'flex' : 'hidden'} flex-col z-20`}>
             <Toolbox 
@@ -877,8 +887,8 @@ export default function App() {
             nodes={nodes}
             masterReferences={masterReferences}
             masterGisServers={masterGisServers}
-            selectedFeature={selectedFeature}
-            setSelectedFeature={setSelectedFeature}
+            selectedFeatures={selectedFeatures}
+            setSelectedFeatures={setSelectedFeatures}
           />
         </div>
         
