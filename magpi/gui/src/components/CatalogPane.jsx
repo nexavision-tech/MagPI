@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useReactFlow } from '@xyflow/react';
+import { Reorder } from 'framer-motion';
 import { Folder, Database, File, ChevronRight, ChevronDown, RefreshCw, Box, Map, Image as ImageIcon, Layers, Eye, EyeOff, Network, Crosshair, FolderOpen, Search, Trash2, FolderPlus, MinusCircle, Link, Copy, Check } from 'lucide-react';
 import { TOOLBOX_CATEGORIES } from './Toolbox';
 
@@ -376,59 +377,15 @@ export default function CatalogPane({ mapLayers = [], setMapLayers, reorderLayer
                  Drag spatial files here to add them to the map.
              </div>
           )}
-          {mapLayers.map((layer, index) => {
+          <Reorder.Group axis="y" values={mapLayers} onReorder={setMapLayers} className="space-y-1">
+          {mapLayers.map((layer) => {
               const isExpanded = expandedLayers[layer.id];
               return (
-              <div 
+              <Reorder.Item 
                   key={layer.id} 
-                  draggable
-                  onDragStart={(e) => {
-                      setDragSourceIndex(index);
-                      e.dataTransfer.effectAllowed = 'move';
-                      // Fallback for tools outside React state
-                      e.dataTransfer.setData('text/plain', `magpi-layer:${index}`);
-                  }}
-                  onDragEnd={(e) => {
-                      setDragSourceIndex(null);
-                      setDragOverIndex(null);
-                  }}
-                  onDragEnter={(e) => {
-                      e.preventDefault();
-                      setDragOverIndex(index);
-                  }}
-                  onDragOver={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      e.dataTransfer.dropEffect = 'move';
-                      if (dragOverIndex !== index) {
-                          setDragOverIndex(index);
-                      }
-                  }}
-                  onDrop={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      
-                      const targetIndex = index;
-                      setDragOverIndex(null);
-                      
-                      let sourceIdx = dragSourceIndex;
-                      if (sourceIdx === null) {
-                          const dataStr = e.dataTransfer.getData('text/plain');
-                          if (dataStr && dataStr.startsWith('magpi-layer:')) {
-                              sourceIdx = parseInt(dataStr.split(':')[1], 10);
-                          }
-                      }
-                      
-                      if (sourceIdx !== null && sourceIdx !== targetIndex && reorderLayers) {
-                          reorderLayers(sourceIdx, targetIndex);
-                      }
-                      setDragSourceIndex(null);
-                  }}
+                  value={layer}
                   className={`p-2 rounded-md ${selectedNodeId === layer.id ? 'bg-cyan-900/40 border border-cyan-700/50' : 'bg-slate-800/60 border border-transparent'} hover:bg-slate-700/60 transition-colors flex flex-col cursor-move relative`}
               >
-                  {dragOverIndex === index && (
-                      <div className="absolute top-0 left-0 right-0 h-1 bg-emerald-500 z-50 rounded-t-md pointer-events-none shadow-[0_0_10px_rgba(16,185,129,0.8)]" />
-                  )}
                   <div className="flex items-center justify-between mb-1">
                       <button 
                           onPointerDown={(e) => {
@@ -581,8 +538,9 @@ export default function CatalogPane({ mapLayers = [], setMapLayers, reorderLayer
                           })()}
                       </div>
                   )}
-              </div>
+              </Reorder.Item>
           )})}
+          </Reorder.Group>
         </div>
             </>
         )}

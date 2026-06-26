@@ -337,13 +337,14 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                         const isExplicitTarget = explicitRender && explicitRender.sourceLayerId === layer.id;
                         const renderMode = isExplicitTarget ? 'full' : (layer.renderMode || 'footprint');
                         const isStandaloneFootprint = !isFishnet && renderMode !== 'full';
+                        const isActiveLayer = selectedNode && selectedNode.id === layer.id;
                         
                         const rect = L.rectangle(bounds, { 
                             color: isSelected ? '#00ffff' : (isExtent ? '#00ffff' : layer.vectorColor), 
                             weight: isSelected ? 4 : 2, 
                             fillOpacity: isFishnet ? 0.0 : 0.2, 
                             dashArray: isExtent ? '4, 4' : null,
-                            interactive: isExtent || isStandaloneFootprint, // Interactive ONLY if it's the Extent tool OR a standalone footprint (not blocking features)
+                            interactive: isActiveLayer || isExtent, // Interactive ONLY if it's the Extent tool OR it is the highlighted layer in the CatalogPane
                             pane: paneName // Assign to guaranteed Z-index pane!
                         });
                         
@@ -597,7 +598,53 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
             map.removeLayer(osmLayerRef.current);
         }
     }
-}, [computedLayers, activeWorkspace, loadedData, selectedFeatures, selectedNode]);
+}, [computedLayers, activeWorkspace, loadedData, selectedNode]);
+
+    // Lightweight effect for styling selection changes WITHOUT rebuilding the DOM
+    useEffect(() => {
+        if (!highlightGroup.current || !mapInstance.current || activeWorkspace !== 'planar') return;
+        
+        highlightGroup.current.eachLayer(layerObj => {
+            const layerId = layerObj.magpi_layer_id;
+            if (!layerId) return;
+            
+            const cLayer = computedLayers.find(l => l.id === layerId);
+            if (!cLayer) return;
+            
+            const isExtent = cLayer.toolId === 'core_extent';
+            const isFishnet = cLayer.toolId === 'core_fishnet';
+            
+            if (layerObj instanceof L.Rectangle && !layerObj.feature) {
+                // It's the bounding box rectangle
+                const isSelected = selectedFeatures && selectedFeatures.some(f => f?.nodeId === layerId && f?.isFootprint);
+                layerObj.setStyle({
+                    color: isSelected ? '#00ffff' : (isExtent ? '#00ffff' : cLayer.vectorColor),
+                    weight: isSelected ? 4 : 2
+                });
+            } else if (layerObj instanceof L.GeoJSON) {
+                // It's the vector features
+                layerObj.eachLayer(childLayer => {
+                    if (!childLayer.feature) return;
+                    const feature = childLayer.feature;
+                    const isSelected = selectedFeatures && selectedFeatures.some(sf => sf?.nodeId === layerId && JSON.stringify(sf?.feature?.properties) === JSON.stringify(feature.properties));
+                    if (isFishnet) {
+                        childLayer.setStyle({
+                            weight: isSelected ? 4 : 2,
+                            color: isSelected ? '#00ffff' : cLayer.vectorColor,
+                            fillOpacity: 0.0,
+                            dashArray: '5, 5'
+                        });
+                    } else {
+                        childLayer.setStyle({
+                            color: isSelected ? '#00ffff' : cLayer.vectorColor,
+                            weight: isSelected ? 3 : 1.5,
+                            fillOpacity: isSelected ? 0.6 : 0.2
+                        });
+                    }
+                });
+            }
+        });
+    }, [selectedFeatures, computedLayers, activeWorkspace]);
 
     const activateDrawTool = () => {
         if (mapInstance.current) {
