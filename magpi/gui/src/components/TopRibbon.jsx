@@ -5,9 +5,29 @@ export default function TopRibbon({
   activeWorkspace, globalEnv, setGlobalEnv, crs, setCrs, 
   processingScope, setProcessingScope, 
   onGenerate, onSave, onLoad, onClear, onAutoLayout, onOpenEnvSettings, onImportENVI,
-  isDaemonAlive, projectName, profiles = [], activeProfile, activeRole, onProfileChange
+  isDaemonAlive, projectName, profiles = [], activeProfile, activeRole, onProfileChange,
+  interactionMode, setInteractionMode
 }) {
   const hiddenFileInput = React.useRef(null);
+  const [isEditingMode, setIsEditingMode] = React.useState(false);
+
+  React.useEffect(() => {
+    const handleEditStart = () => setIsEditingMode(true);
+    const handleEditEnd = () => setIsEditingMode(false);
+    
+    window.addEventListener('magpi-edit-vector', handleEditStart);
+    window.addEventListener('magpi-save-edits', handleEditEnd);
+    window.addEventListener('magpi-clear-selection', handleEditEnd);
+    window.addEventListener('magpi-reset-edits', handleEditEnd);
+    
+    return () => {
+      window.removeEventListener('magpi-edit-vector', handleEditStart);
+      window.removeEventListener('magpi-save-edits', handleEditEnd);
+      window.removeEventListener('magpi-clear-selection', handleEditEnd);
+      window.removeEventListener('magpi-reset-edits', handleEditEnd);
+    };
+  }, []);
+  
   return (
     <div className="flex flex-col bg-slate-800 border-b border-slate-700 shadow-md z-20 shrink-0">
       
@@ -108,6 +128,30 @@ export default function TopRibbon({
 
           {activeWorkspace === 'planar' && (
             <>
+              {/* Interaction Mode Toggle */}
+              <div className="flex bg-slate-900 rounded border border-slate-700 p-0.5 ml-4">
+                <button 
+                  onClick={() => setInteractionMode('nav')}
+                  className={`flex items-center px-3 py-1.5 rounded text-[10px] font-bold uppercase tracking-wider transition-colors ${interactionMode === 'nav' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
+                  title="Navigation Mode (Pan & Zoom)"
+                >
+                  <MapIcon size={14} className="mr-1.5" /> Nav
+                </button>
+                <button 
+                  onClick={() => setInteractionMode('select')}
+                  className={`flex items-center px-3 py-1.5 rounded text-[10px] font-bold uppercase tracking-wider transition-colors ${interactionMode === 'select' ? 'bg-cyan-600 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
+                  title="Selection Mode"
+                >
+                  <Crosshair size={14} className="mr-1.5" /> Select
+                </button>
+              </div>
+              
+              {isEditingMode && (
+                <div className="flex items-center justify-center px-3 py-1.5 bg-amber-600/20 border border-amber-500 rounded text-amber-400 text-[10px] font-bold uppercase tracking-widest animate-pulse ml-4 shadow-[0_0_10px_rgba(245,158,11,0.2)]">
+                  <Edit size={14} className="mr-2" /> Active Edit Session
+                </div>
+              )}
+
               <button 
                 onClick={() => window.dispatchEvent(new CustomEvent('magpi-draw-aoi'))} 
                 className="flex flex-col items-center justify-center p-2 hover:bg-cyan-900/50 hover:text-cyan-400 rounded text-slate-400 transition-colors ml-4 border-l border-slate-700 pl-4" 

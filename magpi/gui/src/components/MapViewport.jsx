@@ -28,7 +28,7 @@ const getAncestralExtent = (nodeId, nodes, connections) => {
     return null;
 };
 
-const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activeWorkspace, nodes = [], nodeStatuses = {}, connections = [], globalEnv, mapLayers = [], autoZoom, selectedFeatures, setSelectedFeatures }) => {
+const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activeWorkspace, nodes = [], nodeStatuses = {}, connections = [], globalEnv, mapLayers = [], autoZoom, selectedFeatures, setSelectedFeatures, interactionMode = 'nav' }) => {
     const mapRef = useRef(null);
     const mapInstance = useRef(null); 
     const highlightGroup = useRef(null);
@@ -42,10 +42,20 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
     const [viewportBBox, setViewportBBox] = React.useState("");
     const [viewportBBoxTimestamp, setViewportBBoxTimestamp] = React.useState(Date.now());
     const [isEditingMode, setIsEditingMode] = React.useState(false);
+    const nodesRef = useRef(nodes);
+    
+    useEffect(() => {
+        nodesRef.current = nodes;
+    }, [nodes]);
     
     // Explicit render state to lock a fishnet cell override
     const [explicitRender, setExplicitRender] = React.useState(null); // { bbox, sourceLayerId }
     const drawMode = useRef(null);
+    const interactionModeRef = useRef(interactionMode);
+    
+    useEffect(() => {
+        interactionModeRef.current = interactionMode;
+    }, [interactionMode]);
 
     useEffect(() => {
         if (!mapRef.current) return;
@@ -72,6 +82,23 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                 window.dispatchEvent(new CustomEvent('magpi-feature-selected', { detail: null }));
             }
         });
+        
+        // Custom CSS for Powerpoint-like cursor: arrow for selection, grab for pan
+        const cursorStyle = document.createElement('style');
+        cursorStyle.innerHTML = `
+            /* Navigation Mode (Default) - Grab/Grabbing */
+            .leaflet-container { cursor: grab !important; }
+            .leaflet-grab { cursor: grab !important; }
+            .leaflet-dragging .leaflet-grab { cursor: grabbing !important; }
+            .leaflet-interactive { cursor: pointer !important; }
+            
+            /* Editing Mode - Arrow */
+            .magpi-edit-mode.leaflet-container { cursor: default !important; }
+            .magpi-edit-mode .leaflet-grab { cursor: default !important; }
+            .magpi-edit-mode.leaflet-dragging .leaflet-grab { cursor: default !important; }
+            .magpi-edit-mode .leaflet-interactive { cursor: pointer !important; }
+        `;
+        document.head.appendChild(cursorStyle);
 
         osmLayerRef.current = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '© OSM',
@@ -322,15 +349,219 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
             console.log('[MagPI] Clearing selection and render locks.');
             setExplicitRender(null);
             setIsEditingMode(false);
+            if (mapInstance.current) L.DomUtil.removeClass(mapInstance.current.getContainer(), 'magpi-edit-mode');
             window.dispatchEvent(new CustomEvent('magpi-feature-selected', { detail: null }));
         };
         window.addEventListener('magpi-clear-selection', handleClearSelection);
         
         const handleEditVector = () => {
             setIsEditingMode(true);
+            if (mapInstance.current) {
+                L.DomUtil.addClass(mapInstance.current.getContainer(), 'magpi-edit-mode');
+            }
             console.log('[MagPI] Edit mode enabled.');
         };
         window.addEventListener('magpi-edit-vector', handleEditVector);
+        
+        const handleSaveEdits = (e) => {
+            const { nodeId } = e.detail;
+            if (!nodeId) return;
+            const cached = loadedData[nodeId];
+            if (cached && cached.data && cached.data.features) {
+                const node = nodesRef.current.find(n => n.id === nodeId);
+                if (node && node.params && node.params.file_path) {
+                    let filePath = node.params.file_path;
+                    if (!filePath.startsWith('/') && !filePath.startsWith('./')) {
+                        filePath = `./magpi_output/${filePath}`;
+                    }
+                    console.log('[MagPI] Saving edits for', filePath);
+                    fetch(`http://${window.location.hostname}:${window.MAGPI_PORT || '8282'}/api/save_geojson`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ file_path: filePath, features: cached.data.features })
+                    })
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.status === 'success') {
+                            console.log('[MagPI] Edits saved successfully.');
+                            setIsEditingMode(false);
+                            if (mapInstance.current) L.DomUtil.removeClass(mapInstance.current.getContainer(), 'magpi-edit-mode');
+                        } else {
+                            console.error('[MagPI] Error saving edits:', data.error);
+                        }
+                    })
+                    .catch(err => console.error('[MagPI] Save fetch error:', err));
+                }
+            }
+        };
+        window.addEventListener('magpi-save-edits', handleSaveEdits);
+        
+        const handleZoomFeature = (e) => {
+            if (!mapInstance.current) return;
+            const features = e.detail.features;
+            if (!features || features.length === 0) return;
+            
+            const group = new L.FeatureGroup();
+            features.forEach(sf => {
+                if (sf.feature && sf.feature.geometry) {
+                    group.addLayer(L.geoJSON(sf.feature));
+                } else if (sf.bounds) {
+                    const { xmin, ymin, xmax, ymax } = sf.bounds;
+                    group.addLayer(L.rectangle([[ymin, xmin], [ymax, xmax]]));
+                }
+            });
+            
+            if (group.getLayers().length > 0) {
+                mapInstance.current.fitBounds(group.getBounds(), { animate: true, padding: [50, 50], maxZoom: 18 });
+            }
+        };
+        window.addEventListener('magpi-zoom-feature', handleZoomFeature);
+
+        const handleResetEdits = (e) => {
+            const { nodeId } = e.detail;
+            if (!nodeId) return;
+            console.log('[MagPI] Resetting edits for', nodeId);
+            setLoadedData(prev => {
+                const newData = { ...prev };
+                delete newData[nodeId]; // Force re-fetch
+                return newData;
+            });
+            setIsEditingMode(false);
+            if (mapInstance.current) L.DomUtil.removeClass(mapInstance.current.getContainer(), 'magpi-edit-mode');
+            window.dispatchEvent(new CustomEvent('magpi-clear-selection'));
+        };
+        window.addEventListener('magpi-reset-edits', handleResetEdits);
+
+        const handleDeleteSelected = (e) => {
+            const { features } = e.detail;
+            if (!features || features.length === 0) return;
+            
+            const byNodeId = {};
+            features.forEach(f => {
+                if (!byNodeId[f.nodeId]) byNodeId[f.nodeId] = [];
+                byNodeId[f.nodeId].push(f.feature);
+            });
+            
+            setLoadedData(prev => {
+                const newData = { ...prev };
+                for (const nodeId in byNodeId) {
+                    if (newData[nodeId] && newData[nodeId].data && newData[nodeId].data.features) {
+                        const toDeleteStrs = new Set(byNodeId[nodeId].map(f => JSON.stringify(f)));
+                        const remaining = newData[nodeId].data.features.filter(f => !toDeleteStrs.has(JSON.stringify(f)));
+                        newData[nodeId] = { ...newData[nodeId], data: { ...newData[nodeId].data, features: remaining } };
+                    }
+                }
+                return newData;
+            });
+            console.log('[MagPI] Deleted selected features.');
+        };
+        window.addEventListener('magpi-delete-selected', handleDeleteSelected);
+        
+        const handleDuplicateSelected = (e) => {
+            const { features } = e.detail;
+            if (!features || features.length === 0) return;
+            
+            const byNodeId = {};
+            features.forEach(f => {
+                if (!byNodeId[f.nodeId]) byNodeId[f.nodeId] = [];
+                const newFeature = JSON.parse(JSON.stringify(f.feature));
+                if (newFeature.properties) {
+                    if (newFeature.properties.id) newFeature.properties.id = newFeature.properties.id + '_copy';
+                    if (newFeature.properties.ID) newFeature.properties.ID = newFeature.properties.ID + '_copy';
+                    if (newFeature.properties.FID) newFeature.properties.FID = newFeature.properties.FID + '_copy';
+                }
+                byNodeId[f.nodeId].push(newFeature);
+            });
+            
+            setLoadedData(prev => {
+                const newData = { ...prev };
+                for (const nodeId in byNodeId) {
+                    if (newData[nodeId] && newData[nodeId].data && newData[nodeId].data.features) {
+                        const newFeatures = [...newData[nodeId].data.features, ...byNodeId[nodeId]];
+                        newData[nodeId] = { ...newData[nodeId], data: { ...newData[nodeId].data, features: newFeatures } };
+                    }
+                }
+                return newData;
+            });
+            console.log('[MagPI] Duplicated selected features.');
+        };
+        window.addEventListener('magpi-duplicate-selected', handleDuplicateSelected);
+        
+        const handleSpatialModify = (e) => {
+            const { features, action } = e.detail;
+            if (!features || features.length === 0) return;
+            
+            const byNodeId = {};
+            features.forEach(f => {
+                if (!byNodeId[f.nodeId]) byNodeId[f.nodeId] = [];
+                byNodeId[f.nodeId].push(f.feature);
+            });
+            
+            for (const nodeId in byNodeId) {
+                const nodeFeatures = byNodeId[nodeId];
+                if (action === 'merge' && nodeFeatures.length < 2) {
+                    console.warn('[MagPI] Merge requires at least 2 features.');
+                    continue;
+                }
+                
+                let requestBody = { action: action, features: nodeFeatures };
+                
+                if (action === 'snap') {
+                    const cached = loadedData[nodeId];
+                    if (!cached || !cached.data || !cached.data.features) {
+                        console.warn('[MagPI] Snap requires cached reference features in the layer.');
+                        continue;
+                    }
+                    const selectedStrs = new Set(nodeFeatures.map(f => JSON.stringify(f)));
+                    const referenceFeatures = cached.data.features.filter(f => !selectedStrs.has(JSON.stringify(f)));
+                    
+                    if (referenceFeatures.length === 0) {
+                        console.warn('[MagPI] Snap requires other features in the layer to snap to.');
+                        continue;
+                    }
+                    requestBody.reference_features = referenceFeatures;
+                    requestBody.tolerance = (action === 'snap' && typeof e.detail.tolerance === 'number') ? e.detail.tolerance : 0.005; // Default ~500m at equator
+                }
+
+                
+                fetch(`http://${window.location.hostname}:${window.MAGPI_PORT || '8282'}/api/spatial_modify`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(requestBody)
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        let resultFeatures = data.result.features || [data.result];
+                        if (data.result.type === 'FeatureCollection') {
+                             resultFeatures = data.result.features;
+                        } else if (data.result.type === 'Feature') {
+                             resultFeatures = [data.result];
+                        }
+                        
+                        setLoadedData(prev => {
+                            const newData = { ...prev };
+                            if (newData[nodeId] && newData[nodeId].data && newData[nodeId].data.features) {
+                                const toDeleteStrs = new Set(nodeFeatures.map(f => JSON.stringify(f)));
+                                const remaining = newData[nodeId].data.features.filter(f => !toDeleteStrs.has(JSON.stringify(f)));
+                                newData[nodeId] = { ...newData[nodeId], data: { ...newData[nodeId].data, features: [...remaining, ...resultFeatures] } };
+                            }
+                            return newData;
+                        });
+                        
+                        window.dispatchEvent(new CustomEvent('magpi-clear-selection'));
+                        console.log(`[MagPI] ${action} successful.`);
+                    } else {
+                        console.error(`[MagPI] Error in ${action}:`, data.error);
+                    }
+                })
+                .catch(err => console.error(`[MagPI] ${action} fetch error:`, err));
+            }
+        };
+        
+        window.addEventListener('magpi-merge-selected', (e) => handleSpatialModify({ detail: { ...e.detail, action: 'merge' } }));
+        window.addEventListener('magpi-split-polygon', (e) => handleSpatialModify({ detail: { ...e.detail, action: 'split' } }));
+        window.addEventListener('magpi-snap-vertices', (e) => handleSpatialModify({ detail: { ...e.detail, action: 'snap' } }));
         
         return () => {
             window.removeEventListener('magpi-feature-selected', handleFeatureSelect);
@@ -339,6 +570,14 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
             window.removeEventListener('magpi-render-fishnet', handleRenderFishnet);
             window.removeEventListener('magpi-clear-selection', handleClearSelection);
             window.removeEventListener('magpi-edit-vector', handleEditVector);
+            window.removeEventListener('magpi-save-edits', handleSaveEdits);
+            window.removeEventListener('magpi-zoom-feature', handleZoomFeature);
+            window.removeEventListener('magpi-reset-edits', handleResetEdits);
+            window.removeEventListener('magpi-delete-selected', handleDeleteSelected);
+            window.removeEventListener('magpi-duplicate-selected', handleDuplicateSelected);
+            window.removeEventListener('magpi-merge-selected', handleSpatialModify);
+            window.removeEventListener('magpi-split-polygon', handleSpatialModify);
+            window.removeEventListener('magpi-snap-vertices', handleSpatialModify);
         };
     }, [loadedData]);
 
@@ -368,13 +607,12 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                 filePath,
                 isRaster,
                 cmap: layer.cmap || 'viridis',
-                vectorColor: layer.vectorColor || '#32d74b',
-                _bboxTimestamp: viewportBBoxTimestamp // Mix timestamp into dependency
+                vectorColor: layer.vectorColor || '#32d74b'
             };
         });
 
         return computed;
-    }, [mapLayers, nodes, connections, viewportBBoxTimestamp]);
+    }, [mapLayers, nodes, connections]);
     useEffect(() => {
         if (activeWorkspace === 'planar' && mapInstance.current) {
             const map = mapInstance.current;
@@ -401,7 +639,11 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                 if (layer.extent) {
                     const { xmin, ymin, xmax, ymax } = layer.extent;
                     const y1 = parseFloat(ymin), x1 = parseFloat(xmin), y2 = parseFloat(ymax), x2 = parseFloat(xmax);
-                    if (!isNaN(y1) && !isNaN(x1) && !isNaN(y2) && !isNaN(x2)) {
+                    
+                    // Prevent Leaflet projection crash by verifying coordinates are not Float MAX (e.g. from an invalid shapefile extent)
+                    const isSaneBounds = Math.abs(y1) < 1e10 && Math.abs(x1) < 1e10 && Math.abs(y2) < 1e10 && Math.abs(x2) < 1e10;
+                    
+                    if (!isNaN(y1) && !isNaN(x1) && !isNaN(y2) && !isNaN(x2) && isSaneBounds) {
                         const bounds = [[y1, x1], [y2, x2]];
                         const isSelected = selectedFeatures && selectedFeatures.some(f => f?.nodeId === layer.id && f?.isFootprint);
                         const isExtent = layer.toolId === 'core_extent';
@@ -498,7 +740,7 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                     const expectedType = useGeolibre ? 'vector_image' : 'geojson';
                     
                     const isFullRender = isExplicitTarget && explicitRender.bbox === null;
-                    const needsFetch = (fetchBbox || isFullRender) && (!cached || cached.type !== expectedType || (!cached.isFetching && (!cached.bbox || cached.bbox !== fetchBbox)));
+                    const needsFetch = (fetchBbox || isFullRender) && (!cached || cached.type !== expectedType || (!cached.isFetching && (cached.bbox !== fetchBbox)));
 
                     if (needsFetch) {
                         setLoadedData(prev => ({ ...prev, [layer.id]: { ...(prev[layer.id] || {}), isFetching: true, bbox: fetchBbox } }));
@@ -538,7 +780,7 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                                         setLoadedData(prev => {
                                             const oldData = prev[layer.id]?.data;
                                             let mergedFeatures = data.features || [];
-                                            if (oldData && oldData.features) {
+                                            if (oldData && oldData.features && fetchBbox !== null) {
                                                 const existingHashes = new Set(oldData.features.map(f => JSON.stringify(f.geometry?.coordinates || [])));
                                                 const newUnique = mergedFeatures.filter(f => !existingHashes.has(JSON.stringify(f.geometry?.coordinates || [])));
                                                 mergedFeatures = [...oldData.features, ...newUnique];
@@ -667,12 +909,13 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                         });
 
                         gjLayer.on('click', (e) => {
+                            if (interactionModeRef.current === 'nav') return;
                             if (!e.layer || !e.layer.feature) return;
                             
                             if (e.originalEvent) e.originalEvent._magpiFeatureClicked = true;
 
                             const feature = e.layer.feature;
-                            window.dispatchEvent(new CustomEvent('magpi-feature-selected', { detail: { feature: feature, layerName: layer.name || layer.id, nodeId: layer.id, shiftKey: e.originalEvent?.shiftKey } }));
+                            window.dispatchEvent(new CustomEvent('magpi-feature-selected', { detail: { feature: feature, layerName: layer.name || layer.id, nodeId: layer.id, shiftKey: e.originalEvent?.shiftKey, ctrlKey: e.originalEvent?.ctrlKey || e.originalEvent?.metaKey } }));
                         });
 
                         gjLayer.magpi_layer_id = layer.id;
@@ -695,7 +938,7 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
             map.removeLayer(osmLayerRef.current);
         }
     }
-}, [computedLayers, activeWorkspace, loadedData, selectedNode]);
+}, [computedLayers, activeWorkspace, loadedData, selectedNode, explicitRender]);
 
     // Lightweight effect for styling selection changes WITHOUT rebuilding the DOM
     useEffect(() => {
@@ -756,6 +999,98 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
             }
         });
     }, [selectedFeatures, computedLayers, activeWorkspace, isEditingMode]);
+
+    // Visual feedback for Vertex Snapping
+    useEffect(() => {
+        if (!mapInstance.current || !isEditingMode) return;
+        const map = mapInstance.current;
+        
+        const snapLine = L.polyline([], {
+            color: '#f0f',
+            dashArray: '5, 5',
+            weight: 3,
+            interactive: false,
+            pane: 'popupPane' // Draw on top
+        }).addTo(map);
+
+        let vertexDragActive = false;
+
+        const extractVertices = (geometry) => {
+            let coords = [];
+            const processArray = (arr) => {
+                if (arr.length >= 2 && typeof arr[0] === 'number') coords.push(arr);
+                else arr.forEach(processArray);
+            };
+            if (geometry && geometry.coordinates) processArray(geometry.coordinates);
+            return coords;
+        };
+
+        const handleMouseDown = (e) => {
+            if (e.target && e.target.classList && e.target.classList.contains('leaflet-marker-icon')) {
+                vertexDragActive = true;
+            }
+        };
+
+        const handleMouseUp = () => {
+            vertexDragActive = false;
+            snapLine.setLatLngs([]);
+        };
+
+        const handleMouseMove = (e) => {
+            if (!vertexDragActive || e.buttons !== 1) {
+                snapLine.setLatLngs([]);
+                return;
+            }
+
+            const latlng = map.mouseEventToLatLng(e);
+            let closestLatLng = null;
+            let minDist = Infinity;
+            const thresholdPx = 30; // 30 pixels snapping threshold for preview
+
+            if (highlightGroup.current) {
+                highlightGroup.current.eachLayer((layer) => {
+                    if (layer instanceof L.GeoJSON) {
+                        layer.eachLayer((childLayer) => {
+                            if (childLayer.editing && childLayer.editing.enabled()) return;
+                            if (childLayer.feature && childLayer.feature.geometry) {
+                                const coords = extractVertices(childLayer.feature.geometry);
+                                coords.forEach(coord => {
+                                    const pLatLng = L.latLng(coord[1], coord[0]);
+                                    const p1 = map.latLngToLayerPoint(latlng);
+                                    const p2 = map.latLngToLayerPoint(pLatLng);
+                                    const dist = p1.distanceTo(p2);
+                                    if (dist < minDist && dist < thresholdPx) {
+                                        minDist = dist;
+                                        closestLatLng = pLatLng;
+                                    }
+                                });
+                            }
+                        });
+                    }
+                });
+            }
+
+            if (closestLatLng) {
+                snapLine.setLatLngs([latlng, closestLatLng]);
+            } else {
+                snapLine.setLatLngs([]);
+            }
+        };
+
+        const container = map.getContainer();
+        container.addEventListener('mousedown', handleMouseDown, true);
+        window.addEventListener('mouseup', handleMouseUp, true);
+        container.addEventListener('mousemove', handleMouseMove, true);
+        
+        return () => {
+            container.removeEventListener('mousedown', handleMouseDown, true);
+            window.removeEventListener('mouseup', handleMouseUp, true);
+            container.removeEventListener('mousemove', handleMouseMove, true);
+            if (map.hasLayer(snapLine)) {
+                map.removeLayer(snapLine);
+            }
+        };
+    }, [isEditingMode]);
 
     const activateDrawTool = (mode = 'aoi') => {
         if (mapInstance.current) {
@@ -903,7 +1238,7 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                     {/* Leaflet 2D Map (Hidden when in globe mode) */}
                     <div 
                         ref={mapRef} 
-                        className="absolute inset-0 w-full h-full"
+                        className={`absolute inset-0 w-full h-full ${interactionMode === 'select' ? 'magpi-select-mode' : 'magpi-nav-mode'}`}
                         style={{ 
                             visibility: activeWorkspace === 'globe' ? 'hidden' : 'visible',
                             zIndex: activeWorkspace === 'globe' ? 1 : 10,

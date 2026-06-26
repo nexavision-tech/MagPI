@@ -27,6 +27,17 @@ body {
     filter: invert(80%); 
 }
 
+/* Map Interaction Modes */
+.magpi-select-mode .leaflet-interactive {
+    cursor: crosshair !important;
+}
+.magpi-nav-mode .leaflet-interactive {
+    cursor: grab !important;
+}
+.magpi-nav-mode .leaflet-dragging .leaflet-interactive {
+    cursor: grabbing !important;
+}
+
 /* ----------------------------------------- */
 /* REACT FLOW OVERRIDES (DARK MODE CONTROLS) */
 /* ----------------------------------------- */
@@ -71,4 +82,11 @@ body {
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
+}
+/* Edit Mode Specific Cursors */
+.magpi-edit-mode {
+    cursor: crosshair !important;
+}
+.magpi-edit-mode .leaflet-interactive {
+    cursor: cell !important;
 }

@@ -184,7 +184,7 @@ const FileNode = ({ node, level, globalEnv, copiedPath, setCopiedPath }) => {
   );
 };
 
-export default function CatalogPane({ mapLayers = [], setMapLayers, reorderLayers, activeWorkspace, nodes = [], setNodes, selectedNodeId, setSelectedNodeId, openFileBrowser, globalEnv, isDaemonAlive, autoZoom, setAutoZoom }) {
+export default function CatalogPane({ mapLayers = [], setMapLayers, reorderLayers, activeWorkspace, nodes = [], setNodes, selectedNodeId, setSelectedNodeId, openFileBrowser, globalEnv, isDaemonAlive, autoZoom, setAutoZoom, selectedFeatures = [] }) {
   const [catalog, setCatalog] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [expandedLayers, setExpandedLayers] = useState({});
@@ -494,7 +494,32 @@ export default function CatalogPane({ mapLayers = [], setMapLayers, reorderLayer
                                           {node.toolId !== 'core_fishnet' && (
                                               <button 
                                                   onClick={() => {
-                                                      window.dispatchEvent(new CustomEvent('magpi-render-fishnet', { detail: { bbox: null, sourceLayerId: node.id } }));
+                                                      let bbox = null;
+                                                      if (selectedFeatures && selectedFeatures.length > 0) {
+                                                          let xmin = 180, ymin = 90, xmax = -180, ymax = -90;
+                                                          selectedFeatures.forEach(sf => {
+                                                              const coords = sf.feature?.geometry?.coordinates;
+                                                              if (!coords) return;
+                                                              const getBounds = (arr) => {
+                                                                  if (typeof arr[0] === 'number') {
+                                                                      xmin = Math.min(xmin, arr[0]);
+                                                                      ymin = Math.min(ymin, arr[1]);
+                                                                      xmax = Math.max(xmax, arr[0]);
+                                                                      ymax = Math.max(ymax, arr[1]);
+                                                                  } else {
+                                                                      arr.forEach(getBounds);
+                                                                  }
+                                                              };
+                                                              getBounds(coords);
+                                                          });
+                                                          // Add a tiny buffer if it's a point to ensure it has area
+                                                          if (xmin === xmax) { xmin -= 0.0001; xmax += 0.0001; }
+                                                          if (ymin === ymax) { ymin -= 0.0001; ymax += 0.0001; }
+                                                          if (xmin < 180) {
+                                                              bbox = `${xmin},${ymin},${xmax},${ymax}`;
+                                                          }
+                                                      }
+                                                      window.dispatchEvent(new CustomEvent('magpi-render-fishnet', { detail: { bbox: bbox, sourceLayerId: node.id } }));
                                                   }}
                                                   className="flex items-center justify-center text-[10px] w-full py-1.5 bg-cyan-600 hover:bg-cyan-500 rounded font-bold text-white uppercase tracking-wider shadow transition-colors"
                                               >

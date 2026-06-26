@@ -48,8 +48,8 @@ export default function App() {
          setSelectedFeatures(prev => {
              if (!e.detail) return [];
              
-             // If multi-select (shiftKey)
-             if (e.detail.shiftKey) {
+             // If multi-select (shiftKey or ctrlKey)
+             if (e.detail.shiftKey || e.detail.ctrlKey) {
                  const exists = prev.find(f => f?.nodeId === e.detail.nodeId && JSON.stringify(f?.feature?.properties) === JSON.stringify(e.detail.feature?.properties));
                  if (exists) {
                      return prev.filter(f => !(f?.nodeId === e.detail.nodeId && JSON.stringify(f?.feature?.properties) === JSON.stringify(e.detail.feature?.properties)));
@@ -101,6 +101,7 @@ export default function App() {
 
   const [projectDir, setProjectDir] = useState(null);
   const [autoZoom, setAutoZoom] = useState(false);
+  const [interactionMode, setInteractionMode] = useState('nav'); // 'nav' | 'select'
   const [saveBrowserConfig, setSaveBrowserConfig] = useState({ isOpen: false, initialPath: "." });
   const [masterReferences, setMasterReferences] = useState({});
   const [masterGisServers, setMasterGisServers] = useState([]);
@@ -861,6 +862,8 @@ export default function App() {
                 isDaemonAlive={isDaemonAlive}
                 autoZoom={autoZoom}
                 setAutoZoom={setAutoZoom}
+                selectedFeatures={selectedFeatures}
+                interactionMode={interactionMode}
             />
           </div>
 
@@ -868,7 +871,7 @@ export default function App() {
             <NodeCanvas nodes={nodes} setNodes={setNodes} connections={connections} setConnections={setConnections} selectedNodeId={selectedNodeId} setSelectedNodeId={setSelectedNodeId} setActiveRightTab={setActiveRightTab} nodeStatuses={nodeStatuses} removeConnection={removeConnection} addNode={addNode} />
         </div>
         <div className={`relative ${['globe', 'planar'].includes(activeWorkspace) ? 'flex-1 w-full min-w-0' : 'hidden'} flex-col shadow-[-10px_0_20px_rgba(0,0,0,0.3)] z-10 border-l border-r border-slate-800`}>
-            <MapViewport onAoiDrawn={handleAoiDrawn} onAoiImported={handleAoiImported} selectedNode={nodes.find(n => n.id === selectedNodeId)} activeWorkspace={activeWorkspace} nodes={nodes} nodeStatuses={nodeStatuses} connections={connections} globalEnv={globalEnv} mapLayers={mapLayers} autoZoom={autoZoom} selectedFeatures={selectedFeatures} setSelectedFeatures={setSelectedFeatures} />
+            <MapViewport onAoiDrawn={handleAoiDrawn} onAoiImported={handleAoiImported} selectedNode={nodes.find(n => n.id === selectedNodeId)} activeWorkspace={activeWorkspace} nodes={nodes} nodeStatuses={nodeStatuses} connections={connections} globalEnv={globalEnv} mapLayers={mapLayers} autoZoom={autoZoom} selectedFeatures={selectedFeatures} setSelectedFeatures={setSelectedFeatures} interactionMode={interactionMode} />
         </div>
         <div className={`w-[320px] shrink-0 relative ${['builder', 'planar'].includes(activeWorkspace) ? 'flex' : 'hidden'} flex-col z-20`}>
             <Toolbox 

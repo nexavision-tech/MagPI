@@ -10,7 +10,8 @@ import {
   Search, Copy, Info, Fingerprint, Loader2, AlertCircle,
   Cloud, Map as MapIcon, Satellite, Box, Globe, DownloadCloud, PaintBucket,
   FileOutput, LineChart, Brain, Sparkles, RefreshCcw, Activity, BrainCircuit, Play, Compass, Calendar,
-  BookOpen, ExternalLink, AlertTriangle, Users, Hash, ToggleLeft, FileJson
+  BookOpen, ExternalLink, AlertTriangle, Users, Hash, ToggleLeft, FileJson,
+  EyeOff, Edit, Upload, FilePlus, Network
 } from 'lucide-react';
 
 const GdbLayerSelector = ({ selectedNode, updateNodeParam }) => {
@@ -686,6 +687,9 @@ export default function Toolbox({
   const [stacError, setStacError] = useState(null);
 
   const [communityCategories, setCommunityCategories] = useState([]);
+  
+  const [contextMenu, setContextMenu] = useState(null);
+  const [snapTolerance, setSnapTolerance] = useState(0.005);
 
   React.useEffect(() => {
     fetch(`http://${window.location.hostname}:${window.MAGPI_PORT || '8282'}/api/community_nodes`)
@@ -875,6 +879,7 @@ export default function Toolbox({
         <button onClick={() => setActiveRightTab('toolbox')} className={`flex-1 py-4 text-[10px] font-bold uppercase tracking-widest transition-all flex items-center justify-center ${activeRightTab === 'toolbox' ? 'text-emerald-400 border-b-2 border-emerald-400 bg-slate-800' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/50'}`}><Wrench size={12} className="mr-1" /> Tools</button>
         <button onClick={() => setActiveRightTab('inspector')} className={`flex-1 py-4 text-[10px] font-bold uppercase tracking-widest transition-all flex items-center justify-center ${activeRightTab === 'inspector' ? 'text-emerald-400 border-b-2 border-emerald-400 bg-slate-800' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/50'}`}><SlidersHorizontal size={12} className="mr-1" /> Params</button>
         <button onClick={() => setActiveRightTab('identify')} className={`flex-1 py-4 text-[10px] font-bold uppercase tracking-widest transition-all flex items-center justify-center ${activeRightTab === 'identify' ? 'text-emerald-400 border-b-2 border-emerald-400 bg-slate-800' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/50'}`}><Info size={12} className="mr-1" /> Identify</button>
+        <button onClick={() => setActiveRightTab('editing')} className={`flex-1 py-4 text-[10px] font-bold uppercase tracking-widest transition-all flex items-center justify-center ${activeRightTab === 'editing' ? 'text-emerald-400 border-b-2 border-emerald-400 bg-slate-800' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/50'}`}><Edit size={12} className="mr-1" /> Edit</button>
       </div>
 
       <div className="flex-1 overflow-y-auto bg-slate-800 flex flex-col">
@@ -1123,7 +1128,10 @@ export default function Toolbox({
         )}
 
         {activeRightTab === 'identify' && (
-          <div className="p-0 flex flex-col h-full bg-slate-900 w-full animate-fadeIn">
+          <div 
+            className="p-0 flex flex-col h-full bg-slate-900 w-full animate-fadeIn"
+            onClick={() => setContextMenu(null)}
+          >
             {selectedFeatures && selectedFeatures.length > 0 ? (
               <>
                 <div className="flex items-center justify-between px-4 py-3 bg-slate-800 border-b border-slate-700 shrink-0">
@@ -1175,6 +1183,8 @@ export default function Toolbox({
                         )}
                     </div>
 
+
+
                     {selectedFeatures.length === 1 && selectedFeatures[0].bounds && (
                         <>
                             <button 
@@ -1221,6 +1231,119 @@ export default function Toolbox({
                   Click on any vector feature in the Live Viewport to inspect its attributes here.
                 </p>
               </div>
+            )}
+          </div>
+        )}
+
+        {activeRightTab === 'editing' && (
+          <div className="p-4 h-full flex flex-col bg-slate-900 animate-fadeIn">
+            <h3 className="text-xs font-bold text-slate-300 uppercase tracking-widest border-b border-slate-700 pb-2 mb-4 flex items-center">
+                <Edit size={14} className="mr-2 text-emerald-400"/> Spatial Editing Panel
+            </h3>
+            
+            {selectedFeatures && selectedFeatures.length > 0 && !selectedFeatures[0].isFootprint ? (
+                <div className="space-y-4">
+                    <div className="bg-slate-800 rounded border border-slate-700 p-3 shadow-sm">
+                        <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3 flex items-center"><MousePointer2 size={12} className="mr-2" /> Basic Editing</div>
+                        <div className="grid grid-cols-2 gap-2">
+                            <button 
+                                onClick={() => window.dispatchEvent(new CustomEvent('magpi-edit-vector'))}
+                                className="flex flex-col justify-center items-center py-2.5 bg-slate-700 hover:bg-amber-600/80 text-white text-[10px] font-bold rounded transition-colors border border-slate-600 hover:border-amber-500"
+                                title="Draw / Modify Geometry"
+                            >
+                                <Edit size={14} className="mb-1" />
+                                Draw Edits
+                            </button>
+                            <button 
+                                onClick={() => window.dispatchEvent(new CustomEvent('magpi-save-edits', { detail: { nodeId: selectedFeatures[0].nodeId } }))}
+                                className="flex flex-col justify-center items-center py-2.5 bg-slate-700 hover:bg-emerald-600/80 text-white text-[10px] font-bold rounded transition-colors border border-slate-600 hover:border-emerald-500"
+                                title="Save Edits to Disk"
+                            >
+                                <Upload size={14} className="mb-1" />
+                                Save Edits
+                            </button>
+                            <button 
+                                onClick={() => window.dispatchEvent(new CustomEvent('magpi-duplicate-selected', { detail: { features: selectedFeatures } }))}
+                                className="flex flex-col justify-center items-center py-2.5 bg-slate-700 hover:bg-indigo-600/80 text-white text-[10px] font-bold rounded transition-colors border border-slate-600 hover:border-indigo-500"
+                            >
+                                <FilePlus size={14} className="mb-1" />
+                                Duplicate
+                            </button>
+                            <button 
+                                onClick={() => window.dispatchEvent(new CustomEvent('magpi-zoom-feature', { detail: { features: selectedFeatures } }))}
+                                className="flex flex-col justify-center items-center py-2.5 bg-slate-700 hover:bg-blue-600/80 text-white text-[10px] font-bold rounded transition-colors border border-slate-600 hover:border-blue-500"
+                            >
+                                <Crosshair size={14} className="mb-1" />
+                                Zoom To
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="bg-slate-800 rounded border border-slate-700 p-3 shadow-sm">
+                        <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3 flex items-center"><Network size={12} className="mr-2" /> Topology Tools</div>
+                        
+                        <div className="flex items-center justify-between mb-2">
+                            <span className="text-[10px] font-bold text-fuchsia-400">Vertex Snapping Tol.</span>
+                            <input 
+                                type="number" 
+                                step="0.001" 
+                                value={snapTolerance} 
+                                onChange={(e) => setSnapTolerance(parseFloat(e.target.value))}
+                                className="w-16 bg-slate-900 border border-slate-600 rounded px-1 py-0.5 text-[10px] text-slate-200 outline-none focus:border-fuchsia-500 transition-colors"
+                                title="Tolerance in Degrees"
+                            />
+                        </div>
+                        <button 
+                            onClick={() => window.dispatchEvent(new CustomEvent('magpi-snap-vertices', { detail: { features: selectedFeatures, tolerance: snapTolerance } }))}
+                            className="w-full flex justify-center items-center py-2 bg-fuchsia-900/40 hover:bg-fuchsia-600 text-fuchsia-300 hover:text-white text-[10px] font-bold rounded transition-colors border border-fuchsia-800/50 hover:border-fuchsia-500"
+                            title={`Snap vertices to other features within ${snapTolerance} deg`}
+                        >
+                            <Network size={14} className="mr-2" />
+                            Snap to Reference Layer
+                        </button>
+                        
+                        {/* Placeholder for more tools as requested */}
+                        <div className="grid grid-cols-2 gap-2 mt-2">
+                            <button className="flex items-center justify-center py-2 bg-slate-800 text-slate-500 text-[10px] font-bold rounded border border-slate-700 opacity-50 cursor-not-allowed">
+                                <BoxSelect size={12} className="mr-1" /> Buffer
+                            </button>
+                            <button className="flex items-center justify-center py-2 bg-slate-800 text-slate-500 text-[10px] font-bold rounded border border-slate-700 opacity-50 cursor-not-allowed">
+                                <Scissors size={12} className="mr-1" /> Clip
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="bg-slate-800 rounded border border-slate-700 p-3 shadow-sm">
+                        <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3 flex items-center"><AlertTriangle size={12} className="mr-2" /> Destructive</div>
+                        <div className="grid grid-cols-2 gap-2">
+                            <button 
+                                onClick={() => window.dispatchEvent(new CustomEvent('magpi-reset-edits', { detail: { nodeId: selectedFeatures[0].nodeId } }))}
+                                className="flex items-center justify-center py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 text-[10px] font-bold rounded transition-colors border border-slate-600"
+                            >
+                                <EyeOff size={12} className="mr-1" /> Reset
+                            </button>
+                            <button 
+                                onClick={() => {
+                                    window.dispatchEvent(new CustomEvent('magpi-delete-selected', { detail: { features: selectedFeatures } }));
+                                    setSelectedFeatures([]);
+                                }}
+                                className="flex items-center justify-center py-2 bg-red-900/40 hover:bg-red-600 text-red-400 hover:text-white text-[10px] font-bold rounded transition-colors border border-red-800/50 hover:border-red-500"
+                            >
+                                <Trash2 size={12} className="mr-1" /> Delete
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            ) : (
+                <div className="flex-1 flex flex-col items-center justify-center p-6 text-center text-slate-500">
+                    <div className="w-16 h-16 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center mb-4 shadow-inner">
+                        <Edit size={24} className="opacity-50 text-emerald-400" />
+                    </div>
+                    <p className="text-sm font-bold text-slate-400 mb-2">No Active Feature</p>
+                    <p className="text-xs">
+                        Select a vector feature from the map viewport using the Identify tool to begin editing geometry or topology.
+                    </p>
+                </div>
             )}
           </div>
         )}

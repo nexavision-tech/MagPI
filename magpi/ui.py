@@ -373,7 +373,32 @@ def LaunchCanvas(port=8282):
                     payload = json.loads(post_data.decode('utf-8'))
                     self.handle_profiles_post(payload)
                 except Exception as e:
-                    logger.error(f"Profiles POST API failed: {e}")
+                    self.send_response(500)
+                    self.send_header('Content-type', 'application/json')
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"error": str(e)}).encode('utf-8'))
+                    
+            elif parsed_path.path == '/api/save_geojson':
+                content_length = int(self.headers['Content-Length'])
+                post_data = self.rfile.read(content_length)
+                try:
+                    payload = json.loads(post_data.decode('utf-8'))
+                    self.handle_save_geojson(payload)
+                except Exception as e:
+                    logger.error(f"Save GeoJSON API failed: {e}")
+                    self.send_response(500)
+                    self.send_header('Content-type', 'application/json')
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"error": str(e)}).encode('utf-8'))
+                    
+            elif parsed_path.path == '/api/spatial_modify':
+                content_length = int(self.headers['Content-Length'])
+                post_data = self.rfile.read(content_length)
+                try:
+                    payload = json.loads(post_data.decode('utf-8'))
+                    self.handle_spatial_modify(payload)
+                except Exception as e:
+                    logger.error(f"Spatial Modify API failed: {e}")
                     self.send_response(500)
                     self.send_header('Content-type', 'application/json')
                     self.end_headers()
@@ -434,7 +459,118 @@ def LaunchCanvas(port=8282):
                 self.end_headers()
                 self.wfile.write(json.dumps({"status": "success", "profile_id": profile_id}).encode('utf-8'))
             except Exception as e:
-                logger.error(f"Profiles POST failed: {e}")
+                self.send_response(500)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": str(e)}).encode('utf-8'))
+
+        def handle_save_geojson(self, payload):
+            try:
+                import geopandas as gpd
+                import json
+                
+                file_path = payload.get('file_path')
+                features = payload.get('features', [])
+                
+                if not file_path:
+                    raise ValueError("Missing file_path in payload")
+                    
+                feature_collection = {
+                    "type": "FeatureCollection",
+                    "features": features
+                }
+                
+                if not features:
+                    # If empty, just write empty geojson to prevent geopandas errors
+                    if file_path.endswith('.geojson'):
+                        with open(file_path, 'w') as f:
+                            json.dump(feature_collection, f)
+                    else:
+                        raise ValueError("Cannot save empty feature collection to non-geojson format.")
+                else:
+                    # Use geopandas to ensure complex geometries are handled correctly
+                    # and to support non-geojson formats if needed (though UI might only send geojson for now)
+                    gdf = gpd.GeoDataFrame.from_features(feature_collection)
+                    
+                    # Ensure crs is set (assuming WGS84 for leaflet)
+                    if gdf.crs is None:
+                        gdf.set_crs(epsg=4326, inplace=True)
+                        
+                    if file_path.endswith('.geojson'):
+                        gdf.to_file(file_path, driver='GeoJSON')
+                    elif file_path.endswith('.shp'):
+                        gdf.to_file(file_path, driver='ESRI Shapefile')
+                    elif file_path.endswith('.gpkg'):
+                        gdf.to_file(file_path, driver='GPKG')
+                    else:
+                        gdf.to_file(file_path)
+                    
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"status": "success", "message": f"Saved {len(features)} features to {file_path}"}).encode('utf-8'))
+            except Exception as e:
+                logger.error(f"Save GeoJSON failed: {e}")
+                self.send_response(500)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": str(e)}).encode('utf-8'))
+
+        def handle_spatial_modify(self, payload):
+            try:
+                import geopandas as gpd
+                import json
+                
+                action = payload.get('action')
+                features = payload.get('features', [])
+                
+                if not features:
+                    raise ValueError("No features provided for spatial modification.")
+                    
+                feature_collection = {
+                    "type": "FeatureCollection",
+                    "features": features
+                }
+                
+                gdf = gpd.GeoDataFrame.from_features(feature_collection)
+                
+                if action == 'merge':
+                    if len(gdf) < 2:
+                        raise ValueError("Need at least 2 features to merge.")
+                    merged_geom = gdf.geometry.unary_union
+                    merged_feature = gdf.iloc[[0]].copy()
+                    merged_feature.geometry = [merged_geom]
+                    result_geojson = json.loads(merged_feature.to_json())
+                    
+                elif action == 'split':
+                    exploded = gdf.explode(index_parts=True).reset_index(drop=True)
+                    result_geojson = json.loads(exploded.to_json())
+                elif action == 'snap':
+                    reference_features = payload.get('reference_features', [])
+                    tolerance = payload.get('tolerance', 0.001)
+                    if not reference_features:
+                        raise ValueError("No reference features provided to snap to.")
+                    
+                    ref_collection = {
+                        "type": "FeatureCollection",
+                        "features": reference_features
+                    }
+                    ref_gdf = gpd.GeoDataFrame.from_features(ref_collection)
+                    ref_union = ref_gdf.geometry.unary_union
+                    
+                    from shapely.ops import snap
+                    # Snap the selected features to the combined geometry of the reference features
+                    gdf.geometry = gdf.geometry.apply(lambda geom: snap(geom, ref_union, tolerance))
+                    result_geojson = json.loads(gdf.to_json())
+                else:
+                    raise ValueError(f"Unknown action: {action}")
+                
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"status": "success", "result": result_geojson}).encode('utf-8'))
+            except Exception as e:
+                logger.error(f"Spatial Modify failed: {e}")
                 self.send_response(500)
                 self.send_header('Content-type', 'application/json')
                 self.end_headers()
@@ -869,6 +1005,19 @@ def LaunchCanvas(port=8282):
                     logger.warning(f"GeoJSON preview limited to {limit} features for {target_file}")
                 if gdf.crs and not gdf.crs.is_geographic:
                     gdf = gdf.to_crs("EPSG:4326")
+                
+                # Prevent hardware-accelerated Canvas/WebGL crashes (e.g. GNOME freezing) 
+                # caused by corrupted shapefile vertices with Float Max coordinates.
+                if not gdf.empty:
+                    b = gdf.bounds
+                    # WGS84 coordinates should be strictly within -180/180 and -90/90, 
+                    # but we use 1000 as a very safe buffer for weird antimeridian wrapping
+                    valid_mask = (b['minx'] >= -1000) & (b['maxx'] <= 1000) & \
+                                 (b['miny'] >= -1000) & (b['maxy'] <= 1000)
+                    invalid_count = (~valid_mask).sum()
+                    if invalid_count > 0:
+                        logger.warning(f"CRITICAL: Dropping {invalid_count} corrupted features with massive coordinates to prevent browser/GPU crashes.")
+                        gdf = gdf[valid_mask]
                 
                 # Removed aggressive geometry simplification to stream pure vertices
                     
