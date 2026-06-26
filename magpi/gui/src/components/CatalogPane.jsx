@@ -471,19 +471,19 @@ export default function CatalogPane({ mapLayers = [], setMapLayers, reorderLayer
                                           <div className="grid grid-cols-2 gap-1 mt-1">
                                               <div className="flex items-center space-x-1">
                                                   <span className="text-[9px] text-slate-400 w-2 shrink-0">W</span>
-                                                  <input type="number" step="0.001" className="flex-1 bg-slate-800 text-[10px] text-slate-300 border border-slate-700 rounded px-1 py-0.5 outline-none" value={node.params.xmin || ''} onChange={(e) => setNodes && setNodes(prev => prev.map(n => n.id === layer.id ? { ...n, params: { ...n.params, xmin: parseFloat(e.target.value) } } : n))} />
+                                                  <input type="number" step="0.001" className="flex-1 min-w-0 bg-slate-800 text-[10px] text-slate-300 border border-slate-700 rounded px-1 py-0.5 outline-none" value={node.params.xmin || ''} onChange={(e) => setNodes && setNodes(prev => prev.map(n => n.id === layer.id ? { ...n, params: { ...n.params, xmin: parseFloat(e.target.value) } } : n))} />
                                               </div>
                                               <div className="flex items-center space-x-1">
                                                   <span className="text-[9px] text-slate-400 w-2 shrink-0">S</span>
-                                                  <input type="number" step="0.001" className="flex-1 bg-slate-800 text-[10px] text-slate-300 border border-slate-700 rounded px-1 py-0.5 outline-none" value={node.params.ymin || ''} onChange={(e) => setNodes && setNodes(prev => prev.map(n => n.id === layer.id ? { ...n, params: { ...n.params, ymin: parseFloat(e.target.value) } } : n))} />
+                                                  <input type="number" step="0.001" className="flex-1 min-w-0 bg-slate-800 text-[10px] text-slate-300 border border-slate-700 rounded px-1 py-0.5 outline-none" value={node.params.ymin || ''} onChange={(e) => setNodes && setNodes(prev => prev.map(n => n.id === layer.id ? { ...n, params: { ...n.params, ymin: parseFloat(e.target.value) } } : n))} />
                                               </div>
                                               <div className="flex items-center space-x-1">
                                                   <span className="text-[9px] text-slate-400 w-2 shrink-0">E</span>
-                                                  <input type="number" step="0.001" className="flex-1 bg-slate-800 text-[10px] text-slate-300 border border-slate-700 rounded px-1 py-0.5 outline-none" value={node.params.xmax || ''} onChange={(e) => setNodes && setNodes(prev => prev.map(n => n.id === layer.id ? { ...n, params: { ...n.params, xmax: parseFloat(e.target.value) } } : n))} />
+                                                  <input type="number" step="0.001" className="flex-1 min-w-0 bg-slate-800 text-[10px] text-slate-300 border border-slate-700 rounded px-1 py-0.5 outline-none" value={node.params.xmax || ''} onChange={(e) => setNodes && setNodes(prev => prev.map(n => n.id === layer.id ? { ...n, params: { ...n.params, xmax: parseFloat(e.target.value) } } : n))} />
                                               </div>
                                               <div className="flex items-center space-x-1">
                                                   <span className="text-[9px] text-slate-400 w-2 shrink-0">N</span>
-                                                  <input type="number" step="0.001" className="flex-1 bg-slate-800 text-[10px] text-slate-300 border border-slate-700 rounded px-1 py-0.5 outline-none" value={node.params.ymax || ''} onChange={(e) => setNodes && setNodes(prev => prev.map(n => n.id === layer.id ? { ...n, params: { ...n.params, ymax: parseFloat(e.target.value) } } : n))} />
+                                                  <input type="number" step="0.001" className="flex-1 min-w-0 bg-slate-800 text-[10px] text-slate-300 border border-slate-700 rounded px-1 py-0.5 outline-none" value={node.params.ymax || ''} onChange={(e) => setNodes && setNodes(prev => prev.map(n => n.id === layer.id ? { ...n, params: { ...n.params, ymax: parseFloat(e.target.value) } } : n))} />
                                               </div>
                                           </div>
                                       </div>
@@ -523,7 +523,7 @@ export default function CatalogPane({ mapLayers = [], setMapLayers, reorderLayer
                                                           setMapLayers(prev => prev.map(l => l.id === layer.id ? { ...l, labelField: e.target.value } : l));
                                                       }
                                                   }}
-                                                  className="flex-1 bg-slate-800 text-[10px] text-slate-300 border border-slate-700 rounded px-2 py-1.5 outline-none focus:border-cyan-500 placeholder-slate-500 font-mono"
+                                                  className="flex-1 min-w-0 bg-slate-800 text-[10px] text-slate-300 border border-slate-700 rounded px-2 py-1.5 outline-none focus:border-cyan-500 placeholder-slate-500 font-mono"
                                               />
                                               <button
                                                   onClick={() => {

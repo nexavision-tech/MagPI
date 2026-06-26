@@ -143,7 +143,11 @@ export default function TopRibbon({
                 <span className="text-[10px] mt-1 font-medium">Clear</span>
               </button>
 
-              <button className="flex flex-col items-center justify-center p-2 hover:bg-slate-700 rounded text-slate-500 transition-colors ml-1" title="Edit Polygons (Coming Soon)">
+              <button 
+                onClick={() => window.dispatchEvent(new CustomEvent('magpi-edit-vector'))}
+                className="flex flex-col items-center justify-center p-2 hover:bg-emerald-900/50 hover:text-emerald-400 rounded text-slate-400 transition-colors ml-1" 
+                title="Edit Polygons"
+              >
                 <Network size={18} />
                 <span className="text-[10px] mt-1 font-medium">Edit Vector</span>
               </button>

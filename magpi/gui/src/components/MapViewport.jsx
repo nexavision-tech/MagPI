@@ -40,7 +40,10 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
     const activeFeatureLayer = useRef(null);
     const [currentZoom, setCurrentZoom] = React.useState(2);
     const [viewportBBox, setViewportBBox] = React.useState("");
-    const [viewportBBoxTimestamp, setViewportBBoxTimestamp] = React.useState(0);
+    const [viewportBBoxTimestamp, setViewportBBoxTimestamp] = React.useState(Date.now());
+    const [isEditingMode, setIsEditingMode] = React.useState(false);
+    
+    // Explicit render state to lock a fishnet cell override
     const [explicitRender, setExplicitRender] = React.useState(null); // { bbox, sourceLayerId }
     const drawMode = useRef(null);
 
@@ -151,6 +154,16 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                 }
             }
             drawMode.current = null;
+        });
+
+        map.on(L.Draw.Event.EDITED, function (e) {
+            e.layers.eachLayer(function (layer) {
+                if (layer.feature && typeof layer.toGeoJSON === 'function') {
+                    const newGeoJson = layer.toGeoJSON();
+                    layer.feature.geometry = newGeoJson.geometry;
+                    console.log("[MagPI] Feature geometry updated locally:", layer.feature);
+                }
+            });
         });
 
         const resizeObserver = new ResizeObserver(() => {
@@ -308,9 +321,16 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
         const handleClearSelection = () => {
             console.log('[MagPI] Clearing selection and render locks.');
             setExplicitRender(null);
+            setIsEditingMode(false);
             window.dispatchEvent(new CustomEvent('magpi-feature-selected', { detail: null }));
         };
         window.addEventListener('magpi-clear-selection', handleClearSelection);
+        
+        const handleEditVector = () => {
+            setIsEditingMode(true);
+            console.log('[MagPI] Edit mode enabled.');
+        };
+        window.addEventListener('magpi-edit-vector', handleEditVector);
         
         return () => {
             window.removeEventListener('magpi-feature-selected', handleFeatureSelect);
@@ -318,6 +338,7 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
             window.removeEventListener('magpi-zoom-layer', handleZoomLayer);
             window.removeEventListener('magpi-render-fishnet', handleRenderFishnet);
             window.removeEventListener('magpi-clear-selection', handleClearSelection);
+            window.removeEventListener('magpi-edit-vector', handleEditVector);
         };
     }, [loadedData]);
 
@@ -353,7 +374,7 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
         });
 
         return computed;
-    }, [mapLayers, nodes, connections, viewportBBoxTimestamp, selectedFeatures]);
+    }, [mapLayers, nodes, connections, viewportBBoxTimestamp]);
     useEffect(() => {
         if (activeWorkspace === 'planar' && mapInstance.current) {
             const map = mapInstance.current;
@@ -531,7 +552,7 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                         }
                     }
                     
-                    if (cached && !cached.isFetching) {
+                    if (cached && (cached.imageUrl || cached.data)) {
                         if (cached.type === 'vector_image' && cached.imageUrl) {
                             const imgLayer = L.imageOverlay(cached.imageUrl, cached.bounds, {
                                 opacity: layer.opacity !== undefined ? layer.opacity / 100 : 1,
@@ -715,15 +736,26 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                         });
                     } else {
                         childLayer.setStyle({
-                            color: isSelected ? '#00ffff' : cLayer.vectorColor,
-                            weight: isSelected ? 3 : 1.5,
+                            color: isSelected ? (isEditingMode ? '#f59e0b' : '#00ffff') : cLayer.vectorColor,
+                            weight: isSelected ? (isEditingMode ? 4 : 3) : 1.5,
                             fillOpacity: isSelected ? 0.6 : 0.2
                         });
+                    }
+                    
+                    // Handle Leaflet-Draw Editing State
+                    if (isSelected && isEditingMode) {
+                        if (childLayer.editing && typeof childLayer.editing.enable === 'function' && !childLayer.editing.enabled()) {
+                            childLayer.editing.enable();
+                        }
+                    } else {
+                        if (childLayer.editing && typeof childLayer.editing.disable === 'function' && childLayer.editing.enabled()) {
+                            childLayer.editing.disable();
+                        }
                     }
                 });
             }
         });
-    }, [selectedFeatures, computedLayers, activeWorkspace]);
+    }, [selectedFeatures, computedLayers, activeWorkspace, isEditingMode]);
 
     const activateDrawTool = (mode = 'aoi') => {
         if (mapInstance.current) {
