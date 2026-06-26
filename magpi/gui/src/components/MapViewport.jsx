@@ -344,7 +344,7 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                             weight: isSelected ? 4 : 2, 
                             fillOpacity: isFishnet ? 0.0 : 0.2, 
                             dashArray: isExtent ? '4, 4' : null,
-                            interactive: isActiveLayer || isExtent, // Interactive ONLY if it's the Extent tool OR it is the highlighted layer in the CatalogPane
+                            interactive: isActiveLayer && (isExtent || isStandaloneFootprint), // ONLY interactive if it's not rendering features, so it doesn't block cell clicks!
                             pane: paneName // Assign to guaranteed Z-index pane!
                         });
                         

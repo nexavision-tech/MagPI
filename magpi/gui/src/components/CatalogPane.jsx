@@ -326,13 +326,6 @@ export default function CatalogPane({ mapLayers = [], setMapLayers, reorderLayer
                     <Layers size={14} className="mr-2" />
                     Map Layers
                 </h2>
-                <button 
-                  onClick={() => setAutoZoom(!autoZoom)}
-                  className={`flex items-center text-[10px] uppercase font-bold tracking-widest px-2 py-0.5 rounded border ${autoZoom ? 'bg-cyan-900/50 text-cyan-300 border-cyan-700/50' : 'bg-slate-900 text-slate-500 border-slate-700 hover:text-slate-300'} transition-colors`}
-                  title="Toggle Auto-Zoom to new layers"
-                >
-                  <Crosshair size={12} className="mr-1" /> Auto-Zoom
-                </button>
                 </div>
         <div 
           className="flex-1 overflow-y-auto p-2 custom-scrollbar space-y-1 relative"
