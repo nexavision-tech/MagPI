@@ -221,8 +221,8 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                         mapInstance.current.fitBounds(foundLayer.getBounds(), { maxZoom: 18, animate: true, padding: [50, 50] });
                     }
                 }
+                }
             }
-            setSelectedFeatures && setSelectedFeatures([e.detail]);
         };
         const handleDrawAoi = () => activateDrawTool();
         const handleZoomLayer = (e) => {
