@@ -316,11 +316,14 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                         const bounds = [[y1, x1], [y2, x2]];
                         const isSelected = selectedFeature && selectedFeature.nodeId === layer.id;
                         const isExtent = layer.toolId === 'core_extent';
+                        const isFishnet = layer.toolId === 'core_fishnet';
+                        
                         const rect = L.rectangle(bounds, { 
                             color: isSelected ? '#00ffff' : (isExtent ? '#00ffff' : layer.vectorColor), 
                             weight: isSelected ? 4 : 2, 
-                            fillOpacity: 0.2, 
-                            dashArray: isExtent ? '4, 4' : null 
+                            fillOpacity: isFishnet ? 0.0 : 0.2, 
+                            dashArray: isExtent ? '4, 4' : null,
+                            interactive: !isFishnet // Crucial: lets clicks pass through to the fishnet cells!
                         });
                         
                         rect.bindTooltip(layer.name, { 
@@ -393,7 +396,10 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                     }
 
                     const fetchBbox = isExplicitTarget ? explicitRender.bbox : viewportBBox;
-                    const expectedType = 'geojson';
+                    
+                    // Use GeoLibre WASM for rendering local vector files over an explicit grid cell!
+                    const useGeolibre = isExplicitTarget && layer.filePath && !layer.syntheticType;
+                    const expectedType = useGeolibre ? 'vector_image' : 'geojson';
                     
                     const needsFetch = fetchBbox && (!cached || cached.type !== expectedType || (!cached.isFetching && (!cached.bbox || cached.bbox !== fetchBbox)));
 
@@ -401,54 +407,86 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                         setLoadedData(prev => ({ ...prev, [layer.id]: { ...(prev[layer.id] || {}), isFetching: true, bbox: fetchBbox } }));
                         const bboxParam = fetchBbox ? `&bbox=${encodeURIComponent(fetchBbox)}` : '';
                         
-                        let fetchPromise;
-                        if (layer.syntheticType === 'wfs_osm_buildings') {
-                            const [w, s, e, n] = fetchBbox.split(',').map(Number);
-                            fetchPromise = fetch(`http://${window.location.hostname}:${window.MAGPI_PORT || '8282'}/api/stac_query`, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ sensor: 'wfs_osm_buildings', bbox: [w, s, e, n] })
-                            });
+                        if (useGeolibre) {
+                            const colorParam = `&color=${encodeURIComponent(layer.vectorColor || '#3388ff')}`;
+                            fetch(`http://${window.location.hostname}:${window.MAGPI_PORT || '8282'}/api/vector_image?file=${encodeURIComponent(layer.filePath)}&layer_name=${encodeURIComponent(layer.layerName || '')}${bboxParam}${colorParam}`)
+                                .then(r => r.ok ? r.blob() : null)
+                                .then(blob => {
+                                    if (blob) {
+                                        const imageUrl = URL.createObjectURL(blob);
+                                        const [w, s, e, n] = fetchBbox.split(',').map(Number);
+                                        const bounds = [[s, w], [n, e]];
+                                        setLoadedData(prev => ({ ...prev, [layer.id]: { type: expectedType, imageUrl, bounds, isFetching: false, bbox: fetchBbox } }));
+                                    } else {
+                                        setLoadedData(prev => ({ ...prev, [layer.id]: { ...(prev[layer.id] || {}), type: expectedType, isFetching: false, bbox: fetchBbox } }));
+                                    }
+                                }).catch(() => { setLoadedData(prev => ({ ...prev, [layer.id]: { ...(prev[layer.id] || {}), type: expectedType, isFetching: false, bbox: fetchBbox } })); });
                         } else {
-                            fetchPromise = fetch(`http://${window.location.hostname}:${window.MAGPI_PORT || '8282'}/api/geojson?file=${encodeURIComponent(layer.filePath)}&layer_name=${encodeURIComponent(layer.layerName || '')}&limit=${globalEnv.vector_draw_limit || 10000}${bboxParam}`);
+                            let fetchPromise;
+                            if (layer.syntheticType === 'wfs_osm_buildings') {
+                                const [w, s, e, n] = fetchBbox.split(',').map(Number);
+                                fetchPromise = fetch(`http://${window.location.hostname}:${window.MAGPI_PORT || '8282'}/api/stac_query`, {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ sensor: 'wfs_osm_buildings', bbox: [w, s, e, n] })
+                                });
+                            } else {
+                                fetchPromise = fetch(`http://${window.location.hostname}:${window.MAGPI_PORT || '8282'}/api/geojson?file=${encodeURIComponent(layer.filePath)}&layer_name=${encodeURIComponent(layer.layerName || '')}&limit=${globalEnv.vector_draw_limit || 10000}${bboxParam}`);
+                            }
+                            
+                            fetchPromise
+                                .then(r => r.ok ? r.json() : null)
+                                .then(data => {
+                                    if (data) {
+                                        setLoadedData(prev => {
+                                            const oldData = prev[layer.id]?.data;
+                                            let mergedFeatures = data.features || [];
+                                            if (oldData && oldData.features) {
+                                                const existingHashes = new Set(oldData.features.map(f => JSON.stringify(f.geometry?.coordinates || [])));
+                                                const newUnique = mergedFeatures.filter(f => !existingHashes.has(JSON.stringify(f.geometry?.coordinates || [])));
+                                                mergedFeatures = [...oldData.features, ...newUnique];
+                                            }
+                                            return { ...prev, [layer.id]: { type: expectedType, data: { ...data, features: mergedFeatures }, isFetching: false, bbox: fetchBbox } };
+                                        });
+                                    } else {
+                                        setLoadedData(prev => ({ ...prev, [layer.id]: { ...(prev[layer.id] || {}), type: expectedType, isFetching: false, bbox: fetchBbox } }));
+                                    }
+                                }).catch(() => { setLoadedData(prev => ({ ...prev, [layer.id]: { ...(prev[layer.id] || {}), type: expectedType, isFetching: false, bbox: fetchBbox } })); });
                         }
-                        
-                        fetchPromise
-                            .then(r => r.ok ? r.json() : null)
-                            .then(data => {
-                                if (data) {
-                                    setLoadedData(prev => {
-                                        const oldData = prev[layer.id]?.data;
-                                        let mergedFeatures = data.features || [];
-                                        if (oldData && oldData.features) {
-                                            const existingHashes = new Set(oldData.features.map(f => JSON.stringify(f.geometry?.coordinates || [])));
-                                            const newUnique = mergedFeatures.filter(f => !existingHashes.has(JSON.stringify(f.geometry?.coordinates || [])));
-                                            mergedFeatures = [...oldData.features, ...newUnique];
-                                        }
-                                        return { ...prev, [layer.id]: { type: expectedType, data: { ...data, features: mergedFeatures }, isFetching: false, bbox: fetchBbox } };
-                                    });
-                                } else {
-                                    setLoadedData(prev => ({ ...prev, [layer.id]: { ...(prev[layer.id] || {}), type: expectedType, isFetching: false, bbox: fetchBbox } }));
-                                }
-                            }).catch(() => { setLoadedData(prev => ({ ...prev, [layer.id]: { ...(prev[layer.id] || {}), type: expectedType, isFetching: false, bbox: fetchBbox } })); });
                     }
                     
                     if (cached && !cached.isFetching) {
-                        if (cached.type === 'geojson' && cached.data) {
-                        const canvasRenderer = L.canvas({ padding: 0.5 });
-                        const gjLayer = L.geoJSON(cached.data, {
-                            renderer: canvasRenderer,
-                            style: (feature) => {
-                                const isSelected = selectedFeature && selectedFeature.layerId === layer.id && JSON.stringify(selectedFeature.feature?.properties) === JSON.stringify(feature.properties);
-                                if (isFishnet) {
-                                    return {
-                                        weight: isSelected ? 4 : 2,
-                                        color: isSelected ? '#00ffff' : '#ff8c00', // Cyan when selected, Orange outline
-                                        opacity: 0.8,
-                                        fillColor: isSelected ? '#00ffff' : '#ff8c00',
-                                        fillOpacity: isSelected ? 0.0 : 0.05 // Transparent grid so footprints are clearly visible!
-                                    };
+                        if (cached.type === 'vector_image' && cached.imageUrl) {
+                            const imgLayer = L.imageOverlay(cached.imageUrl, cached.bounds, {
+                                opacity: layer.opacity !== undefined ? layer.opacity / 100 : 1,
+                                interactive: false
+                            });
+                            highlightGroup.current.addLayer(imgLayer);
+                        } else if (cached.type === 'geojson' && cached.data) {
+                            const canvasRenderer = L.canvas({ padding: 0.5 });
+                            
+                            // Allow clicking the map background to deselect features
+                            mapInstance.current.on('click', (e) => {
+                                // If the click didn't originate from a feature, clear selection
+                                if (!e.originalEvent._magpiFeatureClicked) {
+                                    window.dispatchEvent(new CustomEvent('magpi-feature-selected', { detail: null }));
                                 }
+                            });
+
+                            const gjLayer = L.geoJSON(cached.data, {
+                                renderer: canvasRenderer,
+                                style: (feature) => {
+                                    // Use nodeId instead of layerId because the dispatcher sets nodeId
+                                    const isSelected = selectedFeature && selectedFeature.nodeId === layer.id && JSON.stringify(selectedFeature.feature?.properties) === JSON.stringify(feature.properties);
+                                    if (isFishnet) {
+                                        return {
+                                            weight: isSelected ? 4 : 2,
+                                            color: isSelected ? '#00ffff' : '#ff8c00', // Cyan when selected, Orange outline
+                                            opacity: 0.8,
+                                            fillColor: isSelected ? '#00ffff' : '#ff8c00',
+                                            fillOpacity: isSelected ? 0.2 : 0.05 // Ensure it remains clickable via hit detection!
+                                        };
+                                    }
                                 return {
                                     weight: 1,
                                     color: layer.vectorColor || '#3388ff',
@@ -515,6 +553,8 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
 
                         gjLayer.on('click', (e) => {
                             if (!e.layer || !e.layer.feature) return;
+                            
+                            if (e.originalEvent) e.originalEvent._magpiFeatureClicked = true;
 
                             try {
                                 if (activeFeatureLayer.current && activeFeatureLayer.current.layer) {
