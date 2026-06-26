@@ -666,7 +666,7 @@ export default function Toolbox({
   activeRightTab, setActiveRightTab,
   selectedNode, updateNodeParam, updateNodeName, deleteNode, addNode, addConnection, duplicateNode,
   openFileBrowser, nodes, connections, handleRunUpToNode, masterReferences, masterGisServers,
-  selectedFeature, setSelectedFeature
+  selectedFeatures, setSelectedFeatures
 }) {
   const [expandedCategories, setExpandedCategories] = useState({});
   const [searchQuery, setSearchQuery] = useState('');
@@ -1101,15 +1101,15 @@ export default function Toolbox({
 
         {activeRightTab === 'identify' && (
           <div className="p-0 flex flex-col h-full bg-slate-900 w-full animate-fadeIn">
-            {selectedFeature ? (
+            {selectedFeatures && selectedFeatures.length > 0 ? (
               <>
                 <div className="flex items-center justify-between px-4 py-3 bg-slate-800 border-b border-slate-700 shrink-0">
                     <span className="text-xs font-bold text-slate-300 uppercase tracking-widest flex items-center">
                         <Layers size={14} className="mr-2 text-indigo-400" /> 
-                        {selectedFeature.layerName}
+                        {selectedFeatures.length === 1 ? selectedFeatures[0].layerName : `Multiple Selected (${selectedFeatures.length})`}
                     </span>
                     <button 
-                        onClick={() => { setSelectedFeature(null); setActiveRightTab('toolbox'); }}
+                        onClick={() => { setSelectedFeatures([]); setActiveRightTab('toolbox'); }}
                         className="p-1 hover:bg-slate-700 rounded text-slate-400 hover:text-white transition-colors"
                         title="Clear Selection"
                     >
@@ -1117,7 +1117,7 @@ export default function Toolbox({
                     </button>
                 </div>
                 <div className="flex-1 overflow-auto p-4 space-y-4">
-                    {selectedFeature.isFootprint && (
+                    {selectedFeatures.length === 1 && selectedFeatures[0].isFootprint && (
                         <div className="space-y-2">
                             <div className="flex justify-between border-b border-slate-700/50 pb-1">
                                 <span className="text-slate-500 font-medium">Feature Type</span>
@@ -1126,8 +1126,8 @@ export default function Toolbox({
                             <div className="flex justify-between border-b border-slate-700/50 pb-1">
                                 <span className="text-slate-500 font-medium">Bounds (W, S, E, N)</span>
                                 <span className="text-slate-300 font-mono text-[10px]">
-                                    {selectedFeature.bounds ? 
-                                        `${selectedFeature.bounds.xmin.toFixed(4)}, ${selectedFeature.bounds.ymin.toFixed(4)}, ${selectedFeature.bounds.xmax.toFixed(4)}, ${selectedFeature.bounds.ymax.toFixed(4)}` 
+                                    {selectedFeatures[0].bounds ? 
+                                        `${selectedFeatures[0].bounds.xmin.toFixed(4)}, ${selectedFeatures[0].bounds.ymin.toFixed(4)}, ${selectedFeatures[0].bounds.xmax.toFixed(4)}, ${selectedFeatures[0].bounds.ymax.toFixed(4)}` 
                                         : 'N/A'
                                     }
                                 </span>
@@ -1137,24 +1137,28 @@ export default function Toolbox({
                     
                     <div>
                         <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-700 pb-1 mb-2">Attributes</h4>
-                        {Object.entries(selectedFeature.feature?.properties || {}).map(([key, value], idx) => (
-                            <div key={idx} className="flex justify-between border-b border-slate-700/50 pb-1 mb-1">
-                                <span className="text-slate-500 font-medium text-xs">{key}</span>
-                                <span className="text-slate-300 text-right text-xs truncate max-w-[150px]" title={String(value)}>{String(value)}</span>
-                            </div>
-                        ))}
-                        {(!selectedFeature.feature?.properties || Object.keys(selectedFeature.feature.properties).length === 0) && (
+                        {selectedFeatures.length === 1 ? (
+                            Object.entries(selectedFeatures[0].feature?.properties || {}).map(([key, value], idx) => (
+                                <div key={idx} className="flex justify-between border-b border-slate-700/50 pb-1 mb-1">
+                                    <span className="text-slate-500 font-medium text-xs">{key}</span>
+                                    <span className="text-slate-300 text-right text-xs truncate max-w-[150px]" title={String(value)}>{String(value)}</span>
+                                </div>
+                            ))
+                        ) : (
+                            <div className="text-center italic text-slate-500 py-2 text-xs">{selectedFeatures.length} features selected</div>
+                        )}
+                        {selectedFeatures.length === 1 && (!selectedFeatures[0].feature?.properties || Object.keys(selectedFeatures[0].feature.properties).length === 0) && (
                             <div className="text-center italic text-slate-500 py-2 text-xs">No attributes</div>
                         )}
                     </div>
 
-                    {selectedFeature.bounds && (
+                    {selectedFeatures.length === 1 && selectedFeatures[0].bounds && (
                         <button 
                             onClick={() => {
-                                const { xmin, ymin, xmax, ymax } = selectedFeature.bounds;
+                                const { xmin, ymin, xmax, ymax } = selectedFeatures[0].bounds;
                                 window.dispatchEvent(new CustomEvent('magpi-create-aoi-node', { 
                                     detail: { 
-                                        name: `AOI: ${selectedFeature.layerName}`,
+                                        name: `AOI: ${selectedFeatures[0].layerName}`,
                                         xmin, ymin, xmax, ymax 
                                     }
                                 }));

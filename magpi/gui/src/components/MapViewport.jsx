@@ -28,7 +28,7 @@ const getAncestralExtent = (nodeId, nodes, connections) => {
     return null;
 };
 
-const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activeWorkspace, nodes = [], nodeStatuses = {}, connections = [], globalEnv, mapLayers = [], autoZoom, selectedFeature, setSelectedFeature }) => {
+const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activeWorkspace, nodes = [], nodeStatuses = {}, connections = [], globalEnv, mapLayers = [], autoZoom, selectedFeatures, setSelectedFeatures }) => {
     const mapRef = useRef(null);
     const mapInstance = useRef(null); 
     const highlightGroup = useRef(null);
@@ -222,7 +222,7 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                     }
                 }
             }
-            setSelectedFeature && setSelectedFeature(e.detail);
+            setSelectedFeatures && setSelectedFeatures([e.detail]);
         };
         const handleDrawAoi = () => activateDrawTool();
         const handleZoomLayer = (e) => {
@@ -301,7 +301,7 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
         });
 
         return computed;
-    }, [mapLayers, nodes, connections, viewportBBoxTimestamp, selectedFeature]);
+    }, [mapLayers, nodes, connections, viewportBBoxTimestamp, selectedFeatures]);
     useEffect(() => {
         if (activeWorkspace === 'planar' && mapInstance.current) {
             const map = mapInstance.current;
@@ -330,7 +330,7 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                     const y1 = parseFloat(ymin), x1 = parseFloat(xmin), y2 = parseFloat(ymax), x2 = parseFloat(xmax);
                     if (!isNaN(y1) && !isNaN(x1) && !isNaN(y2) && !isNaN(x2)) {
                         const bounds = [[y1, x1], [y2, x2]];
-                        const isSelected = selectedFeature && selectedFeature.nodeId === layer.id;
+                        const isSelected = selectedFeatures && selectedFeatures.some(f => f.nodeId === layer.id && f.isFootprint);
                         const isExtent = layer.toolId === 'core_extent';
                         const isFishnet = layer.toolId === 'core_fishnet';
                         
@@ -339,7 +339,7 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                             weight: isSelected ? 4 : 2, 
                             fillOpacity: isFishnet ? 0.0 : 0.2, 
                             dashArray: isExtent ? '4, 4' : null,
-                            interactive: !isFishnet, // Crucial: lets clicks pass through to the fishnet cells!
+                            interactive: layer.toolId === 'core_extent', // Only explicitly interactive if it is an actual extent tool
                             pane: paneName // Assign to guaranteed Z-index pane!
                         });
                         
@@ -483,11 +483,13 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                         } else if (cached.type === 'geojson' && cached.data) {
                             const canvasRenderer = L.canvas({ padding: 0.5, pane: paneName });
 
+                            const isActiveLayer = selectedNode && selectedNode.id === layer.id;
                             const gjLayer = L.geoJSON(cached.data, {
                                 renderer: canvasRenderer,
+                                interactive: isActiveLayer, // Restrict interaction to ONLY the highlighted layer in the CatalogPane
                                 style: (feature) => {
                                     // Use nodeId instead of layerId because the dispatcher sets nodeId
-                                    const isSelected = selectedFeature && selectedFeature.nodeId === layer.id && JSON.stringify(selectedFeature.feature?.properties) === JSON.stringify(feature.properties);
+                                    const isSelected = selectedFeatures && selectedFeatures.some(sf => sf.nodeId === layer.id && JSON.stringify(sf.feature?.properties) === JSON.stringify(feature.properties));
                                     if (isFishnet) {
                                         return {
                                             weight: isSelected ? 4 : 2,
@@ -567,33 +569,8 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                             
                             if (e.originalEvent) e.originalEvent._magpiFeatureClicked = true;
 
-                            try {
-                                if (activeFeatureLayer.current && activeFeatureLayer.current.layer) {
-                                    activeFeatureLayer.current.layer.setStyle({ 
-                                        weight: 1,
-                                        color: activeFeatureLayer.current.originalColor || '#3388ff',
-                                        fillColor: activeFeatureLayer.current.originalColor || '#3388ff',
-                                        fillOpacity: 0.4
-                                    });
-                                }
-
-                                e.layer.setStyle({
-                                    weight: 4,
-                                    color: '#00ffff',
-                                    fillColor: '#00ffff',
-                                    fillOpacity: 0.3
-                                });
-
-                                activeFeatureLayer.current = {
-                                    layer: e.layer,
-                                    originalColor: layer.vectorColor || '#3388ff'
-                                };
-                            } catch (err) {
-                                console.warn("Failed to highlight vector feature:", err);
-                            }
-
                             const feature = e.layer.feature;
-                            window.dispatchEvent(new CustomEvent('magpi-feature-selected', { detail: { feature: feature, layerName: layer.name || layer.id, nodeId: layer.id } }));
+                            window.dispatchEvent(new CustomEvent('magpi-feature-selected', { detail: { feature: feature, layerName: layer.name || layer.id, nodeId: layer.id, shiftKey: e.originalEvent?.shiftKey } }));
                         });
 
                         gjLayer.magpi_layer_id = layer.id;
@@ -616,36 +593,7 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
             map.removeLayer(osmLayerRef.current);
         }
     }
-}, [computedLayers, activeWorkspace, loadedData, selectedFeature]);
-
-    // Handle clearing the feature selection from the UI side
-    useEffect(() => {
-        if (!selectedFeature && activeFeatureLayer.current && activeFeatureLayer.current.layer) {
-            try {
-                if (activeFeatureLayer.current.layer.setFeatureStyle && activeFeatureLayer.current.id) {
-                    activeFeatureLayer.current.layer.setFeatureStyle(
-                        activeFeatureLayer.current.id,
-                        { 
-                            weight: 1.5,
-                            color: activeFeatureLayer.current.originalColor,
-                            opacity: 1,
-                            fillColor: activeFeatureLayer.current.originalColor,
-                            fill: true,
-                            fillOpacity: activeFeatureLayer.current.originalOpacity 
-                        }
-                    );
-                } else if (activeFeatureLayer.current.layer.setStyle) {
-                    activeFeatureLayer.current.layer.setStyle({ 
-                        color: activeFeatureLayer.current.originalColor, 
-                        weight: 1.5, 
-                        opacity: 1,
-                        fillOpacity: activeFeatureLayer.current.originalOpacity 
-                    });
-                }
-            } catch (e) {}
-            activeFeatureLayer.current = null;
-        }
-    }, [selectedFeature]);
+}, [computedLayers, activeWorkspace, loadedData, selectedFeatures]);
 
     const activateDrawTool = () => {
         if (mapInstance.current) {
