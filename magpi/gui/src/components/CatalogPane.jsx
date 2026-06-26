@@ -491,14 +491,16 @@ export default function CatalogPane({ mapLayers = [], setMapLayers, reorderLayer
                               } else if (node && (node.toolId === 'load_vector' || node.toolId === 'core_fishnet' || node.toolId.startsWith('wfs_') || node.toolId === 'core_input_vector' || node.params?.file_path?.endsWith('.shp') || node.params?.file_path?.endsWith('.geojson'))) {
                                   return (
                                       <div className="flex flex-col mt-2 pt-2 border-t border-slate-700/50 space-y-2">
-                                          <button 
-                                              onClick={() => {
-                                                  window.dispatchEvent(new CustomEvent('magpi-render-fishnet', { detail: { bbox: null, sourceLayerId: node.id } }));
-                                              }}
-                                              className="flex items-center justify-center text-[10px] w-full py-1.5 bg-cyan-600 hover:bg-cyan-500 rounded font-bold text-white uppercase tracking-wider shadow transition-colors"
-                                          >
-                                              <Layers size={12} className="mr-2" /> Render Map Features
-                                          </button>
+                                          {node.toolId !== 'core_fishnet' && (
+                                              <button 
+                                                  onClick={() => {
+                                                      window.dispatchEvent(new CustomEvent('magpi-render-fishnet', { detail: { bbox: null, sourceLayerId: node.id } }));
+                                                  }}
+                                                  className="flex items-center justify-center text-[10px] w-full py-1.5 bg-cyan-600 hover:bg-cyan-500 rounded font-bold text-white uppercase tracking-wider shadow transition-colors"
+                                              >
+                                                  <Layers size={12} className="mr-2" /> Render Map Features
+                                              </button>
+                                          )}
                                           
                                           {node.toolId !== 'core_fishnet' && (
                                               <button
