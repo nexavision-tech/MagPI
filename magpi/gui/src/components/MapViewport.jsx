@@ -596,7 +596,8 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
         if (!computedLayers.find(l => l.isBase)?.visible && map.hasLayer(osmLayerRef.current)) {
             map.removeLayer(osmLayerRef.current);
         }
-    }, [computedLayers, activeWorkspace, loadedData, selectedFeatures, selectedNode]);
+    }
+}, [computedLayers, activeWorkspace, loadedData, selectedFeatures, selectedNode]);
 
     const activateDrawTool = () => {
         if (mapInstance.current) {
