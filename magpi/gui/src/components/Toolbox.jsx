@@ -1153,21 +1153,38 @@ export default function Toolbox({
                     </div>
 
                     {selectedFeatures.length === 1 && selectedFeatures[0].bounds && (
-                        <button 
-                            onClick={() => {
-                                const { xmin, ymin, xmax, ymax } = selectedFeatures[0].bounds;
-                                window.dispatchEvent(new CustomEvent('magpi-create-aoi-node', { 
-                                    detail: { 
-                                        name: `AOI: ${selectedFeatures[0].layerName}`,
-                                        xmin, ymin, xmax, ymax 
-                                    }
-                                }));
-                            }}
-                            className="w-full mt-4 flex justify-center items-center py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded shadow-lg transition-colors border border-emerald-500"
-                        >
-                            <Crosshair size={14} className="mr-2" />
-                            Create AOI from Feature
-                        </button>
+                        <>
+                            <button 
+                                onClick={() => {
+                                    const { xmin, ymin, xmax, ymax } = selectedFeatures[0].bounds;
+                                    window.dispatchEvent(new CustomEvent('magpi-create-aoi-node', { 
+                                        detail: { 
+                                            name: `AOI: ${selectedFeatures[0].layerName}`,
+                                            xmin, ymin, xmax, ymax 
+                                        }
+                                    }));
+                                }}
+                                className="w-full mt-4 flex justify-center items-center py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded shadow-lg transition-colors border border-emerald-500"
+                            >
+                                <Crosshair size={14} className="mr-2" />
+                                Create AOI from Feature
+                            </button>
+                            <button 
+                                onClick={() => {
+                                    const { xmin, ymin, xmax, ymax } = selectedFeatures[0].bounds;
+                                    window.dispatchEvent(new CustomEvent('magpi-render-fishnet', { 
+                                        detail: { 
+                                            bbox: [xmin, ymin, xmax, ymax],
+                                            sourceLayerId: selectedFeatures[0].nodeId
+                                        }
+                                    }));
+                                }}
+                                className="w-full mt-2 flex justify-center items-center py-2 bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold rounded shadow-lg transition-colors border border-cyan-500"
+                            >
+                                <Layers size={14} className="mr-2" />
+                                Render Vector Features
+                            </button>
+                        </>
                     )}
                 </div>
               </>
