@@ -411,8 +411,16 @@ export default function CatalogPane({ mapLayers = [], setMapLayers, reorderLayer
                       const targetIndex = index;
                       setDragOverIndex(null);
                       
-                      if (dragSourceIndex !== null && dragSourceIndex !== targetIndex && reorderLayers) {
-                          reorderLayers(dragSourceIndex, targetIndex);
+                      let sourceIdx = dragSourceIndex;
+                      if (sourceIdx === null) {
+                          const dataStr = e.dataTransfer.getData('text/plain');
+                          if (dataStr && dataStr.startsWith('magpi-layer:')) {
+                              sourceIdx = parseInt(dataStr.split(':')[1], 10);
+                          }
+                      }
+                      
+                      if (sourceIdx !== null && sourceIdx !== targetIndex && reorderLayers) {
+                          reorderLayers(sourceIdx, targetIndex);
                       }
                       setDragSourceIndex(null);
                   }}
