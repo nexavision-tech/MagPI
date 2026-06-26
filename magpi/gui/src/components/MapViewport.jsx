@@ -42,6 +42,7 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
     const [viewportBBox, setViewportBBox] = React.useState("");
     const [viewportBBoxTimestamp, setViewportBBoxTimestamp] = React.useState(0);
     const [explicitRender, setExplicitRender] = React.useState(null); // { bbox, sourceLayerId }
+    const drawMode = useRef(null);
 
     useEffect(() => {
         if (!mapRef.current) return;
@@ -103,14 +104,53 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                 bounds = e.layer.getBounds();
             }
             
-            if (onAoiDrawn) {
-                onAoiDrawn({
-                    xmin: bounds.getWest().toFixed(5),
-                    ymin: bounds.getSouth().toFixed(5),
-                    xmax: bounds.getEast().toFixed(5),
-                    ymax: bounds.getNorth().toFixed(5)
-                });
+            if (drawMode.current === 'marquee' || drawMode.current === 'lasso') {
+                // Find all loaded vectors and check intersection!
+                const selectedFeaturesArr = [];
+                if (highlightGroup.current) {
+                    highlightGroup.current.eachLayer(layerObj => {
+                        const layerId = layerObj.magpi_layer_id;
+                        if (!layerId) return;
+                        if (layerObj instanceof L.GeoJSON) {
+                            layerObj.eachLayer(childLayer => {
+                                if (childLayer.feature && childLayer.getBounds) {
+                                    if (bounds.intersects(childLayer.getBounds())) {
+                                        selectedFeaturesArr.push({
+                                            feature: childLayer.feature,
+                                            layerName: childLayer.feature.properties?.layer_name || layerId,
+                                            nodeId: layerId,
+                                            shiftKey: true // Act as multi-select
+                                        });
+                                    }
+                                }
+                            });
+                        }
+                    });
+                }
+                
+                if (selectedFeaturesArr.length > 0) {
+                    // We must dispatch them sequentially or as a batch.
+                    // Currently handleFeatureSelect supports shiftKey for adding.
+                    // Since we want to SET them, maybe we clear first, then add.
+                    // But we don't have a bulk set event. 
+                    // Let's just dispatch one by one with shiftKey.
+                    selectedFeaturesArr.forEach((sf, idx) => {
+                        window.dispatchEvent(new CustomEvent('magpi-feature-selected', { detail: { ...sf, isBulk: idx > 0 } }));
+                    });
+                } else {
+                    console.log("[MagPI] No features found in marquee bounds.");
+                }
+            } else {
+                if (onAoiDrawn) {
+                    onAoiDrawn({
+                        xmin: bounds.getWest().toFixed(5),
+                        ymin: bounds.getSouth().toFixed(5),
+                        xmax: bounds.getEast().toFixed(5),
+                        ymax: bounds.getNorth().toFixed(5)
+                    });
+                }
             }
+            drawMode.current = null;
         });
 
         const resizeObserver = new ResizeObserver(() => {
@@ -223,7 +263,10 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                 }
             }
         };
-        const handleDrawAoi = () => activateDrawTool();
+        const handleDrawAoi = () => activateDrawTool('aoi');
+        const handleDrawMarquee = () => activateDrawTool('marquee');
+        const handleDrawLasso = () => activateDrawTool('lasso');
+
         const handleZoomLayer = (e) => {
             if (!mapInstance.current) return;
             const { layerId } = e.detail;
@@ -252,6 +295,8 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
 
         window.addEventListener('magpi-feature-selected', handleFeatureSelect);
         window.addEventListener('magpi-draw-aoi', handleDrawAoi);
+        window.addEventListener('magpi-draw-marquee', handleDrawMarquee);
+        window.addEventListener('magpi-draw-lasso', handleDrawLasso);
         window.addEventListener('magpi-zoom-layer', handleZoomLayer);
 
         const handleRenderFishnet = (e) => {
@@ -566,6 +611,23 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                                         className: 'magpi-dark-popup'
                                     });
                                 }
+                                
+                                if (layer.showLabels && feature.properties) {
+                                    const props = feature.properties;
+                                    let labelText = props.name || props.NAME || props.Name || props.id || props.ID || props.uuid || props.OBJECTID || props.FID;
+                                    if (!labelText) {
+                                        const keys = Object.keys(props);
+                                        if (keys.length > 0 && keys[0] !== 'geometry') labelText = String(props[keys[0]]);
+                                    }
+                                    if (labelText) {
+                                        layerObj.bindTooltip(String(labelText), {
+                                            permanent: true,
+                                            direction: 'center',
+                                            className: 'bg-slate-900/80 text-white font-bold text-[9px] border border-slate-700 shadow-md rounded px-1 py-0.5 whitespace-nowrap bg-transparent shadow-none',
+                                            opacity: 0.9
+                                        });
+                                    }
+                                }
                             }
                         });
 
@@ -649,11 +711,22 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
         });
     }, [selectedFeatures, computedLayers, activeWorkspace]);
 
-    const activateDrawTool = () => {
+    const activateDrawTool = (mode = 'aoi') => {
         if (mapInstance.current) {
-            new L.Draw.Rectangle(mapInstance.current, { 
-                shapeOptions: { color: '#00ffff', weight: 2, fillOpacity: 0.15 } 
-            }).enable();
+            drawMode.current = mode;
+            if (mode === 'lasso') {
+                new L.Draw.Polygon(mapInstance.current, { 
+                    shapeOptions: { color: '#ec4899', weight: 2, fillOpacity: 0.1, dashArray: '5, 5' }
+                }).enable();
+            } else if (mode === 'marquee') {
+                new L.Draw.Rectangle(mapInstance.current, { 
+                    shapeOptions: { color: '#a855f7', weight: 2, fillOpacity: 0.1, dashArray: '5, 5' }
+                }).enable();
+            } else {
+                new L.Draw.Rectangle(mapInstance.current, { 
+                    shapeOptions: { color: '#eab308', weight: 2, fillOpacity: 0.15 } 
+                }).enable();
+            }
         }
     };
 

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useReactFlow } from '@xyflow/react';
 import { Reorder } from 'framer-motion';
-import { Folder, Database, File, ChevronRight, ChevronDown, RefreshCw, Box, Map, Image as ImageIcon, Layers, Eye, EyeOff, Network, Crosshair, FolderOpen, Search, Trash2, FolderPlus, MinusCircle, Link, Copy, Check } from 'lucide-react';
+import { Folder, Database, File, ChevronRight, ChevronDown, RefreshCw, Box, Map, Image as ImageIcon, Layers, Eye, EyeOff, Network, Crosshair, FolderOpen, Search, Trash2, FolderPlus, MinusCircle, Link, Copy, Check, Grid, Type } from 'lucide-react';
 import { TOOLBOX_CATEGORIES } from './Toolbox';
 
 const DebouncedColorPicker = ({ color, onChange }) => {
@@ -486,6 +486,55 @@ export default function CatalogPane({ mapLayers = [], setMapLayers, reorderLayer
                                                   <input type="number" step="0.001" className="flex-1 bg-slate-800 text-[10px] text-slate-300 border border-slate-700 rounded px-1 py-0.5 outline-none" value={node.params.ymax || ''} onChange={(e) => setNodes && setNodes(prev => prev.map(n => n.id === layer.id ? { ...n, params: { ...n.params, ymax: parseFloat(e.target.value) } } : n))} />
                                               </div>
                                           </div>
+                                      </div>
+                                  );
+                              } else if (node && (node.toolId === 'load_vector' || node.toolId === 'core_fishnet' || node.toolId.startsWith('wfs_') || node.toolId === 'core_input_vector' || node.params?.file_path?.endsWith('.shp') || node.params?.file_path?.endsWith('.geojson'))) {
+                                  return (
+                                      <div className="flex flex-col mt-2 pt-2 border-t border-slate-700/50 space-y-2">
+                                          <button 
+                                              onClick={() => {
+                                                  window.dispatchEvent(new CustomEvent('magpi-render-fishnet', { detail: { bbox: null, sourceLayerId: node.id } }));
+                                              }}
+                                              className="flex items-center justify-center text-[10px] w-full py-1.5 bg-cyan-600 hover:bg-cyan-500 rounded font-bold text-white uppercase tracking-wider shadow transition-colors"
+                                          >
+                                              <Layers size={12} className="mr-2" /> Render Map Features
+                                          </button>
+                                          
+                                          {node.toolId !== 'core_fishnet' && (
+                                              <button
+                                                  onClick={() => {
+                                                      const newNodeId = `node_${Date.now()}`;
+                                                      const newNode = {
+                                                          id: newNodeId,
+                                                          toolId: 'core_fishnet',
+                                                          name: `Fishnet (${node.name || 'Vector'})`,
+                                                          icon: 'core_fishnet',
+                                                          x: node.x + 50,
+                                                          y: node.y + 100,
+                                                          color: 'bg-purple-600',
+                                                          border: 'border-purple-500',
+                                                          params: { grid_size: 100, export_to_map: true }
+                                                      };
+                                                      // Tell the global state to add this node
+                                                      if (setNodes) setNodes(prev => [...prev, newNode]);
+                                                      if (setSelectedNodeId) setSelectedNodeId(newNodeId);
+                                                  }}
+                                                  className="flex items-center justify-center text-[10px] w-full py-1.5 bg-purple-600 hover:bg-purple-500 rounded font-bold text-white uppercase tracking-wider shadow transition-colors"
+                                              >
+                                                  <Grid size={12} className="mr-2" /> Generate Fishnet
+                                              </button>
+                                          )}
+
+                                          <button
+                                              onClick={() => {
+                                                  if (setMapLayers) {
+                                                      setMapLayers(prev => prev.map(l => l.id === layer.id ? { ...l, showLabels: !l.showLabels } : l));
+                                                  }
+                                              }}
+                                              className="flex items-center justify-center text-[10px] w-full py-1.5 bg-slate-700 hover:bg-slate-600 rounded font-bold text-slate-300 uppercase tracking-wider shadow transition-colors"
+                                          >
+                                              <Type size={12} className="mr-2" /> {layer.showLabels ? "Hide Labels" : "Show Labels"}
+                                          </button>
                                       </div>
                                   );
                               }

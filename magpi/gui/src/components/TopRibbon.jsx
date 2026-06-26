@@ -116,7 +116,23 @@ export default function TopRibbon({
                 <Edit size={18} />
                 <span className="text-[10px] mt-1 font-medium">Draw AOI</span>
               </button>
-              
+              <button 
+                onClick={() => window.dispatchEvent(new CustomEvent('magpi-draw-marquee'))} 
+                className="flex flex-col items-center justify-center p-2 hover:bg-purple-900/50 hover:text-purple-400 rounded text-slate-400 transition-colors ml-1" 
+                title="Marquee Select"
+              >
+                <Layers size={18} />
+                <span className="text-[10px] mt-1 font-medium">Marquee</span>
+              </button>
+
+              <button 
+                onClick={() => window.dispatchEvent(new CustomEvent('magpi-draw-lasso'))} 
+                className="flex flex-col items-center justify-center p-2 hover:bg-pink-900/50 hover:text-pink-400 rounded text-slate-400 transition-colors ml-1" 
+                title="Lasso Select"
+              >
+                <Crosshair size={18} />
+                <span className="text-[10px] mt-1 font-medium">Lasso</span>
+              </button>
               <button className="flex flex-col items-center justify-center p-2 hover:bg-slate-700 rounded text-slate-500 transition-colors ml-1" title="Edit Polygons (Coming Soon)">
                 <Network size={18} />
                 <span className="text-[10px] mt-1 font-medium">Edit Vector</span>

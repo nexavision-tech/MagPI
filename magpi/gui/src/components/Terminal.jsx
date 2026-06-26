@@ -123,10 +123,26 @@ export default function Terminal({ showTerminal, setShowTerminal, logs, isProces
 
   useEffect(() => {
     const handleMapSelect = (e) => {
-        if (!e.detail || e.detail.isFromTable) return; // Ignore if we generated it, or if it's a deselect
-        if (tableData && tableData.rows) {
-            const p2 = e.detail.feature.properties;
-            if (!p2) return;
+            if (!e.detail) return;
+            
+            if (e.detail.isFootprint) {
+                if (tableData && tableData.rows && tableData.rows.length > 0) {
+                    setSelectedRowIndex(page * limit + 0);
+                    // Optional: scroll into view
+                    setTimeout(() => {
+                        const trs = document.querySelectorAll('.data-studio-row');
+                        if (trs[0]) trs[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }, 50);
+                }
+                return;
+            }
+            
+            if (e.detail.isFromTable) return;
+            
+            if (tableData && tableData.rows) {
+                if (!e.detail.feature) return;
+                const p2 = e.detail.feature.properties;
+                if (!p2) return;
             
             const idKeys = ['OBJECTID', 'FID', 'id', 'ID', 'uuid'];
             let foundIndex = -1;
