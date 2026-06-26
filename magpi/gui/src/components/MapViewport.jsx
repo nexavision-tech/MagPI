@@ -333,12 +333,17 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                         const isExtent = layer.toolId === 'core_extent';
                         const isFishnet = layer.toolId === 'core_fishnet';
                         
+                        // Check if this layer is rendering features. If it's NOT rendering features, it's just a standalone extent footprint.
+                        const isExplicitTarget = explicitRender && explicitRender.sourceLayerId === layer.id;
+                        const renderMode = isExplicitTarget ? 'full' : (layer.renderMode || 'footprint');
+                        const isStandaloneFootprint = !isFishnet && renderMode !== 'full';
+                        
                         const rect = L.rectangle(bounds, { 
                             color: isSelected ? '#00ffff' : (isExtent ? '#00ffff' : layer.vectorColor), 
                             weight: isSelected ? 4 : 2, 
                             fillOpacity: isFishnet ? 0.0 : 0.2, 
                             dashArray: isExtent ? '4, 4' : null,
-                            interactive: layer.toolId === 'core_extent', // Only explicitly interactive if it is an actual extent tool
+                            interactive: isExtent || isStandaloneFootprint, // Interactive ONLY if it's the Extent tool OR a standalone footprint (not blocking features)
                             pane: paneName // Assign to guaranteed Z-index pane!
                         });
                         
