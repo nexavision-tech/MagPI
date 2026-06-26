@@ -619,7 +619,9 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                 const isSelected = selectedFeatures && selectedFeatures.some(f => f?.nodeId === layerId && f?.isFootprint);
                 layerObj.setStyle({
                     color: isSelected ? '#00ffff' : (isExtent ? '#00ffff' : cLayer.vectorColor),
-                    weight: isSelected ? 4 : 2
+                    weight: isSelected ? 4 : 2,
+                    fillColor: isSelected ? '#00ffff' : cLayer.vectorColor,
+                    fillOpacity: isSelected ? 0.3 : (isFishnet ? 0.0 : 0.2)
                 });
             } else if (layerObj instanceof L.GeoJSON) {
                 // It's the vector features
