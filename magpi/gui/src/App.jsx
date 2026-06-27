@@ -46,7 +46,7 @@ export default function App() {
   useEffect(() => {
      const handleSelect = (e) => {
          setSelectedFeatures(prev => {
-             if (!e.detail) return [];
+             if (!e.detail) return prev.length === 0 ? prev : [];
              
              // If multi-select (shiftKey or ctrlKey)
              if (e.detail.shiftKey || e.detail.ctrlKey) {

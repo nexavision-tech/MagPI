@@ -43,10 +43,25 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
     const [viewportBBoxTimestamp, setViewportBBoxTimestamp] = React.useState(Date.now());
     const [isEditingMode, setIsEditingMode] = React.useState(false);
     const nodesRef = useRef(nodes);
+    const loadedDataRef = useRef(loadedData);
+    const selectedNodeRef = useRef(selectedNode);
+    const selectedFeaturesRef = useRef(selectedFeatures);
     
     useEffect(() => {
         nodesRef.current = nodes;
     }, [nodes]);
+    
+    useEffect(() => {
+        loadedDataRef.current = loadedData;
+    }, [loadedData]);
+    
+    useEffect(() => {
+        selectedNodeRef.current = selectedNode;
+    }, [selectedNode]);
+    
+    useEffect(() => {
+        selectedFeaturesRef.current = selectedFeatures;
+    }, [selectedFeatures]);
     
     // Explicit render state to lock a fishnet cell override
     const [explicitRender, setExplicitRender] = React.useState(null); // { bbox, sourceLayerId }
@@ -79,7 +94,10 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
         // Global map click to deselect features
         map.on('click', (e) => {
             if (!e.originalEvent || !e.originalEvent._magpiFeatureClicked) {
-                window.dispatchEvent(new CustomEvent('magpi-feature-selected', { detail: null }));
+                // Only dispatch deselection if there are actually features selected (prevents empty [] → [] cascades)
+                if (selectedFeaturesRef.current && selectedFeaturesRef.current.length > 0) {
+                    window.dispatchEvent(new CustomEvent('magpi-feature-selected', { detail: null }));
+                }
             }
         });
         
@@ -366,7 +384,7 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
         const handleSaveEdits = (e) => {
             const { nodeId } = e.detail;
             if (!nodeId) return;
-            const cached = loadedData[nodeId];
+            const cached = loadedDataRef.current[nodeId];
             if (cached && cached.data && cached.data.features) {
                 const node = nodesRef.current.find(n => n.id === nodeId);
                 if (node && node.params && node.params.file_path) {
@@ -507,7 +525,7 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                 let requestBody = { action: action, features: nodeFeatures };
                 
                 if (action === 'snap') {
-                    const cached = loadedData[nodeId];
+                    const cached = loadedDataRef.current[nodeId];
                     if (!cached || !cached.data || !cached.data.features) {
                         console.warn('[MagPI] Snap requires cached reference features in the layer.');
                         continue;
@@ -559,13 +577,18 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
             }
         };
         
-        window.addEventListener('magpi-merge-selected', (e) => handleSpatialModify({ detail: { ...e.detail, action: 'merge' } }));
-        window.addEventListener('magpi-split-polygon', (e) => handleSpatialModify({ detail: { ...e.detail, action: 'split' } }));
-        window.addEventListener('magpi-snap-vertices', (e) => handleSpatialModify({ detail: { ...e.detail, action: 'snap' } }));
+        const handleMerge = (e) => handleSpatialModify({ detail: { ...e.detail, action: 'merge' } });
+        const handleSplit = (e) => handleSpatialModify({ detail: { ...e.detail, action: 'split' } });
+        const handleSnap = (e) => handleSpatialModify({ detail: { ...e.detail, action: 'snap' } });
+        window.addEventListener('magpi-merge-selected', handleMerge);
+        window.addEventListener('magpi-split-polygon', handleSplit);
+        window.addEventListener('magpi-snap-vertices', handleSnap);
         
         return () => {
             window.removeEventListener('magpi-feature-selected', handleFeatureSelect);
             window.removeEventListener('magpi-draw-aoi', handleDrawAoi);
+            window.removeEventListener('magpi-draw-marquee', handleDrawMarquee);
+            window.removeEventListener('magpi-draw-lasso', handleDrawLasso);
             window.removeEventListener('magpi-zoom-layer', handleZoomLayer);
             window.removeEventListener('magpi-render-fishnet', handleRenderFishnet);
             window.removeEventListener('magpi-clear-selection', handleClearSelection);
@@ -575,11 +598,11 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
             window.removeEventListener('magpi-reset-edits', handleResetEdits);
             window.removeEventListener('magpi-delete-selected', handleDeleteSelected);
             window.removeEventListener('magpi-duplicate-selected', handleDuplicateSelected);
-            window.removeEventListener('magpi-merge-selected', handleSpatialModify);
-            window.removeEventListener('magpi-split-polygon', handleSpatialModify);
-            window.removeEventListener('magpi-snap-vertices', handleSpatialModify);
+            window.removeEventListener('magpi-merge-selected', handleMerge);
+            window.removeEventListener('magpi-split-polygon', handleSplit);
+            window.removeEventListener('magpi-snap-vertices', handleSnap);
         };
-    }, [loadedData]);
+    }, []); // Mount-only: callbacks use refs for current data
 
     // Compute extents and file paths purely for rendering
     const computedLayers = React.useMemo(() => {
@@ -653,7 +676,7 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                         const isExplicitTarget = explicitRender && explicitRender.sourceLayerId === layer.id;
                         const renderMode = isExplicitTarget ? 'full' : (layer.renderMode || 'footprint');
                         const isStandaloneFootprint = !isFishnet && renderMode !== 'full';
-                        const isActiveLayer = selectedNode && selectedNode.id === layer.id;
+                        const isActiveLayer = selectedNodeRef.current && selectedNodeRef.current.id === layer.id;
                         
                         const rect = L.rectangle(bounds, { 
                             color: isSelected ? '#00ffff' : (isExtent ? '#00ffff' : layer.vectorColor), 
@@ -705,7 +728,7 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                         imgLayer.magpi_layer_id = layer.id;
                         highlightGroup.current.addLayer(imgLayer);
                         
-                        if (autoZoom && selectedNode && selectedNode.id === layer.id && lastZoomedNode.current !== layer.id) {
+                        if (autoZoom && selectedNodeRef.current && selectedNodeRef.current.id === layer.id && lastZoomedNode.current !== layer.id) {
                             lastZoomedNode.current = layer.id;
                             map.fitBounds(cached.bounds, { animate: true, padding: [100, 100] });
                         }
@@ -805,7 +828,7 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                         } else if (cached.type === 'geojson' && cached.data) {
                             const canvasRenderer = L.canvas({ padding: 0.5, pane: paneName });
 
-                            const isActiveLayer = selectedNode && selectedNode.id === layer.id;
+                            const isActiveLayer = selectedNodeRef.current && selectedNodeRef.current.id === layer.id;
                             const gjLayer = L.geoJSON(cached.data, {
                                 renderer: canvasRenderer,
                                 interactive: true, // Allow clicking any feature to select its layer
@@ -910,6 +933,7 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
 
                         gjLayer.on('click', (e) => {
                             if (interactionModeRef.current === 'nav') return;
+                            if (e.originalEvent?._magpiFeatureClicked) return; // Prevent overlapping layers from all firing
                             if (!e.layer || !e.layer.feature) return;
                             
                             if (e.originalEvent) e.originalEvent._magpiFeatureClicked = true;
@@ -921,7 +945,7 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                         gjLayer.magpi_layer_id = layer.id;
                         highlightGroup.current.addLayer(gjLayer);
                         
-                        if (autoZoom && selectedNode && selectedNode.id === layer.id && lastZoomedNode.current !== layer.id) {
+                        if (autoZoom && selectedNodeRef.current && selectedNodeRef.current.id === layer.id && lastZoomedNode.current !== layer.id) {
                             lastZoomedNode.current = layer.id;
                             try {
                                 map.fitBounds(gjLayer.getBounds(), { animate: true, padding: [100, 100], maxZoom: 18 });
@@ -938,7 +962,7 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
             map.removeLayer(osmLayerRef.current);
         }
     }
-}, [computedLayers, activeWorkspace, loadedData, selectedNode, explicitRender]);
+}, [computedLayers, activeWorkspace, loadedData, explicitRender]); // selectedNode removed — use ref to prevent full rebuild on selection changes
 
     // Lightweight effect for styling selection changes WITHOUT rebuilding the DOM
     useEffect(() => {
