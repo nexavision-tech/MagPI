@@ -657,7 +657,10 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                 }
                 const layerIndex = mapLayers.findIndex(l => l.id === layer.id);
                 // The item at the TOP of the CatalogBrowser (index 0) gets the HIGHEST Z-index.
-                map.getPane(paneName).style.zIndex = 400 + ((mapLayers.length - layerIndex) * 10);
+                const baseZIndex = 400 + ((mapLayers.length - layerIndex) * 10);
+                // Boost z-index for explicitly rendered parent vectors so they draw ABOVE the fishnet grid
+                const isLayerExplicitTarget = explicitRender && explicitRender.sourceLayerId === layer.id;
+                map.getPane(paneName).style.zIndex = isLayerExplicitTarget ? 800 : baseZIndex;
 
                 if (layer.extent) {
                     const { xmin, ymin, xmax, ymax } = layer.extent;
@@ -809,7 +812,8 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                                         setLoadedData(prev => {
                                             const oldData = prev[layer.id]?.data;
                                             let mergedFeatures = data.features || [];
-                                            if (oldData && oldData.features && fetchBbox !== null) {
+                                            // When rendering a fishnet cell (explicit target), REPLACE data — don't merge with old extent
+                                            if (!isExplicitTarget && oldData && oldData.features && fetchBbox !== null) {
                                                 const existingHashes = new Set(oldData.features.map(f => JSON.stringify(f.geometry?.coordinates || [])));
                                                 const newUnique = mergedFeatures.filter(f => !existingHashes.has(JSON.stringify(f.geometry?.coordinates || [])));
                                                 mergedFeatures = [...oldData.features, ...newUnique];
@@ -967,8 +971,12 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                 }
             });
             
-        if (!computedLayers.find(l => l.isBase)?.visible && map.hasLayer(osmLayerRef.current)) {
+        // Basemap guard: only remove OSM if user explicitly toggled the base layer off
+        const baseLayerConfig = computedLayers.find(l => l.isBase);
+        if (baseLayerConfig && !baseLayerConfig.visible && map.hasLayer(osmLayerRef.current)) {
             map.removeLayer(osmLayerRef.current);
+        } else if (baseLayerConfig && baseLayerConfig.visible && !map.hasLayer(osmLayerRef.current)) {
+            map.addLayer(osmLayerRef.current);
         }
     }
 }, [computedLayers, activeWorkspace, loadedData, explicitRender]); // selectedNode removed — use ref to prevent full rebuild on selection changes
