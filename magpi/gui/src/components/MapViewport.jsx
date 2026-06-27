@@ -697,6 +697,12 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                         
                         // Add click handler to the footprint rectangle so users can select the layer even when vectors aren't fully rendered
                         rect.on('click', (e) => {
+                            // In NAV mode, only the active (highlighted) layer is clickable for identification
+                            if (interactionModeRef.current === 'nav') {
+                                if (!selectedNodeRef.current || selectedNodeRef.current.id !== layer.id) return;
+                            }
+                            if (e.originalEvent?._magpiFeatureClicked) return;
+                            if (e.originalEvent) e.originalEvent._magpiFeatureClicked = true;
                             window.dispatchEvent(new CustomEvent('magpi-feature-selected', { 
                                 detail: { 
                                     layerName: layer.name || layer.id, 
@@ -932,7 +938,10 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                         });
 
                         gjLayer.on('click', (e) => {
-                            if (interactionModeRef.current === 'nav') return;
+                            if (interactionModeRef.current === 'nav') {
+                                // In NAV mode, only the active (highlighted) layer is clickable for passive identification
+                                if (!selectedNodeRef.current || selectedNodeRef.current.id !== layer.id) return;
+                            }
                             if (e.originalEvent?._magpiFeatureClicked) return; // Prevent overlapping layers from all firing
                             if (!e.layer || !e.layer.feature) return;
                             

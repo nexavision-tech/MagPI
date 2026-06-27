@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useReactFlow } from '@xyflow/react';
 import { Reorder } from 'framer-motion';
 import { Folder, Database, File, ChevronRight, ChevronDown, RefreshCw, Box, Map, Image as ImageIcon, Layers, Eye, EyeOff, Network, Crosshair, FolderOpen, Search, Trash2, FolderPlus, MinusCircle, Link, Copy, Check, Grid, Type } from 'lucide-react';
@@ -192,6 +192,22 @@ export default function CatalogPane({ mapLayers = [], setMapLayers, reorderLayer
   const [dragOverIndex, setDragOverIndex] = useState(null);
   const [dragSourceIndex, setDragSourceIndex] = useState(null);
   const reactFlow = useReactFlow();
+  
+  // Buffered drag-and-drop: only commit to setMapLayers on drop, not on every pixel
+  const [localLayerOrder, setLocalLayerOrder] = useState(mapLayers);
+  const isDraggingRef = useRef(false);
+  const localLayerOrderRef = useRef(mapLayers);
+  
+  useEffect(() => {
+      if (!isDraggingRef.current) {
+          setLocalLayerOrder(mapLayers);
+          localLayerOrderRef.current = mapLayers;
+      }
+  }, [mapLayers]);
+  
+  useEffect(() => {
+      localLayerOrderRef.current = localLayerOrder;
+  }, [localLayerOrder]);
 
   const handleNodeClick = (node) => {
     if (setSelectedNodeId) setSelectedNodeId(node.id);
@@ -370,13 +386,18 @@ export default function CatalogPane({ mapLayers = [], setMapLayers, reorderLayer
                  Drag spatial files here to add them to the map.
              </div>
           )}
-          <Reorder.Group axis="y" values={mapLayers} onReorder={setMapLayers} className="space-y-1">
-          {mapLayers.map((layer) => {
+          <Reorder.Group axis="y" values={localLayerOrder} onReorder={setLocalLayerOrder} className="space-y-1">
+          {localLayerOrder.map((layer) => {
               const isExpanded = expandedLayers[layer.id];
               return (
               <Reorder.Item 
                   key={layer.id} 
                   value={layer}
+                  onDragStart={() => { isDraggingRef.current = true; }}
+                  onDragEnd={() => {
+                      isDraggingRef.current = false;
+                      setMapLayers(localLayerOrderRef.current);
+                  }}
                   className={`p-2 rounded-md ${selectedNodeId === layer.id ? 'bg-cyan-900/40 border border-cyan-700/50' : 'bg-slate-800/60 border border-transparent'} hover:bg-slate-700/60 transition-colors flex flex-col cursor-move relative`}
               >
                   <div className="flex items-center justify-between mb-1">
