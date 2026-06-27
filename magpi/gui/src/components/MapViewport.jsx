@@ -660,7 +660,7 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                             weight: isSelected ? 4 : 2, 
                             fillOpacity: isFishnet ? 0.0 : 0.2, 
                             dashArray: isExtent ? '4, 4' : null,
-                            interactive: isActiveLayer && (isExtent || isStandaloneFootprint), // ONLY interactive if it's not rendering features, so it doesn't block cell clicks!
+                            interactive: isExtent || isStandaloneFootprint, // ONLY interactive if it's not rendering features, so it doesn't block cell clicks!
                             pane: paneName // Assign to guaranteed Z-index pane!
                         });
                         
@@ -808,7 +808,7 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                             const isActiveLayer = selectedNode && selectedNode.id === layer.id;
                             const gjLayer = L.geoJSON(cached.data, {
                                 renderer: canvasRenderer,
-                                interactive: isActiveLayer, // Restrict interaction to ONLY the highlighted layer in the CatalogPane
+                                interactive: true, // Allow clicking any feature to select its layer
                                 style: (feature) => {
                                     // Use nodeId instead of layerId because the dispatcher sets nodeId
                                     const isSelected = selectedFeatures && selectedFeatures.some(sf => sf?.nodeId === layer.id && JSON.stringify(sf?.feature?.properties) === JSON.stringify(feature.properties));
