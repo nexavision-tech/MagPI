@@ -179,7 +179,7 @@ export default function TopRibbon({
               </button>
 
               <button 
-                onClick={() => window.dispatchEvent(new CustomEvent('magpi-clear-selection'))} 
+                onClick={() => { if (window.confirm('Clear all selections and render locks?')) window.dispatchEvent(new CustomEvent('magpi-clear-selection')); }} 
                 className="flex flex-col items-center justify-center p-2 hover:bg-red-900/50 hover:text-red-400 rounded text-slate-400 transition-colors ml-1 border-r border-slate-700 pr-4 mr-1" 
                 title="Clear Selection"
               >

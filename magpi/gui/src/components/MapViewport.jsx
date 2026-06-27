@@ -70,6 +70,10 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
     
     useEffect(() => {
         interactionModeRef.current = interactionMode;
+        // Safety: re-add basemap if it vanished during mode toggle
+        if (mapInstance.current && osmLayerRef.current && !mapInstance.current.hasLayer(osmLayerRef.current)) {
+            mapInstance.current.addLayer(osmLayerRef.current);
+        }
     }, [interactionMode]);
 
     useEffect(() => {
