@@ -72,9 +72,11 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
         if (mapInstance.current) {
             const container = mapInstance.current.getContainer();
             container.classList.remove('magpi-nav-mode', 'magpi-select-mode');
-            container.classList.add(interactionMode === 'select' ? 'magpi-select-mode' : 'magpi-nav-mode');
+            if (!isEditingMode) {
+                container.classList.add(interactionMode === 'select' ? 'magpi-select-mode' : 'magpi-nav-mode');
+            }
         }
-    }, [interactionMode]);
+    }, [interactionMode, isEditingMode]);
 
     useEffect(() => {
         if (!mapRef.current || mapInstance.current) return; 

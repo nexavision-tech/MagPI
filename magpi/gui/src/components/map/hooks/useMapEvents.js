@@ -155,6 +155,16 @@ export const useMapEvents = ({
                     }
                 }
             }
+            
+            // Revert unsaved edits by forcing a cache reload in the renderer
+            setLoadedData(prev => {
+                const newData = { ...prev };
+                Object.keys(newData).forEach(key => {
+                    newData[key] = { ...newData[key] }; // new object reference triggers redraw
+                });
+                return newData;
+            });
+            
             console.log('[MagPI] Edits cancelled.');
         };
         window.addEventListener('magpi-cancel-edits', handleCancelEdits);
@@ -436,6 +446,7 @@ export const useMapEvents = ({
             window.removeEventListener('magpi-merge-selected', handleMerge);
             window.removeEventListener('magpi-split-polygon', handleSplit);
             window.removeEventListener('magpi-snap-vertices', handleSnap);
+            window.removeEventListener('magpi-draw-new-polygon', handleDrawNewPolygon);
         };
     }, []); // Empty deps because callbacks use refs for current data
 
