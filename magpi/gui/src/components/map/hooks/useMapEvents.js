@@ -133,7 +133,9 @@ export const useMapEvents = ({
             if (mapInstance.current) {
                 L.DomUtil.addClass(mapInstance.current.getContainer(), 'magpi-edit-mode');
                 mapInstance.current._magpiIsEditing = true;
-                console.log('[MagPI] Edit mode enabled. Click a feature to start editing.');
+                // CRITICAL: Disable map dragging so vertex handles can receive mousedown events
+                mapInstance.current.dragging.disable();
+                console.log('[MagPI] Edit mode enabled. Map dragging disabled for vertex editing.');
             }
         };
         
@@ -142,17 +144,19 @@ export const useMapEvents = ({
             if (mapInstance.current) {
                 L.DomUtil.removeClass(mapInstance.current.getContainer(), 'magpi-edit-mode');
                 mapInstance.current._magpiIsEditing = false;
+                // Re-enable map dragging
+                mapInstance.current.dragging.enable();
+                
                 if (mapInstance.current._magpiActiveEditSvgLayer) {
-                    mapInstance.current._magpiActiveEditSvgLayer.editing.disable();
+                    try { mapInstance.current._magpiActiveEditSvgLayer.editing.disable(); } catch(e) {}
                     mapInstance.current.removeLayer(mapInstance.current._magpiActiveEditSvgLayer);
                     mapInstance.current._magpiActiveEditSvgLayer = null;
-                    
-                    if (mapInstance.current._magpiActiveEditCanvasLayer) {
-                        const canvasLayer = mapInstance.current._magpiActiveEditCanvasLayer;
-                        canvasLayer._magpiIsHiddenForEdit = false;
-                        canvasLayer.setStyle({ opacity: 1, fillOpacity: 0.2, interactive: true });
-                        mapInstance.current._magpiActiveEditCanvasLayer = null;
-                    }
+                }
+                if (mapInstance.current._magpiActiveEditCanvasLayer) {
+                    const canvasLayer = mapInstance.current._magpiActiveEditCanvasLayer;
+                    canvasLayer._magpiIsHiddenForEdit = false;
+                    canvasLayer.setStyle({ opacity: 1, fillOpacity: 0.2, interactive: true });
+                    mapInstance.current._magpiActiveEditCanvasLayer = null;
                 }
             }
             

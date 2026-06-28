@@ -102,6 +102,8 @@ body {
     border-radius: 50% !important;
     box-shadow: 0 0 6px rgba(14, 165, 233, 0.6), 0 0 2px rgba(0, 0, 0, 0.8) !important;
     cursor: move !important;
+    pointer-events: auto !important;
+    z-index: 10000 !important;
     transition: transform 0.1s ease, box-shadow 0.1s ease;
 }
 .leaflet-editing-icon:hover {
@@ -119,4 +121,16 @@ body {
     height: 16px !important;
     margin-left: -8px !important;
     margin-top: -8px !important;
+    pointer-events: auto !important;
+    z-index: 10000 !important;
+    cursor: pointer !important;
+}
+
+/* Ensure SVG overlay pane (where edit vertices live) sits above canvas panes */
+.magpi-edit-mode .leaflet-overlay-pane svg {
+    z-index: 9999 !important;
+    pointer-events: auto !important;
+}
+.magpi-edit-mode .leaflet-marker-pane {
+    z-index: 10001 !important;
 }

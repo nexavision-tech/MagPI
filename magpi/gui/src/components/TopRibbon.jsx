@@ -17,12 +17,14 @@ export default function TopRibbon({
     
     window.addEventListener('magpi-edit-vector', handleEditStart);
     window.addEventListener('magpi-save-edits', handleEditEnd);
+    window.addEventListener('magpi-cancel-edits', handleEditEnd);
     window.addEventListener('magpi-clear-selection', handleEditEnd);
     window.addEventListener('magpi-reset-edits', handleEditEnd);
     
     return () => {
       window.removeEventListener('magpi-edit-vector', handleEditStart);
       window.removeEventListener('magpi-save-edits', handleEditEnd);
+      window.removeEventListener('magpi-cancel-edits', handleEditEnd);
       window.removeEventListener('magpi-clear-selection', handleEditEnd);
       window.removeEventListener('magpi-reset-edits', handleEditEnd);
     };
@@ -153,7 +155,7 @@ export default function TopRibbon({
                     </button>
 
                     <button 
-                      onClick={() => { if (window.confirm('Discard unsaved edits?')) window.dispatchEvent(new CustomEvent('magpi-cancel-edits')); }}
+                      onClick={() => window.dispatchEvent(new CustomEvent('magpi-cancel-edits'))}
                       className="flex items-center justify-center px-3 py-1 bg-rose-900/40 hover:bg-rose-800/60 text-rose-300 hover:text-rose-100 rounded text-[10px] font-bold uppercase transition-colors"
                       title="Discard Changes"
                     >
