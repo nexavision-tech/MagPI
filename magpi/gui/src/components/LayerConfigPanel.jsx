@@ -61,7 +61,7 @@ export default function LayerConfigPanel({ layer, nodes, setNodes, setMapLayers,
                             </div>
                         </div>
                     );
-                } else if (node && (node.toolId === 'load_vector' || node.toolId === 'core_fishnet' || node.toolId.startsWith('wfs_') || node.toolId === 'core_input_vector' || node.params?.file_path?.endsWith('.shp') || node.params?.file_path?.endsWith('.geojson'))) {
+                } else if (node && node.toolId !== 'core_fishnet' && (node.toolId === 'load_vector' || node.toolId.startsWith('wfs_') || node.toolId === 'core_input_vector' || node.params?.file_path?.endsWith('.shp') || node.params?.file_path?.endsWith('.geojson'))) {
                     return (
                         <div className="flex flex-col mt-2 pt-2 border-t border-slate-700/50 space-y-2">
                             <button 
@@ -111,6 +111,7 @@ export default function LayerConfigPanel({ layer, nodes, setNodes, setMapLayers,
                                     type="text"
                                     placeholder="Label Field"
                                     value={layer.labelField || ''}
+                                    onPointerDown={(e) => e.stopPropagation()}
                                     onChange={(e) => {
                                         if (setMapLayers) {
                                             setMapLayers(prev => prev.map(l => l.id === layer.id ? { ...l, labelField: e.target.value } : l));

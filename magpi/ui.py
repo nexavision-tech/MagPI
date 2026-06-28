@@ -690,6 +690,7 @@ def LaunchCanvas(port=8282):
                 limit = int(params.get('limit', ['100'])[0])
                 offset = int(params.get('offset', ['0'])[0])
                 layer_name = params.get('layer_name', [''])[0]
+                bbox_param = params.get('bbox', [''])[0]
 
                 if not file_path:
                     raise ValueError("Missing file parameter")
@@ -711,10 +712,22 @@ def LaunchCanvas(port=8282):
                 # Reading the entire shapefile can be slow for 471k rows, 
                 # but we'll read it and slice it for now. 
                 # Future optimization: use fiona to slice directly or read in chunks.
-                kwargs = {'rows': slice(offset, offset + limit)}
                 if layer_name:
                     kwargs['layer'] = layer_name
-                gdf = gpd.read_file(file_path, **kwargs)
+                if bbox_param:
+                    try:
+                        coords = [float(x) for x in bbox_param.split(',')]
+                        if len(coords) == 4:
+                            kwargs['bbox'] = tuple(coords)
+                    except ValueError:
+                        pass
+                
+                if 'bbox' in kwargs:
+                    gdf = gpd.read_file(file_path, **kwargs)
+                    gdf = gdf.iloc[offset : offset + limit]
+                else:
+                    kwargs['rows'] = slice(offset, offset + limit)
+                    gdf = gpd.read_file(file_path, **kwargs)
                 
                 # Convert geometry to WKT for display if it exists
                 if 'geometry' in gdf.columns:

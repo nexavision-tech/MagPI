@@ -128,24 +128,7 @@ export default function TopRibbon({
 
           {activeWorkspace === 'planar' && (
             <>
-              {/* Interaction Mode Toggle */}
-              <div className="flex bg-slate-900 rounded border border-slate-700 p-0.5 ml-4">
-                <button 
-                  onClick={() => setInteractionMode('nav')}
-                  className={`flex items-center px-3 py-1.5 rounded text-[10px] font-bold uppercase tracking-wider transition-colors ${interactionMode === 'nav' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
-                  title="Navigation Mode (Pan & Zoom)"
-                >
-                  <MapIcon size={14} className="mr-1.5" /> Nav
-                </button>
-                <button 
-                  onClick={() => setInteractionMode('select')}
-                  className={`flex items-center px-3 py-1.5 rounded text-[10px] font-bold uppercase tracking-wider transition-colors ${interactionMode === 'select' ? 'bg-cyan-600 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
-                  title="Selection Mode"
-                >
-                  <Crosshair size={14} className="mr-1.5" /> Select
-                </button>
-              </div>
-              
+
               {isEditingMode && (
                 <div className="flex items-center justify-center px-3 py-1.5 bg-amber-600/20 border border-amber-500 rounded text-amber-400 text-[10px] font-bold uppercase tracking-widest animate-pulse ml-4 shadow-[0_0_10px_rgba(245,158,11,0.2)]">
                   <Edit size={14} className="mr-2" /> Active Edit Session

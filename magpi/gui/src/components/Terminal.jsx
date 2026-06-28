@@ -1,7 +1,8 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { Terminal as TermIcon, ChevronDown, Loader2, Copy, Check, Table, AlertTriangle, ChevronRight, ChevronLeft } from 'lucide-react';
+import { featuresMatch } from '../utils/featureMatch';
 
-export default function Terminal({ showTerminal, setShowTerminal, logs, isProcessing, selectedNode, selectedFeatures }) {
+export default function Terminal({ showTerminal, setShowTerminal, logs, isProcessing, selectedNode, selectedFeatures, explicitRender }) {
   const bottomRef = useRef(null);
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState('logs'); // 'logs' or 'data_studio'
@@ -87,7 +88,13 @@ export default function Terminal({ showTerminal, setShowTerminal, logs, isProces
         setDataError(null);
         try {
             const layerNameParam = selectedNode.params?.layer_name ? `&layer_name=${encodeURIComponent(selectedNode.params.layer_name)}` : '';
-            const res = await fetch(`http://${window.location.hostname}:${window.MAGPI_PORT || '8282'}/api/vector_data?file=${encodeURIComponent(path)}${layerNameParam}&limit=${limit}&offset=${page * limit}`);
+            // If explicitRender is active and targeting this node, filter by its bounds
+            let bboxParam = '';
+            if (explicitRender && explicitRender.sourceLayerId === selectedNode.id && explicitRender.bbox) {
+                bboxParam = `&bbox=${encodeURIComponent(explicitRender.bbox)}`;
+            }
+            
+            const res = await fetch(`http://${window.location.hostname}:${window.MAGPI_PORT || '8282'}/api/vector_data?file=${encodeURIComponent(path)}${layerNameParam}&limit=${limit}&offset=${page * limit}${bboxParam}`);
             const data = await res.json();
             if (res.ok) {
                 setTableData(data);
@@ -102,7 +109,7 @@ export default function Terminal({ showTerminal, setShowTerminal, logs, isProces
     };
     
     fetchData();
-  }, [selectedNode, activeTab, page]);
+  }, [selectedNode, activeTab, page, explicitRender]);
 
   const handleCopy = () => {
     const text = logs.map(l => `[${l.type.toUpperCase()}] ${l.msg}`).join('\n');
@@ -287,7 +294,7 @@ export default function Terminal({ showTerminal, setShowTerminal, logs, isProces
                               <tbody>
                                   {tableData.rows.map((row, rIdx) => {
                                       // Check if this row is selected by checking selectedFeatures array
-                                      const isSelected = selectedFeatures && selectedFeatures.some(sf => sf?.nodeId === selectedNode?.id && JSON.stringify(sf?.feature?.properties) === JSON.stringify(row));
+                                      const isSelected = selectedFeatures && selectedFeatures.some(sf => sf?.nodeId === selectedNode?.id && featuresMatch(sf?.feature?.properties, row));
                                       return (
                                           <tr 
                                               key={rIdx} 
@@ -311,11 +318,26 @@ export default function Terminal({ showTerminal, setShowTerminal, logs, isProces
                                               }}
                                           >
                                               <td className="px-3 py-1.5 text-slate-600 border-r border-slate-800/50">{page * limit + rIdx + 1}</td>
-                                              {tableData.columns.map((col, cIdx) => (
-                                                  <td key={cIdx} className={`px-4 py-1.5 border-r border-slate-800/50 truncate max-w-[300px] ${isSelected ? 'text-cyan-300' : 'text-slate-300'}`} title={row[col]}>
-                                                      {row[col] === null ? <span className="text-slate-600 italic">null</span> : String(row[col])}
-                                                  </td>
-                                              ))}
+                                              {tableData.columns.map((col, cIdx) => {
+                                                  const cellText = row[col] !== null ? String(row[col]) : '';
+                                                  return (
+                                                      <td key={cIdx} className={`px-4 py-1.5 border-r border-slate-800/50 max-w-[300px] truncate relative group ${isSelected ? 'text-cyan-300' : 'text-slate-300'}`} title={cellText}>
+                                                          {row[col] !== null ? cellText : <span className="text-slate-600 italic">null</span>}
+                                                          {cellText && (
+                                                              <button 
+                                                                  onClick={(e) => {
+                                                                      e.stopPropagation();
+                                                                      navigator.clipboard.writeText(cellText);
+                                                                  }}
+                                                                  className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 bg-slate-700 hover:bg-emerald-600 text-white p-1 rounded transition-all"
+                                                                  title="Copy to clipboard"
+                                                              >
+                                                                  <Copy size={10} />
+                                                              </button>
+                                                          )}
+                                                      </td>
+                                                  );
+                                              })}
                                           </tr>
                                       );
                                   })}

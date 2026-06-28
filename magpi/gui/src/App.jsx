@@ -43,6 +43,8 @@ export default function App() {
   
   const [activeRightTab, setActiveRightTab] = useState('toolbox');
   const [selectedNodeId, setSelectedNodeId] = useState(null);
+  const [hoveredNode, setHoveredNode] = useState(null);
+  const [explicitRender, setExplicitRender] = useState(null);
   const [selectedFeatures, setSelectedFeatures] = useState([]);
 
   useEffect(() => {
@@ -50,10 +52,13 @@ export default function App() {
          setSelectedFeatures(prev => {
              if (!e.detail) return prev.length === 0 ? prev : [];
              
-             // If multi-select (shiftKey or ctrlKey)
              if (e.detail.shiftKey || e.detail.ctrlKey) {
                  const exists = prev.find(f => f?.nodeId === e.detail.nodeId && featuresMatch(f?.feature?.properties, e.detail.feature?.properties));
                  if (exists) {
+                     // If it's a marquee drag, it should strictly ADD to the selection, not toggle it off if it already exists
+                     if (e.detail.isMarquee) {
+                         return prev; // Already selected, don't remove it
+                     }
                      return prev.filter(f => !(f?.nodeId === e.detail.nodeId && featuresMatch(f?.feature?.properties, e.detail.feature?.properties)));
                  } else {
                      return [...prev, e.detail];
@@ -329,8 +334,23 @@ export default function App() {
         setActiveRightTab('inspector');
     };
     
+    const handleLog = (e) => {
+        setLogs(prev => [...prev, e.detail]);
+    };
+    
+    const handleRenderFishnet = (e) => {
+        setExplicitRender({ bbox: e.detail.bbox, sourceLayerId: e.detail.sourceLayerId || null });
+    };
+
     window.addEventListener('magpi-map-drop', handleMapDrop);
-    return () => window.removeEventListener('magpi-map-drop', handleMapDrop);
+    window.addEventListener('magpi-log', handleLog);
+    window.addEventListener('magpi-render-fishnet', handleRenderFishnet);
+    
+    return () => {
+        window.removeEventListener('magpi-map-drop', handleMapDrop);
+        window.removeEventListener('magpi-log', handleLog);
+        window.removeEventListener('magpi-render-fishnet', handleRenderFishnet);
+    };
   }, []);
 
   // --- AUTO-SAVE ENGINE (Prevents Losing Work!) ---
@@ -831,7 +851,6 @@ export default function App() {
             <button onClick={() => setActiveWorkspace('builder')} className={`px-6 py-2 text-xs font-bold uppercase tracking-widest rounded-t-lg transition-colors flex items-center border border-b-0 ml-1 ${activeWorkspace === 'builder' ? 'bg-slate-800 text-emerald-400 border-slate-600' : 'bg-transparent text-slate-500 border-transparent hover:bg-slate-800/50 hover:text-slate-300'}`}><Wrench size={14} className="mr-2" /> Model Builder</button>
             <button onClick={() => setActiveWorkspace('flow')} className={`px-6 py-2 text-xs font-bold uppercase tracking-widest rounded-t-lg transition-colors flex items-center border border-b-0 ml-1 ${activeWorkspace === 'flow' ? 'bg-slate-800 text-emerald-400 border-slate-600' : 'bg-transparent text-slate-500 border-transparent hover:bg-slate-800/50 hover:text-slate-300'}`}><Activity size={14} className="mr-2" /> Flow</button>
             <button onClick={() => setActiveWorkspace('globe')} className={`px-6 py-2 text-xs font-bold uppercase tracking-widest rounded-t-lg transition-colors flex items-center border border-b-0 ml-1 ${activeWorkspace === 'globe' ? 'bg-slate-800 text-cyan-400 border-slate-600' : 'bg-transparent text-slate-500 border-transparent hover:bg-slate-800/50 hover:text-slate-300'}`}><MapIcon size={14} className="mr-2" /> Scene View</button>
-            <button onClick={() => setActiveWorkspace('dbstudio')} className={`px-6 py-2 text-xs font-bold uppercase tracking-widest rounded-t-lg transition-colors flex items-center border border-b-0 ml-1 ${activeWorkspace === 'dbstudio' ? 'bg-slate-800 text-purple-400 border-slate-600' : 'bg-transparent text-slate-500 border-transparent hover:bg-slate-800/50 hover:text-slate-300'}`}><Database size={14} className="mr-2" /> DB Studio</button>
             <button onClick={() => setActiveWorkspace('tensor_brew')} className={`px-6 py-2 text-xs font-bold uppercase tracking-widest rounded-t-lg transition-colors flex items-center border border-b-0 ml-1 ${activeWorkspace === 'tensor_brew' ? 'bg-slate-800 text-indigo-400 border-slate-600' : 'bg-transparent text-slate-500 border-transparent hover:bg-slate-800/50 hover:text-slate-300'}`}><Layers size={14} className="mr-2" /> Tensor Brew</button>
             <button onClick={() => setActiveWorkspace('jobs')} className={`px-6 py-2 text-xs font-bold uppercase tracking-widest rounded-t-lg transition-colors flex items-center border border-b-0 ml-1 ${activeWorkspace === 'jobs' ? 'bg-slate-800 text-rose-400 border-slate-600' : 'bg-transparent text-slate-500 border-transparent hover:bg-slate-800/50 hover:text-slate-300'}`}><Activity size={14} className="mr-2" /> Job Manager</button>
         </div>
@@ -919,7 +938,7 @@ export default function App() {
       </div>
       </ReactFlowProvider>
 
-      <div className="flex-none z-30"><Terminal showTerminal={showTerminal} setShowTerminal={setShowTerminal} logs={logs} isProcessing={isProcessing} selectedNode={selectedNode} selectedFeatures={selectedFeatures} /></div>
+      <div className="flex-none z-30"><Terminal showTerminal={showTerminal} setShowTerminal={setShowTerminal} logs={logs} isProcessing={isProcessing} selectedNode={selectedNode} selectedFeatures={selectedFeatures} explicitRender={explicitRender} /></div>
       
       <div className="flex-none shrink-0 bg-slate-950 border-t border-slate-800 text-[10.5px] text-slate-400 flex items-center justify-between px-3 py-1.5 z-50 font-sans shadow-[0_-2px_5px_rgba(0,0,0,0.5)]">
         <div className="flex items-center space-x-4">

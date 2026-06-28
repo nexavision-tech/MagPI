@@ -227,7 +227,8 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                                             feature: childLayer.feature,
                                             layerName: childLayer.feature.properties?.layer_name || layerId,
                                             nodeId: layerId,
-                                            shiftKey: true // Act as multi-select
+                                            shiftKey: true, // Act as multi-select
+                                            isMarquee: true // Make it purely additive in App.js
                                         });
                                     }
                                 }
@@ -779,13 +780,16 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                         const renderMode = isExplicitTarget ? 'full' : (layer.renderMode || 'footprint');
                         const isStandaloneFootprint = !isFishnet && renderMode !== 'full';
                         const isActiveLayer = selectedNodeRef.current && selectedNodeRef.current.id === layer.id;
+                        const baseOpacity = layer.opacity !== undefined ? layer.opacity / 100 : 1;
                         
                         const rect = L.rectangle(bounds, { 
-                            color: isSelected ? '#00ffff' : (isExtent ? '#00ffff' : layer.vectorColor), 
-                            weight: isSelected ? 4 : 2, 
-                            fillOpacity: isFishnet ? 0.0 : 0.2, 
-                            dashArray: isExtent ? '4, 4' : null,
-                            interactive: isExtent || isStandaloneFootprint, // ONLY interactive if it's not rendering features, so it doesn't block cell clicks!
+                            color: isActiveLayer ? '#00ffff' : (layer.vectorColor || '#32d74b'),
+                            weight: isActiveLayer ? 2 : 1,
+                            opacity: baseOpacity,
+                            fillColor: isActiveLayer ? '#00ffff' : (layer.vectorColor || '#32d74b'),
+                            fillOpacity: isStandaloneFootprint ? ((isActiveLayer ? 0.2 : 0.1) * baseOpacity) : 0, 
+                            interactive: isStandaloneFootprint,
+                            dashArray: isStandaloneFootprint ? null : '4,4',
                             pane: paneName // Assign to guaranteed Z-index pane!
                         });
                         
@@ -961,32 +965,36 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                                             if (xmin < 180) bboxStr = `${xmin},${ymin},${xmax},${ymax}`;
                                         }
                                         const isRenderedCell = renderedCells.has(bboxStr);
+                                        const baseOpacity = layer.opacity !== undefined ? layer.opacity / 100 : 0.8;
                                         return {
                                             weight: isRenderedCell ? 2 : (isSelected ? 4 : 2),
-                                            color: isRenderedCell ? '#f59e0b' : (isSelected ? '#00ffff' : '#ff8c00'),
-                                            opacity: isRenderedCell ? 0.3 : 0.8,
-                                            fillColor: isRenderedCell ? 'transparent' : (isSelected ? '#00ffff' : '#ff8c00'),
-                                            fillOpacity: isRenderedCell ? 0.0 : (isSelected ? 0.2 : 0.05),
+                                            color: isRenderedCell ? '#f59e0b' : (isSelected ? '#00ffff' : (layer.vectorColor || '#ff8c00')),
+                                            opacity: isRenderedCell ? 0.3 : baseOpacity,
+                                            fillColor: isRenderedCell ? 'transparent' : (isSelected ? '#00ffff' : (layer.vectorColor || '#ff8c00')),
+                                            fillOpacity: isRenderedCell ? 0.0 : (isSelected ? 0.3 * baseOpacity : 0.0),
                                             dashArray: isRenderedCell ? '4,4' : null,
                                             interactive: !isRenderedCell
                                         };
                                     }
+                                const baseOpacity = layer.opacity !== undefined ? layer.opacity / 100 : 1;
                                 return {
-                                    weight: 1,
-                                    color: layer.vectorColor || '#3388ff',
-                                    opacity: 1,
-                                    fillColor: layer.vectorColor || '#3388ff',
-                                    fillOpacity: 0.5
+                                    weight: isSelected ? 3 : 1,
+                                    color: isSelected ? '#00ffff' : (layer.vectorColor || '#3388ff'),
+                                    opacity: baseOpacity,
+                                    fillColor: isSelected ? '#00ffff' : (layer.vectorColor || '#3388ff'),
+                                    fillOpacity: isSelected ? 0.8 * baseOpacity : 0.5 * baseOpacity
                                 };
                             },
                             pointToLayer: (feature, latlng) => {
+                                const baseOpacity = layer.opacity !== undefined ? layer.opacity / 100 : 1;
+                                const isSelected = selectedFeatures && selectedFeatures.some(sf => sf?.nodeId === layer.id && featuresMatch(sf?.feature?.properties, feature.properties));
                                 return L.circleMarker(latlng, {
-                                    radius: 4,
-                                    weight: 1,
-                                    color: layer.vectorColor || '#3388ff',
-                                    opacity: 1,
-                                    fillColor: layer.vectorColor || '#3388ff',
-                                    fillOpacity: 0.5,
+                                    radius: isSelected ? 6 : 4,
+                                    weight: isSelected ? 2 : 1,
+                                    color: isSelected ? '#00ffff' : (layer.vectorColor || '#3388ff'),
+                                    opacity: baseOpacity,
+                                    fillColor: isSelected ? '#00ffff' : (layer.vectorColor || '#3388ff'),
+                                    fillOpacity: isSelected ? 0.8 * baseOpacity : 0.5 * baseOpacity,
                                     pane: paneName // Ensure points obey Z-Index!
                                 });
                             },
@@ -1060,8 +1068,9 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
 
                         gjLayer.on('click', (e) => {
                             if (interactionModeRef.current === 'nav') {
-                                // In NAV mode, only the active (highlighted) layer is clickable for passive identification
-                                if (!selectedNodeRef.current || selectedNodeRef.current.id !== layer.id) return;
+                                // Default interaction mode is nav, which is now allowed to act as an identify mode 
+                                // to make the user flow more intuitive. We just don't do marquee selection.
+                                // We don't restrict clicks to active nodes anymore to allow fluid data exploration.
                             }
                             if (e.originalEvent?._magpiFeatureClicked) return; // Prevent overlapping layers from all firing
                             if (!e.layer || !e.layer.feature) return;
@@ -1165,10 +1174,12 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                             }
                         }
                     } else {
+                        const baseOpacity = cLayer.opacity !== undefined ? cLayer.opacity / 100 : 1;
                         childLayer.setStyle({
                             color: isSelected ? (isEditingMode ? '#f59e0b' : '#00ffff') : cLayer.vectorColor,
                             weight: isSelected ? (isEditingMode ? 4 : 3) : 1.5,
-                            fillOpacity: isSelected ? 0.6 : 0.2
+                            fillOpacity: (isSelected ? 0.6 : 0.2) * baseOpacity,
+                            opacity: baseOpacity
                         });
                     }
                     
