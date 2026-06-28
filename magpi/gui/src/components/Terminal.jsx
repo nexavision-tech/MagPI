@@ -12,7 +12,15 @@ export default function Terminal({ showTerminal, setShowTerminal, logs, isProces
   const [isLoadingData, setIsLoadingData] = useState(false);
   const [dataError, setDataError] = useState(null);
   const [page, setPage] = useState(0);
+  const [dataVersion, setDataVersion] = useState(0); // Increments on magpi-data-changed to trigger re-fetch
   const limit = 100;
+
+  // Listen for data changes (e.g., after vector edits are saved)
+  useEffect(() => {
+    const handleDataChanged = () => setDataVersion(v => v + 1);
+    window.addEventListener('magpi-data-changed', handleDataChanged);
+    return () => window.removeEventListener('magpi-data-changed', handleDataChanged);
+  }, []);
   
   const [editingCell, setEditingCell] = useState(null); // { rIdx, col }
   const [pendingEdits, setPendingEdits] = useState({}); // { rIdx: { col: val } }
@@ -115,7 +123,7 @@ export default function Terminal({ showTerminal, setShowTerminal, logs, isProces
     };
     
     fetchData();
-  }, [selectedNode, activeTab, page, explicitRender]);
+  }, [selectedNode, activeTab, page, explicitRender, dataVersion]);
 
   const handleCopy = () => {
     const text = logs.map(l => `[${l.type.toUpperCase()}] ${l.msg}`).join('\n');

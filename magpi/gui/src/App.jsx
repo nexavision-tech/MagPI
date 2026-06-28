@@ -25,9 +25,9 @@ export default function App() {
   const [processingScope, setProcessingScope] = useState("Local Python");
   
   const [globalEnv, setGlobalEnv] = useState({
-    workspace_dir: "/home/gda/MagPI/magpi_workspace",
-    scratch_dir: "/home/gda/MagPI/magpi_workspace/magpi_scratch",
-    output_dir: "/home/gda/MagPI/magpi_workspace/magpi_output",
+    workspace_dir: "./magpi_workspace",
+    scratch_dir: "./magpi_workspace/magpi_scratch",
+    output_dir: "./magpi_workspace/magpi_output",
     horizontal_datum: "EPSG:4326",
     vertical_datum: "EPSG:3855",
     external_dirs: []
@@ -390,6 +390,12 @@ export default function App() {
                     onConfirm: () => {
                         setNodes(parsedNodes);
                         setConnections(JSON.parse(savedCxs));
+                        const savedCrs = localStorage.getItem('magpi_autosave_crs');
+                        if (savedCrs) setCrs(savedCrs);
+                        const savedScope = localStorage.getItem('magpi_autosave_scope');
+                        if (savedScope) setProcessingScope(savedScope);
+                        const savedStatuses = localStorage.getItem('magpi_autosave_statuses');
+                        if (savedStatuses) { try { setNodeStatuses(JSON.parse(savedStatuses)); } catch(e) {} }
                         setLogs([{ type: 'success', msg: 'Previous matrix state restored.' }]);
                         setShowTerminal(true);
                         setConfirmDialog(prev => ({ ...prev, isOpen: false }));
@@ -397,6 +403,7 @@ export default function App() {
                     onCancel: () => {
                         localStorage.removeItem('magpi_autosave_nodes');
                         localStorage.removeItem('magpi_autosave_cxs');
+                        localStorage.removeItem('magpi_autosave_crs');
                         setConfirmDialog(prev => ({ ...prev, isOpen: false }));
                     }
                 });
@@ -410,7 +417,17 @@ export default function App() {
     localStorage.setItem('magpi_autosave_nodes', JSON.stringify(nodes));
     localStorage.setItem('magpi_autosave_cxs', JSON.stringify(connections));
     localStorage.setItem('magpi_global_env', JSON.stringify(globalEnv));
-  }, [nodes, connections, globalEnv]);
+    localStorage.setItem('magpi_autosave_crs', crs);
+    localStorage.setItem('magpi_autosave_scope', processingScope);
+    localStorage.setItem('magpi_autosave_statuses', JSON.stringify(nodeStatuses));
+  }, [nodes, connections, globalEnv, crs, processingScope, nodeStatuses]);
+
+  // Sync top-level CRS state with globalEnv.horizontal_datum to prevent divergence
+  useEffect(() => {
+    if (globalEnv.horizontal_datum && globalEnv.horizontal_datum !== crs) {
+      setCrs(globalEnv.horizontal_datum);
+    }
+  }, [globalEnv.horizontal_datum]);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -614,7 +631,7 @@ export default function App() {
                 onConfirm: (newName) => {
                     setPromptDialog(prev => ({ ...prev, isOpen: false }));
                     setNodes([]); setConnections([]); setSelectedNodeId(null); setNodeStatuses({});
-                    localStorage.removeItem('magpi_autosave_nodes'); localStorage.removeItem('magpi_autosave_cxs');
+                    localStorage.removeItem('magpi_autosave_nodes'); localStorage.removeItem('magpi_autosave_cxs'); localStorage.removeItem('magpi_autosave_crs'); localStorage.removeItem('magpi_autosave_scope'); localStorage.removeItem('magpi_autosave_statuses');
                     setActiveRightTab('toolbox'); setLogs([{ type: 'info', msg: `Started a new Tabula Rasa session: ${newName}` }]);
                     setShowTerminal(true);
                     setProjectDir(null);

@@ -14,6 +14,19 @@ export const useMapEvents = ({
     nodesRef,
     activateDrawTool
 }) => {
+    // Dirty state warning: warn user when leaving page with unsaved edits
+    useEffect(() => {
+        const handleBeforeUnload = (e) => {
+            if (mapInstance.current && mapInstance.current._magpiIsEditing) {
+                e.preventDefault();
+                e.returnValue = 'You have unsaved vector edits. Are you sure you want to leave?';
+                return e.returnValue;
+            }
+        };
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    }, [mapInstance]);
+
     useEffect(() => {
         const handleFeatureSelect = (e) => {
             if (!e.detail) {
@@ -307,6 +320,20 @@ export const useMapEvents = ({
                                 L.DomUtil.removeClass(mapInstance.current.getContainer(), 'magpi-edit-mode');
                                 mapInstance.current._magpiIsEditing = false;
                                 mapInstance.current.dragging.enable();
+                            }
+                            // Notify Data Studio / Identify tab that data changed
+                            window.dispatchEvent(new CustomEvent('magpi-data-changed', { 
+                                detail: { nodeId, filePath, featureCount: cached.data.features.length }
+                            }));
+                            // Re-select current feature to refresh attribute display
+                            if (activeFeatureLayer.current) {
+                                window.dispatchEvent(new CustomEvent('magpi-feature-selected', {
+                                    detail: {
+                                        feature: activeFeatureLayer.current.feature,
+                                        nodeId: activeFeatureLayer.current.nodeId,
+                                        layerName: activeFeatureLayer.current.nodeId
+                                    }
+                                }));
                             }
                         } else {
                             console.error('[MagPI] Error saving edits:', data.error);

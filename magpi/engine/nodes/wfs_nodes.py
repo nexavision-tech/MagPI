@@ -169,3 +169,72 @@ class PullArcGISRestNode(Node):
         
         logger.info(f"Pulling from ArcGIS REST MapServer/ImageServer: {url}")
         self.output = PullArcGISRest(url, extent, out_path, width=width, height=height, format=fmt)
+
+@register_node('wfs_elevation')
+class PullUSGSDEMNode(Node):
+    def execute(self):
+        extent = self.inputs.get("extent") or self.inputs.get("in")
+        if not extent:
+            raise ValueError("Spatial Extent is required for USGS DEM pull.")
+        
+        import os
+        from magpi.wfs import PullUSGSElevation
+        out_filename = f"usgs_dem_{self.id[-4:]}.tif"
+        out_path = os.path.join(os.environ.get('MAGPI_OUTPUT', '.'), out_filename)
+        
+        logger.info(f"Pulling USGS DEM elevation data...")
+        self.output = PullUSGSElevation(extent, out_path)
+
+@register_node('wfs_nlcd')
+class PullNLCDNode(Node):
+    def execute(self):
+        extent = self.inputs.get("extent") or self.inputs.get("in")
+        if not extent:
+            raise ValueError("Spatial Extent is required for NLCD pull.")
+        
+        p = self.params
+        year = p.get('year', '2019')
+        product = p.get('product', 'Land_Cover')
+        
+        import os
+        from magpi.wfs import PullNLCD
+        out_filename = f"nlcd_{year}_{self.id[-4:]}.tif"
+        out_path = os.path.join(os.environ.get('MAGPI_OUTPUT', '.'), out_filename)
+        
+        logger.info(f"Pulling NLCD {product} for year {year}...")
+        self.output = PullNLCD(extent, out_path, year=year, product=product)
+
+@register_node('wfs_sciencebase')
+class PullScienceBaseNode(Node):
+    def execute(self):
+        p = self.params
+        item_id = p.get('item_id')
+        if not item_id:
+            raise ValueError("ScienceBase Item ID is required.")
+        
+        import os
+        from magpi.wfs import PullScienceBase
+        out_folder = p.get('out_folder', '')
+        out_path = os.path.join(os.environ.get('MAGPI_OUTPUT', '.'), out_folder)
+        
+        logger.info(f"Pulling ScienceBase item: {item_id}...")
+        self.output = PullScienceBase(item_id, out_path)
+
+@register_node('wfs_census')
+class GetCensusTractsNode(Node):
+    def execute(self):
+        p = self.params
+        state_fips = p.get('state_fips')
+        county_fips = p.get('county_fips', '')
+        year = p.get('year', '2020')
+        
+        if not state_fips:
+            raise ValueError("State FIPS code is required for Census Tracts.")
+        
+        import os
+        from magpi.wfs import GetCensusTracts
+        out_filename = f"census_tracts_{state_fips}_{self.id[-4:]}.shp"
+        out_path = os.path.join(os.environ.get('MAGPI_OUTPUT', '.'), out_filename)
+        
+        logger.info(f"Fetching Census Tracts for state {state_fips}, county {county_fips}, year {year}...")
+        self.output = GetCensusTracts(state_fips, county_fips, out_path, year=year)

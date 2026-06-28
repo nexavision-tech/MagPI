@@ -72,15 +72,15 @@ class BaseMathNode(Node):
 class MathAddNode(BaseMathNode):
     def get_operator(self): return "+"
 
-@register_node('logic_math_sub')
+@register_node('logic_math_subtract')
 class MathSubNode(BaseMathNode):
     def get_operator(self): return "-"
 
-@register_node('logic_math_mul')
+@register_node('logic_math_multiply')
 class MathMulNode(BaseMathNode):
     def get_operator(self): return "*"
 
-@register_node('logic_math_div')
+@register_node('logic_math_divide')
 class MathDivNode(BaseMathNode):
     def get_operator(self): return "/"
 

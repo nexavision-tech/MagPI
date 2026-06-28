@@ -12,3 +12,4 @@ from .humangeo_nodes import *
 from .photogrammetry_nodes import *
 from .plenum_nodes import *
 from .icgem_nodes import *
+from .conversion_nodes import *

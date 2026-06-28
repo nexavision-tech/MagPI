@@ -203,3 +203,19 @@ class PanSharpenNode(Node):
         except Exception as e:
             logger.error(f"Pan-sharpening failed: {e}")
             raise
+
+@register_node('ia_export_dl')
+class ExportDLTensorsNode(Node):
+    def execute(self):
+        raster = self.inputs.get('raster') or self.inputs.get('in')
+        label = self.inputs.get('label')
+        p = self.params
+        out_folder = p.get('out_folder', 'dl_tensors')
+        tile_size = p.get('tile_size', 256)
+        stride = p.get('stride', 128)
+        shuffle = p.get('shuffle', True)
+
+        import os
+        out_path = os.path.join(os.environ.get('MAGPI_OUTPUT', '.'), out_folder)
+        from magpi.ia import ExportTrainingDataForDeepLearning
+        self.output = ExportTrainingDataForDeepLearning(raster, label, out_path, tile_size=tile_size, stride=stride, shuffle=shuffle)
