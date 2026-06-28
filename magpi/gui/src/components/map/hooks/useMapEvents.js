@@ -46,6 +46,14 @@ export const useMapEvents = ({
                     feature: e.detail.feature,
                     layer: foundLayer
                 };
+                
+                if (mapInstance.current && mapInstance.current._magpiIsEditing) {
+                    if (mapInstance.current._magpiActiveEditLayer) {
+                        mapInstance.current._magpiActiveEditLayer.editing.disable();
+                    }
+                    foundLayer.editing.enable();
+                    mapInstance.current._magpiActiveEditLayer = foundLayer;
+                }
             }
         };
 
@@ -112,7 +120,10 @@ export const useMapEvents = ({
             });
             setRenderedCells(new Set());
             setIsEditingMode(false);
-            if (mapInstance.current) L.DomUtil.removeClass(mapInstance.current.getContainer(), 'magpi-edit-mode');
+            if (mapInstance.current) {
+                L.DomUtil.removeClass(mapInstance.current.getContainer(), 'magpi-edit-mode');
+                mapInstance.current.dragging.enable();
+            }
             window.dispatchEvent(new CustomEvent('magpi-feature-selected', { detail: null }));
         };
         window.addEventListener('magpi-clear-selection', handleClearSelection);
@@ -121,23 +132,28 @@ export const useMapEvents = ({
             setIsEditingMode(true);
             if (mapInstance.current) {
                 L.DomUtil.addClass(mapInstance.current.getContainer(), 'magpi-edit-mode');
-                
-                // Enable editing for all features in highlightGroup
-                if (highlightGroup.current) {
-                    highlightGroup.current.eachLayer(layerObj => {
-                        if (layerObj instanceof L.GeoJSON) {
-                            layerObj.eachLayer(childLayer => {
-                                if (childLayer.editing) {
-                                    childLayer.editing.enable();
-                                }
-                            });
-                        }
-                    });
+                mapInstance.current._magpiIsEditing = true;
+                console.log('[MagPI] Edit mode enabled. Click a feature to start editing.');
+            }
+        };
+        
+        const handleCancelEdits = () => {
+            setIsEditingMode(false);
+            if (mapInstance.current) {
+                L.DomUtil.removeClass(mapInstance.current.getContainer(), 'magpi-edit-mode');
+                mapInstance.current._magpiIsEditing = false;
+                if (mapInstance.current._magpiActiveEditLayer) {
+                    mapInstance.current._magpiActiveEditLayer.editing.disable();
+                    mapInstance.current._magpiActiveEditLayer = null;
                 }
             }
-            console.log('[MagPI] Edit mode enabled for all features.');
+            console.log('[MagPI] Edits cancelled.');
         };
+        window.addEventListener('magpi-cancel-edits', handleCancelEdits);
         window.addEventListener('magpi-edit-vector', handleEditVector);
+
+        const handleDrawNewPolygon = () => activateDrawTool('polygon');
+        window.addEventListener('magpi-draw-new-polygon', handleDrawNewPolygon);
         
         const handleSaveEdits = (e) => {
             const { nodeId } = e.detail;
@@ -148,22 +164,33 @@ export const useMapEvents = ({
                     highlightGroup.current.eachLayer(layerObj => {
                         if (layerObj instanceof L.GeoJSON) {
                             layerObj.eachLayer(childLayer => {
-                                if (childLayer.editing && childLayer.editing.enabled()) {
-                                    childLayer.editing.disable();
-                                    
-                                    // Update cached data if modified
-                                    const editedGeoJSON = childLayer.toGeoJSON();
-                                    const f = cached.data.features.find(feat => 
-                                        JSON.stringify(feat.properties) === JSON.stringify(editedGeoJSON.properties)
-                                    );
-                                    if (f) {
-                                        f.geometry = editedGeoJSON.geometry;
+                                    if (childLayer.editing && childLayer.editing.enabled()) {
+                                        childLayer.editing.disable();
+                                        
+                                        // Update cached data if modified
+                                        const editedGeoJSON = childLayer.toGeoJSON();
+                                        
+                                        if (editedGeoJSON.properties && editedGeoJSON.properties.isNewFeature) {
+                                            delete editedGeoJSON.properties.isNewFeature;
+                                            cached.data.features.push(editedGeoJSON);
+                                        } else {
+                                            const f = cached.data.features.find(feat => 
+                                                JSON.stringify(feat.properties) === JSON.stringify(editedGeoJSON.properties)
+                                            );
+                                            if (f) {
+                                                f.geometry = editedGeoJSON.geometry;
+                                            }
+                                        }
                                     }
-                                }
-                            });
-                        }
-                    });
-                }
+                                });
+                            }
+                        });
+                    }
+
+                    if (mapInstance.current) {
+                        mapInstance.current._magpiIsEditing = false;
+                        mapInstance.current._magpiActiveEditLayer = null;
+                    }
 
                 const node = nodesRef.current.find(n => n.id === nodeId);
                 if (node && node.params && node.params.file_path) {
@@ -182,7 +209,10 @@ export const useMapEvents = ({
                         if (data.status === 'success') {
                             console.log('[MagPI] Edits saved successfully.');
                             setIsEditingMode(false);
-                            if (mapInstance.current) L.DomUtil.removeClass(mapInstance.current.getContainer(), 'magpi-edit-mode');
+                            if (mapInstance.current) {
+                                L.DomUtil.removeClass(mapInstance.current.getContainer(), 'magpi-edit-mode');
+                                mapInstance.current.dragging.enable();
+                            }
                         } else {
                             console.error('[MagPI] Error saving edits:', data.error);
                         }
@@ -372,6 +402,7 @@ export const useMapEvents = ({
             window.removeEventListener('magpi-render-fishnet', handleRenderFishnet);
             window.removeEventListener('magpi-clear-selection', handleClearSelection);
             window.removeEventListener('magpi-edit-vector', handleEditVector);
+            window.removeEventListener('magpi-cancel-edits', handleCancelEdits);
             window.removeEventListener('magpi-save-edits', handleSaveEdits);
             window.removeEventListener('magpi-zoom-feature', handleZoomFeature);
             window.removeEventListener('magpi-reset-edits', handleResetEdits);

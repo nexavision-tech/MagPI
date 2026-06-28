@@ -129,65 +129,95 @@ export default function TopRibbon({
           {activeWorkspace === 'planar' && (
             <>
 
-              {isEditingMode && (
-                <div className="flex items-center justify-center px-3 py-1.5 bg-amber-600/20 border border-amber-500 rounded text-amber-400 text-[10px] font-bold uppercase tracking-widest animate-pulse ml-4 shadow-[0_0_10px_rgba(245,158,11,0.2)]">
-                  <Edit size={14} className="mr-2" /> Active Edit Session
-                </div>
+              {isEditingMode ? (
+                <>
+                  <div className="flex items-center space-x-2 bg-slate-900 px-3 py-1.5 rounded-lg border border-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.15)] ml-4">
+                    <div className="text-emerald-400 text-[10px] font-bold uppercase tracking-widest animate-pulse mr-2 border-r border-slate-700 pr-3">
+                      <Edit size={14} className="inline mr-1 mb-0.5" /> Editing
+                    </div>
+                    
+                    <button 
+                      onClick={() => window.dispatchEvent(new CustomEvent('magpi-draw-new-polygon'))}
+                      className="flex items-center justify-center px-3 py-1 bg-sky-900/40 hover:bg-sky-800/60 text-sky-300 hover:text-sky-100 rounded text-[10px] font-bold uppercase transition-colors mr-2 border-r border-slate-700 pr-3"
+                      title="Draw New Polygon"
+                    >
+                      <Crosshair size={12} className="mr-1" /> New Poly
+                    </button>
+
+                    <button 
+                      onClick={() => window.dispatchEvent(new CustomEvent('magpi-save-edits', { detail: { nodeId: explicitRender?.sourceLayerId } }))}
+                      className="flex items-center justify-center px-3 py-1 bg-emerald-600/30 hover:bg-emerald-500/50 text-emerald-300 hover:text-emerald-100 rounded text-[10px] font-bold uppercase transition-colors"
+                      title="Save Changes"
+                    >
+                      <Save size={12} className="mr-1" /> Save
+                    </button>
+
+                    <button 
+                      onClick={() => { if (window.confirm('Discard unsaved edits?')) window.dispatchEvent(new CustomEvent('magpi-cancel-edits')); }}
+                      className="flex items-center justify-center px-3 py-1 bg-rose-900/40 hover:bg-rose-800/60 text-rose-300 hover:text-rose-100 rounded text-[10px] font-bold uppercase transition-colors"
+                      title="Discard Changes"
+                    >
+                      <XCircle size={12} className="mr-1" /> Cancel
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <button 
+                    onClick={() => window.dispatchEvent(new CustomEvent('magpi-draw-aoi'))} 
+                    className="flex flex-col items-center justify-center p-2 hover:bg-cyan-900/50 hover:text-cyan-400 rounded text-slate-400 transition-colors ml-4 border-l border-slate-700 pl-4" 
+                    title="Draw AOI on Map"
+                  >
+                    <Edit size={18} />
+                    <span className="text-[10px] mt-1 font-medium">Draw AOI</span>
+                  </button>
+                  <button 
+                    onClick={() => window.dispatchEvent(new CustomEvent('magpi-draw-marquee'))} 
+                    className="flex flex-col items-center justify-center p-2 hover:bg-purple-900/50 hover:text-purple-400 rounded text-slate-400 transition-colors ml-1" 
+                    title="Marquee Select"
+                  >
+                    <Layers size={18} />
+                    <span className="text-[10px] mt-1 font-medium">Marquee</span>
+                  </button>
+
+                  <button 
+                    onClick={() => window.dispatchEvent(new CustomEvent('magpi-draw-lasso'))} 
+                    className="flex flex-col items-center justify-center p-2 hover:bg-pink-900/50 hover:text-pink-400 rounded text-slate-400 transition-colors ml-1" 
+                    title="Lasso Select"
+                  >
+                    <Crosshair size={18} />
+                    <span className="text-[10px] mt-1 font-medium">Lasso</span>
+                  </button>
+
+                  <button 
+                    onClick={() => { if (window.confirm('Clear all selections and render locks?')) window.dispatchEvent(new CustomEvent('magpi-clear-selection')); }} 
+                    className="flex flex-col items-center justify-center p-2 hover:bg-red-900/50 hover:text-red-400 rounded text-slate-400 transition-colors ml-1 border-r border-slate-700 pr-4 mr-1" 
+                    title="Clear Selection"
+                  >
+                    <XCircle size={18} />
+                    <span className="text-[10px] mt-1 font-medium">Clear</span>
+                  </button>
+
+                  <button 
+                    onClick={() => window.dispatchEvent(new CustomEvent('magpi-edit-vector'))}
+                    className="flex flex-col items-center justify-center p-2 hover:bg-emerald-900/50 hover:text-emerald-400 rounded text-slate-400 transition-colors ml-1" 
+                    title="Edit Polygons"
+                  >
+                    <Network size={18} />
+                    <span className="text-[10px] mt-1 font-medium">Edit Vector</span>
+                  </button>
+                  
+                  <button className="flex flex-col items-center justify-center p-2 hover:bg-slate-700 rounded text-slate-500 transition-colors ml-1" title="Build Training Dataset (Coming Soon)">
+                    <Crosshair size={18} />
+                    <span className="text-[10px] mt-1 font-medium">Training</span>
+                  </button>
+                  
+                  <button className="flex flex-col items-center justify-center p-2 hover:bg-slate-700 rounded text-slate-500 transition-colors ml-1" title="QA/QC Workflows (Coming Soon)">
+                    <ClipboardCheck size={18} />
+                    <span className="text-[10px] mt-1 font-medium">QA/QC</span>
+                  </button>
+                </>
               )}
-
-              <button 
-                onClick={() => window.dispatchEvent(new CustomEvent('magpi-draw-aoi'))} 
-                className="flex flex-col items-center justify-center p-2 hover:bg-cyan-900/50 hover:text-cyan-400 rounded text-slate-400 transition-colors ml-4 border-l border-slate-700 pl-4" 
-                title="Draw AOI on Map"
-              >
-                <Edit size={18} />
-                <span className="text-[10px] mt-1 font-medium">Draw AOI</span>
-              </button>
-              <button 
-                onClick={() => window.dispatchEvent(new CustomEvent('magpi-draw-marquee'))} 
-                className="flex flex-col items-center justify-center p-2 hover:bg-purple-900/50 hover:text-purple-400 rounded text-slate-400 transition-colors ml-1" 
-                title="Marquee Select"
-              >
-                <Layers size={18} />
-                <span className="text-[10px] mt-1 font-medium">Marquee</span>
-              </button>
-
-              <button 
-                onClick={() => window.dispatchEvent(new CustomEvent('magpi-draw-lasso'))} 
-                className="flex flex-col items-center justify-center p-2 hover:bg-pink-900/50 hover:text-pink-400 rounded text-slate-400 transition-colors ml-1" 
-                title="Lasso Select"
-              >
-                <Crosshair size={18} />
-                <span className="text-[10px] mt-1 font-medium">Lasso</span>
-              </button>
-
-              <button 
-                onClick={() => { if (window.confirm('Clear all selections and render locks?')) window.dispatchEvent(new CustomEvent('magpi-clear-selection')); }} 
-                className="flex flex-col items-center justify-center p-2 hover:bg-red-900/50 hover:text-red-400 rounded text-slate-400 transition-colors ml-1 border-r border-slate-700 pr-4 mr-1" 
-                title="Clear Selection"
-              >
-                <XCircle size={18} />
-                <span className="text-[10px] mt-1 font-medium">Clear</span>
-              </button>
-
-              <button 
-                onClick={() => window.dispatchEvent(new CustomEvent('magpi-edit-vector'))}
-                className="flex flex-col items-center justify-center p-2 hover:bg-emerald-900/50 hover:text-emerald-400 rounded text-slate-400 transition-colors ml-1" 
-                title="Edit Polygons"
-              >
-                <Network size={18} />
-                <span className="text-[10px] mt-1 font-medium">Edit Vector</span>
-              </button>
-              
-              <button className="flex flex-col items-center justify-center p-2 hover:bg-slate-700 rounded text-slate-500 transition-colors ml-1" title="Build Training Dataset (Coming Soon)">
-                <Crosshair size={18} />
-                <span className="text-[10px] mt-1 font-medium">Training</span>
-              </button>
-              
-              <button className="flex flex-col items-center justify-center p-2 hover:bg-slate-700 rounded text-slate-500 transition-colors ml-1" title="QA/QC Workflows (Coming Soon)">
-                <ClipboardCheck size={18} />
-                <span className="text-[10px] mt-1 font-medium">QA/QC</span>
-              </button>
             </>
           )}
         </div>

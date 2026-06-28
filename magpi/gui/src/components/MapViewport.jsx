@@ -209,6 +209,22 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                 selectedFeaturesArr.forEach((sf, idx) => {
                     window.dispatchEvent(new CustomEvent('magpi-feature-selected', { detail: { ...sf, isBulk: idx > 0 } }));
                 });
+            } else if (drawMode.current === 'polygon') {
+                if (highlightGroup.current) {
+                    let targetLayer = null;
+                    highlightGroup.current.eachLayer(layerObj => {
+                        if (layerObj instanceof L.GeoJSON) targetLayer = layerObj;
+                    });
+                    
+                    if (targetLayer) {
+                        const newFeature = e.layer.toGeoJSON();
+                        newFeature.properties = { isNewFeature: true };
+                        e.layer.feature = newFeature;
+                        targetLayer.addLayer(e.layer);
+                        if (e.layer.editing) e.layer.editing.enable();
+                        console.log('[MagPI] New polygon added to vector layer.');
+                    }
+                }
             } else {
                 if (onAoiDrawn) {
                     onAoiDrawn({
@@ -269,6 +285,8 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                 new L.Draw.Polygon(mapInstance.current, { shapeOptions: { color: '#ec4899', weight: 2, fillOpacity: 0.1, dashArray: '5, 5' } }).enable();
             } else if (mode === 'marquee') {
                 new L.Draw.Rectangle(mapInstance.current, { shapeOptions: { color: '#a855f7', weight: 2, fillOpacity: 0.1, dashArray: '5, 5' } }).enable();
+            } else if (mode === 'polygon') {
+                new L.Draw.Polygon(mapInstance.current, { shapeOptions: { color: '#38bdf8', weight: 2, fillOpacity: 0.4 } }).enable();
             } else {
                 new L.Draw.Rectangle(mapInstance.current, { shapeOptions: { color: '#eab308', weight: 2, fillOpacity: 0.15 } }).enable();
             }
