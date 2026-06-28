@@ -687,6 +687,24 @@ def LaunchCanvas(port=8282):
                     # No existing file — just save the edited features
                     merged_gdf = edited_gdf
                 
+                # Clean up internal tracking fields and reassign sequential FIDs
+                for col in ['isNewFeature', '_magpi_new_id']:
+                    if col in merged_gdf.columns:
+                        merged_gdf = merged_gdf.drop(columns=[col])
+                
+                # Reassign sequential FID if a FID-like column exists
+                fid_col = None
+                for candidate in ['FID', 'fid', 'OBJECTID', 'objectid', 'Id', 'id']:
+                    if candidate in merged_gdf.columns:
+                        fid_col = candidate
+                        break
+                if fid_col:
+                    merged_gdf[fid_col] = range(len(merged_gdf))
+                    logger.info(f"Reassigned sequential {fid_col}: 0..{len(merged_gdf)-1}")
+                
+                # Reset index for clean output
+                merged_gdf = merged_gdf.reset_index(drop=True)
+                
                 # Save merged result
                 if file_path.endswith('.geojson'):
                     merged_gdf.to_file(file_path, driver='GeoJSON')

@@ -224,14 +224,39 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                 
                 if (targetNodeId && loadedDataRef.current[targetNodeId]) {
                     const newFeature = e.layer.toGeoJSON();
+                    const cached = loadedDataRef.current[targetNodeId];
+                    
+                    // Build properties from existing schema with default values + next FID
+                    const schemaProps = {};
+                    let maxFid = -1;
+                    if (cached.data && cached.data.features && cached.data.features.length > 0) {
+                        // Get all column names from the first existing feature
+                        const existingProps = cached.data.features[0].properties || {};
+                        for (const key of Object.keys(existingProps)) {
+                            if (key === 'isNewFeature' || key === '_magpi_new_id') continue;
+                            schemaProps[key] = null; // Default to null for all columns
+                        }
+                        // Find the max FID/FID-like field across all features
+                        const fidKey = Object.keys(existingProps).find(k => 
+                            k.toLowerCase() === 'fid' || k.toLowerCase() === 'objectid' || k.toLowerCase() === 'id'
+                        );
+                        if (fidKey) {
+                            cached.data.features.forEach(f => {
+                                const val = f.properties?.[fidKey];
+                                if (typeof val === 'number' && val > maxFid) maxFid = val;
+                            });
+                            schemaProps[fidKey] = maxFid + 1;
+                        }
+                    }
+                    
                     newFeature.properties = { 
+                        ...schemaProps,
                         ...newFeature.properties,
                         isNewFeature: true, 
                         _magpi_new_id: `new_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`
                     };
                     
                     // Add to cached data so renderer picks it up
-                    const cached = loadedDataRef.current[targetNodeId];
                     if (cached.data && cached.data.features) {
                         cached.data.features.push(newFeature);
                     }
