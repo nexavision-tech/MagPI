@@ -90,3 +90,33 @@ body {
 .magpi-edit-mode .leaflet-interactive {
     cursor: cell !important;
 }
+
+/* Vertex Editing Markers — Sleek Dark Theme */
+.leaflet-editing-icon {
+    width: 10px !important;
+    height: 10px !important;
+    margin-left: -5px !important;
+    margin-top: -5px !important;
+    background: #0ea5e9 !important; /* sky-500 */
+    border: 2px solid #0c4a6e !important; /* sky-900 */
+    border-radius: 50% !important;
+    box-shadow: 0 0 6px rgba(14, 165, 233, 0.6), 0 0 2px rgba(0, 0, 0, 0.8) !important;
+    cursor: move !important;
+    transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+.leaflet-editing-icon:hover {
+    transform: scale(1.4);
+    box-shadow: 0 0 10px rgba(14, 165, 233, 0.9), 0 0 3px rgba(0, 0, 0, 0.9) !important;
+    background: #38bdf8 !important; /* sky-400 */
+}
+
+/* Midpoint vertex markers (add vertex handle) */
+.leaflet-div-icon {
+    background: rgba(14, 165, 233, 0.3) !important;
+    border: 1.5px dashed #0ea5e9 !important;
+    border-radius: 50% !important;
+    width: 8px !important;
+    height: 8px !important;
+    margin-left: -4px !important;
+    margin-top: -4px !important;
+}

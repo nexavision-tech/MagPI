@@ -79,9 +79,7 @@ export default function App() {
           setShowTerminal(true);
           window.dispatchEvent(new CustomEvent('magpi-open-data-studio'));
       } else {
-          // If toggled off, clear the identify view and hide the terminal
-          setActiveRightTab('params');
-          setShowTerminal(false);
+          setActiveRightTab('toolbox');
       }
   }, [selectedFeatures]);
 

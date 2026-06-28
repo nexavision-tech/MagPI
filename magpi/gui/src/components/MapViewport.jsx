@@ -74,6 +74,12 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
         if (mapInstance.current && osmLayerRef.current && !mapInstance.current.hasLayer(osmLayerRef.current)) {
             mapInstance.current.addLayer(osmLayerRef.current);
         }
+        // Toggle cursor CSS class on map container
+        if (mapInstance.current) {
+            const container = mapInstance.current.getContainer();
+            container.classList.remove('magpi-nav-mode', 'magpi-select-mode');
+            container.classList.add(interactionMode === 'select' ? 'magpi-select-mode' : 'magpi-nav-mode');
+        }
     }, [interactionMode]);
 
     useEffect(() => {
@@ -94,6 +100,54 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
             setViewportBBox(bboxStr);
             setViewportBBoxTimestamp(Date.now());
         });
+
+        // Override Leaflet's default boxZoom to use for Marquee selection instead
+        if (map.boxZoom) {
+            map.boxZoom._onMouseUp = function (e) {
+                if ((e.which !== 1) && (e.button !== 1)) { return; }
+                this._finish();
+                if (!this._moved) { return; }
+                this._clearDeferredResetState();
+                this._resetStateTimeout = setTimeout(L.bind(this._resetState, this), 0);
+                var bounds = new L.LatLngBounds(
+                    this._map.containerPointToLatLng(this._startPoint),
+                    this._map.containerPointToLatLng(this._point));
+                this._map.fire('boxzoomend', {boxZoomBounds: bounds});
+            };
+        }
+
+        map.on('boxzoomend', (e) => {
+            // Find all loaded vectors and check intersection with the shift-drag box
+            const selectedFeaturesArr = [];
+            if (highlightGroup.current) {
+                highlightGroup.current.eachLayer(layerObj => {
+                    const layerId = layerObj.magpi_layer_id;
+                    if (!layerId) return;
+                    if (layerObj instanceof L.GeoJSON) {
+                        layerObj.eachLayer(childLayer => {
+                            if (childLayer.feature && childLayer.getBounds) {
+                                if (e.boxZoomBounds.intersects(childLayer.getBounds())) {
+                                    selectedFeaturesArr.push({
+                                        feature: childLayer.feature,
+                                        layerName: childLayer.feature.properties?.layer_name || layerId,
+                                        nodeId: layerId,
+                                        shiftKey: true // Act as multi-select
+                                    });
+                                }
+                            }
+                        });
+                    }
+                });
+            }
+            if (selectedFeaturesArr.length > 0) {
+                selectedFeaturesArr.forEach((sf, idx) => {
+                    window.dispatchEvent(new CustomEvent('magpi-feature-selected', { detail: { ...sf, isBulk: idx > 0 } }));
+                });
+            } else {
+                console.log("[MagPI] No features found in shift-drag bounds.");
+            }
+        });
+
 
         // Global map click to deselect features
         map.on('click', (e) => {
@@ -380,6 +434,10 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
             setIsEditingMode(true);
             if (mapInstance.current) {
                 L.DomUtil.addClass(mapInstance.current.getContainer(), 'magpi-edit-mode');
+                // Enable Leaflet.Draw editing on the selected feature
+                if (activeFeatureLayer.current && activeFeatureLayer.current.layer && activeFeatureLayer.current.layer.editing) {
+                    activeFeatureLayer.current.layer.editing.enable();
+                }
             }
             console.log('[MagPI] Edit mode enabled.');
         };
@@ -390,6 +448,21 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
             if (!nodeId) return;
             const cached = loadedDataRef.current[nodeId];
             if (cached && cached.data && cached.data.features) {
+                
+                // Commit edits from the map layer to the cached GeoJSON
+                if (activeFeatureLayer.current && activeFeatureLayer.current.layer) {
+                    const editedGeoJSON = activeFeatureLayer.current.layer.toGeoJSON();
+                    const f = cached.data.features.find(feat => 
+                        JSON.stringify(feat.properties) === JSON.stringify(editedGeoJSON.properties)
+                    );
+                    if (f) {
+                        f.geometry = editedGeoJSON.geometry;
+                    }
+                    if (activeFeatureLayer.current.layer.editing) {
+                        activeFeatureLayer.current.layer.editing.disable();
+                    }
+                }
+
                 const node = nodesRef.current.find(n => n.id === nodeId);
                 if (node && node.params && node.params.file_path) {
                     let filePath = node.params.file_path;
@@ -769,13 +842,13 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                         return;
                     }
 
-                    const fetchBbox = isExplicitTarget ? explicitRender.bbox : viewportBBox;
+                    const fetchBbox = isExplicitTarget ? explicitRender.bbox : (isFishnet ? null : viewportBBox);
                     
                     // Use GeoLibre WASM for rendering local vector files over an explicit grid cell!
                     const useGeolibre = false; // Reverted to raw GeoJSON editing flow per user request
                     const expectedType = useGeolibre ? 'vector_image' : 'geojson';
                     
-                    const isFullRender = isExplicitTarget && explicitRender.bbox === null;
+                    const isFullRender = (isExplicitTarget && explicitRender.bbox === null) || isFishnet;
                     const needsFetch = (fetchBbox || isFullRender) && (!cached || cached.type !== expectedType || (!cached.isFetching && (cached.bbox !== fetchBbox)));
 
                     if (needsFetch) {
