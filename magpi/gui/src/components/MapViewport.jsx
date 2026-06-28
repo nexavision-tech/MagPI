@@ -220,8 +220,16 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                         const newFeature = e.layer.toGeoJSON();
                         newFeature.properties = { isNewFeature: true };
                         e.layer.feature = newFeature;
+                        e.layer._magpiModified = true;
                         targetLayer.addLayer(e.layer);
-                        if (e.layer.editing) e.layer.editing.enable();
+                        
+                        window.dispatchEvent(new CustomEvent('magpi-feature-selected', { 
+                            detail: { 
+                                feature: newFeature, 
+                                layerName: targetLayer.magpi_layer_id || 'new_polygon', 
+                                nodeId: targetLayer.magpi_layer_id, 
+                            } 
+                        }));
                         console.log('[MagPI] New polygon added to vector layer.');
                     }
                 }

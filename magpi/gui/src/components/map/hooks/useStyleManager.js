@@ -81,6 +81,7 @@ export const useStyleManager = ({
                             }
                         }
                     } else {
+                        if (childLayer._magpiIsHiddenForEdit) return;
                         const baseOpacity = cLayer.opacity !== undefined ? cLayer.opacity / 100 : 1;
                         childLayer.setStyle({
                             color: isSelected ? (isEditingMode ? '#f59e0b' : '#00ffff') : (cLayer.vectorColor || '#3388ff'),
@@ -90,15 +91,6 @@ export const useStyleManager = ({
                         });
                     }
                     
-                    if (isSelected && isEditingMode) {
-                        if (childLayer.editing && typeof childLayer.editing.enable === 'function' && !childLayer.editing.enabled()) {
-                            childLayer.editing.enable();
-                        }
-                    } else {
-                        if (childLayer.editing && typeof childLayer.editing.disable === 'function' && childLayer.editing.enabled()) {
-                            childLayer.editing.disable();
-                        }
-                    }
                 });
             }
         });

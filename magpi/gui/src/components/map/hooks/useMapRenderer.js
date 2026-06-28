@@ -264,7 +264,10 @@ export const useMapRenderer = ({
                         gjLayer.on('click', (e) => {
                             if (e.originalEvent?._magpiFeatureClicked) return;
                             if (!e.layer || !e.layer.feature) return;
-                            if (e.originalEvent) e.originalEvent._magpiFeatureClicked = true;
+                            if (e.originalEvent) {
+                                e.originalEvent._magpiFeatureClicked = true;
+                                L.DomEvent.stopPropagation(e.originalEvent);
+                            }
 
                             const feature = e.layer.feature;
                             window.dispatchEvent(new CustomEvent('magpi-feature-selected', { 
