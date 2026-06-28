@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { Terminal as TermIcon, ChevronDown, Loader2, Copy, Check, Table, AlertTriangle, ChevronRight, ChevronLeft } from 'lucide-react';
 
-export default function Terminal({ showTerminal, setShowTerminal, logs, isProcessing, selectedNode }) {
+export default function Terminal({ showTerminal, setShowTerminal, logs, isProcessing, selectedNode, selectedFeatures }) {
   const bottomRef = useRef(null);
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState('logs'); // 'logs' or 'data_studio'
@@ -11,7 +11,6 @@ export default function Terminal({ showTerminal, setShowTerminal, logs, isProces
   const [isLoadingData, setIsLoadingData] = useState(false);
   const [dataError, setDataError] = useState(null);
   const [page, setPage] = useState(0);
-  const [selectedRowIndex, setSelectedRowIndex] = useState(null);
   const limit = 100;
 
   // DB Studio State
@@ -123,27 +122,28 @@ export default function Terminal({ showTerminal, setShowTerminal, logs, isProces
 
   useEffect(() => {
     const handleMapSelect = (e) => {
-            if (!e.detail) return;
-            
-            if (e.detail.isFootprint) {
-                if (tableData && tableData.rows && tableData.rows.length > 0) {
-                    setSelectedRowIndex(page * limit + 0);
-                    // Optional: scroll into view
-                    setTimeout(() => {
-                        const trs = document.querySelectorAll('.data-studio-row');
-                        if (trs[0]) trs[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    }, 50);
-                }
-                return;
+        if (!e.detail) {
+            return;
+        }
+        
+        if (e.detail.isFootprint) {
+            if (tableData && tableData.rows && tableData.rows.length > 0) {
+                // Optional: scroll into view
+                setTimeout(() => {
+                    const trs = document.querySelectorAll('.data-studio-row');
+                    if (trs[0]) trs[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }, 50);
             }
-            
-            if (e.detail.isFromTable) return;
-            
-            if (tableData && tableData.rows) {
-                if (!e.detail.feature) return;
-                const p2 = e.detail.feature.properties;
-                if (!p2) return;
-            
+            return;
+        }
+        
+        if (e.detail.isFromTable) return;
+        
+        if (tableData && tableData.rows) {
+            if (!e.detail.feature) return;
+            const p2 = e.detail.feature.properties;
+            if (!p2) return;
+        
             const idKeys = ['OBJECTID', 'FID', 'id', 'ID', 'uuid'];
             let foundIndex = -1;
 
@@ -175,7 +175,6 @@ export default function Terminal({ showTerminal, setShowTerminal, logs, isProces
                 }
             }
             if (foundIndex !== -1) {
-                setSelectedRowIndex(page * limit + foundIndex);
                 // Optional: scroll into view
                 const trs = document.querySelectorAll('.data-studio-row');
                 if (trs[foundIndex]) {
@@ -287,21 +286,28 @@ export default function Terminal({ showTerminal, setShowTerminal, logs, isProces
                               </thead>
                               <tbody>
                                   {tableData.rows.map((row, rIdx) => {
-                                      const isSelected = selectedRowIndex === (page * limit + rIdx);
+                                      // Check if this row is selected by checking selectedFeatures array
+                                      const isSelected = selectedFeatures && selectedFeatures.some(sf => sf?.nodeId === selectedNode?.id && JSON.stringify(sf?.feature?.properties) === JSON.stringify(row));
                                       return (
                                           <tr 
                                               key={rIdx} 
-                                              className={`data-studio-row border-b border-slate-800/50 hover:bg-slate-800/80 transition-colors cursor-pointer ${isSelected ? 'bg-cyan-900/30' : ''}`}
-                                              onClick={() => {
-                                                  setSelectedRowIndex(page * limit + rIdx);
+                                              className={`data-studio-row border-b border-slate-800/50 hover:bg-slate-800/80 transition-colors cursor-pointer ${isSelected ? 'bg-cyan-900/40' : ''}`}
+                                              onClick={(e) => {
                                                   window.dispatchEvent(new CustomEvent('magpi-feature-selected', { 
                                                       detail: { 
                                                           feature: { properties: row }, 
                                                           layerName: selectedNode?.params?.layer_name || selectedNode?.name || 'Data Studio Row', 
                                                           nodeId: selectedNode?.id,
-                                                          isFromTable: true
+                                                          isFromTable: true,
+                                                          shiftKey: e.shiftKey,
+                                                          ctrlKey: e.ctrlKey || e.metaKey
                                                       } 
                                                   }));
+                                              }}
+                                              onDoubleClick={() => {
+                                                  // Zoom to row
+                                                  const featureToZoom = { feature: { properties: row }, nodeId: selectedNode?.id };
+                                                  window.dispatchEvent(new CustomEvent('magpi-zoom-feature', { detail: { features: [featureToZoom] } }));
                                               }}
                                           >
                                               <td className="px-3 py-1.5 text-slate-600 border-r border-slate-800/50">{page * limit + rIdx + 1}</td>

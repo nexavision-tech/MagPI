@@ -4,20 +4,6 @@ import { Reorder } from 'framer-motion';
 import { Folder, Database, File, ChevronRight, ChevronDown, RefreshCw, Box, Map, Image as ImageIcon, Layers, Eye, EyeOff, Network, Crosshair, FolderOpen, Search, Trash2, FolderPlus, MinusCircle, Link, Copy, Check, Grid, Type } from 'lucide-react';
 import { TOOLBOX_CATEGORIES } from './Toolbox';
 
-const DebouncedColorPicker = ({ color, onChange }) => {
-    const [localColor, setLocalColor] = useState(color || '#32d74b');
-    useEffect(() => { setLocalColor(color || '#32d74b'); }, [color]);
-    return (
-        <input 
-            type="color"
-            className="w-full h-6 rounded cursor-pointer bg-slate-800 border-none p-0"
-            value={localColor}
-            onChange={(e) => setLocalColor(e.target.value)}
-            onBlur={() => onChange(localColor)}
-        />
-    );
-};
-
 const FileNode = ({ node, level, globalEnv, copiedPath, setCopiedPath }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [layers, setLayers] = useState(null);
@@ -184,7 +170,9 @@ const FileNode = ({ node, level, globalEnv, copiedPath, setCopiedPath }) => {
   );
 };
 
-export default function CatalogPane({ mapLayers = [], setMapLayers, reorderLayers, activeWorkspace, nodes = [], setNodes, selectedNodeId, setSelectedNodeId, openFileBrowser, globalEnv, isDaemonAlive, autoZoom, setAutoZoom, selectedFeatures = [] }) {
+import LayerConfigPanel from "./LayerConfigPanel";
+
+export default function CatalogPane({ mapLayers = [], setMapLayers, reorderLayers, activeWorkspace, nodes = [], connections = [], setNodes, selectedNodeId, setSelectedNodeId, openFileBrowser, globalEnv, isDaemonAlive, autoZoom, setAutoZoom, selectedFeatures = [] }) {
   const [catalog, setCatalog] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [expandedLayers, setExpandedLayers] = useState({});
@@ -193,21 +181,39 @@ export default function CatalogPane({ mapLayers = [], setMapLayers, reorderLayer
   const [dragSourceIndex, setDragSourceIndex] = useState(null);
   const reactFlow = useReactFlow();
   
-  // Buffered drag-and-drop: only commit to setMapLayers on drop, not on every pixel
-  const [localLayerOrder, setLocalLayerOrder] = useState(mapLayers);
+  const getChildLayers = (parentId) => {
+      const childNodeIds = connections.filter(c => c.from === parentId).map(c => c.to);
+      return mapLayers.filter(l => childNodeIds.includes(l.id) && l.id !== 'base');
+  };
+
+  const rootLayers = mapLayers.filter(layer => {
+      if (layer.id === 'base') return true;
+      const hasParentInMap = connections.some(c => c.to === layer.id && mapLayers.some(pl => pl.id === c.from));
+      return !hasParentInMap;
+  });
+
+  const [localRootOrder, setLocalRootOrder] = useState(rootLayers);
   const isDraggingRef = useRef(false);
-  const localLayerOrderRef = useRef(mapLayers);
   
   useEffect(() => {
       if (!isDraggingRef.current) {
-          setLocalLayerOrder(mapLayers);
-          localLayerOrderRef.current = mapLayers;
+          // deep equality check to prevent needless updates
+          const isSame = localRootOrder.length === rootLayers.length && localRootOrder.every((l, i) => l.id === rootLayers[i].id);
+          if (!isSame) {
+              setLocalRootOrder(rootLayers);
+          }
       }
-  }, [mapLayers]);
-  
-  useEffect(() => {
-      localLayerOrderRef.current = localLayerOrder;
-  }, [localLayerOrder]);
+  }, [mapLayers, connections]);
+
+  const commitReorder = () => {
+      const newMapLayers = [];
+      localRootOrder.forEach(parentLayer => {
+          newMapLayers.push(parentLayer);
+          const children = getChildLayers(parentLayer.id);
+          children.forEach(c => newMapLayers.push(c));
+      });
+      setMapLayers(newMapLayers);
+  };
 
   const handleNodeClick = (node) => {
     if (setSelectedNodeId) setSelectedNodeId(node.id);
@@ -386,9 +392,11 @@ export default function CatalogPane({ mapLayers = [], setMapLayers, reorderLayer
                  Drag spatial files here to add them to the map.
              </div>
           )}
-          <Reorder.Group axis="y" values={localLayerOrder} onReorder={setLocalLayerOrder} className="space-y-1">
-          {localLayerOrder.map((layer) => {
+          <Reorder.Group axis="y" values={localRootOrder} onReorder={setLocalRootOrder} className="space-y-1">
+          {localRootOrder.map((layer) => {
               const isExpanded = expandedLayers[layer.id];
+              const childLayers = getChildLayers(layer.id);
+              
               return (
               <Reorder.Item 
                   key={layer.id} 
@@ -396,7 +404,7 @@ export default function CatalogPane({ mapLayers = [], setMapLayers, reorderLayer
                   onDragStart={() => { isDraggingRef.current = true; }}
                   onDragEnd={() => {
                       isDraggingRef.current = false;
-                      setMapLayers(localLayerOrderRef.current);
+                      commitReorder();
                   }}
                   className={`p-2 rounded-md ${selectedNodeId === layer.id ? 'bg-cyan-900/40 border border-cyan-700/50' : 'bg-slate-800/60 border border-transparent'} hover:bg-slate-700/60 transition-colors flex flex-col cursor-move relative`}
               >
@@ -465,166 +473,63 @@ export default function CatalogPane({ mapLayers = [], setMapLayers, reorderLayer
                   </div>
                   
                   {isExpanded && layer.visible && (
-                      <div className="mt-2 pl-5 space-y-3 bg-slate-900/50 p-2 rounded border border-slate-700/50">
-                          <div className="flex items-center space-x-2">
-                              <span className="text-[9px] text-slate-500 uppercase tracking-widest w-12 shrink-0">Opacity</span>
-                              <input 
-                                  type="range" 
-                                  min="0" max="100" 
-                                  value={layer.opacity}
-                                  onChange={(e) => {
-                                      const newOpacity = parseInt(e.target.value);
-                                      if (setMapLayers) {
-                                          setMapLayers(prev => prev.map(l => l.id === layer.id ? { ...l, opacity: newOpacity } : l));
-                                      }
-                                  }}
-                                  className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer" 
-                              />
-                              <span className="text-[9px] text-slate-400 w-6 text-right shrink-0">{layer.opacity}%</span>
-                          </div>
+                      <div className="flex flex-col">
+                          <LayerConfigPanel 
+                              layer={layer} 
+                              nodes={nodes} 
+                              setNodes={setNodes} 
+                              setMapLayers={setMapLayers} 
+                              selectedFeatures={selectedFeatures} 
+                          />
                           
-                          {layer.isBase === false && (() => {
-                              const node = nodes.find(n => n.id === layer.id);
-                              if (node && node.toolId === 'core_extent') {
-                                  return (
-                                      <div className="flex flex-col space-y-1 mt-2 border-t border-slate-700/50 pt-2">
-                                          <span className="text-[9px] text-slate-500 uppercase tracking-widest shrink-0">Spatial Coordinates (AOI)</span>
-                                          <div className="grid grid-cols-2 gap-1 mt-1">
-                                              <div className="flex items-center space-x-1">
-                                                  <span className="text-[9px] text-slate-400 w-2 shrink-0">W</span>
-                                                  <input type="number" step="0.001" className="flex-1 min-w-0 bg-slate-800 text-[10px] text-slate-300 border border-slate-700 rounded px-1 py-0.5 outline-none" value={node.params.xmin || ''} onChange={(e) => setNodes && setNodes(prev => prev.map(n => n.id === layer.id ? { ...n, params: { ...n.params, xmin: parseFloat(e.target.value) } } : n))} />
-                                              </div>
-                                              <div className="flex items-center space-x-1">
-                                                  <span className="text-[9px] text-slate-400 w-2 shrink-0">S</span>
-                                                  <input type="number" step="0.001" className="flex-1 min-w-0 bg-slate-800 text-[10px] text-slate-300 border border-slate-700 rounded px-1 py-0.5 outline-none" value={node.params.ymin || ''} onChange={(e) => setNodes && setNodes(prev => prev.map(n => n.id === layer.id ? { ...n, params: { ...n.params, ymin: parseFloat(e.target.value) } } : n))} />
-                                              </div>
-                                              <div className="flex items-center space-x-1">
-                                                  <span className="text-[9px] text-slate-400 w-2 shrink-0">E</span>
-                                                  <input type="number" step="0.001" className="flex-1 min-w-0 bg-slate-800 text-[10px] text-slate-300 border border-slate-700 rounded px-1 py-0.5 outline-none" value={node.params.xmax || ''} onChange={(e) => setNodes && setNodes(prev => prev.map(n => n.id === layer.id ? { ...n, params: { ...n.params, xmax: parseFloat(e.target.value) } } : n))} />
-                                              </div>
-                                              <div className="flex items-center space-x-1">
-                                                  <span className="text-[9px] text-slate-400 w-2 shrink-0">N</span>
-                                                  <input type="number" step="0.001" className="flex-1 min-w-0 bg-slate-800 text-[10px] text-slate-300 border border-slate-700 rounded px-1 py-0.5 outline-none" value={node.params.ymax || ''} onChange={(e) => setNodes && setNodes(prev => prev.map(n => n.id === layer.id ? { ...n, params: { ...n.params, ymax: parseFloat(e.target.value) } } : n))} />
-                                              </div>
-                                          </div>
-                                      </div>
-                                  );
-                              } else if (node && (node.toolId === 'load_vector' || node.toolId === 'core_fishnet' || node.toolId.startsWith('wfs_') || node.toolId === 'core_input_vector' || node.params?.file_path?.endsWith('.shp') || node.params?.file_path?.endsWith('.geojson'))) {
-                                  return (
-                                      <div className="flex flex-col mt-2 pt-2 border-t border-slate-700/50 space-y-2">
-                                          {node.toolId !== 'core_fishnet' && (
-                                              <button 
-                                                  onClick={() => {
-                                                      let bbox = null;
-                                                      if (selectedFeatures && selectedFeatures.length > 0) {
-                                                          let xmin = 180, ymin = 90, xmax = -180, ymax = -90;
-                                                          selectedFeatures.forEach(sf => {
-                                                              const coords = sf.feature?.geometry?.coordinates;
-                                                              if (!coords) return;
-                                                              const getBounds = (arr) => {
-                                                                  if (typeof arr[0] === 'number') {
-                                                                      xmin = Math.min(xmin, arr[0]);
-                                                                      ymin = Math.min(ymin, arr[1]);
-                                                                      xmax = Math.max(xmax, arr[0]);
-                                                                      ymax = Math.max(ymax, arr[1]);
-                                                                  } else {
-                                                                      arr.forEach(getBounds);
-                                                                  }
-                                                              };
-                                                              getBounds(coords);
-                                                          });
-                                                          // Add a tiny buffer if it's a point to ensure it has area
-                                                          if (xmin === xmax) { xmin -= 0.0001; xmax += 0.0001; }
-                                                          if (ymin === ymax) { ymin -= 0.0001; ymax += 0.0001; }
-                                                          if (xmin < 180) {
-                                                              bbox = `${xmin},${ymin},${xmax},${ymax}`;
-                                                          }
-                                                      }
-                                                      window.dispatchEvent(new CustomEvent('magpi-render-fishnet', { detail: { bbox: bbox, sourceLayerId: node.id } }));
-                                                  }}
-                                                  className="flex items-center justify-center text-[10px] w-full py-1.5 bg-cyan-600 hover:bg-cyan-500 rounded font-bold text-white uppercase tracking-wider shadow transition-colors"
-                                              >
-                                                  <Layers size={12} className="mr-2" /> Render Map Features
-                                              </button>
-                                          )}
-                                          
-                                          {node.toolId !== 'core_fishnet' && (
-                                              <button
-                                                  onClick={() => {
-                                                      window.dispatchEvent(new CustomEvent('magpi-open-fishnet-modal', { detail: { nodeId: node.id } }));
-                                                  }}
-                                                  className="flex items-center justify-center text-[10px] w-full py-1.5 bg-purple-600 hover:bg-purple-500 rounded font-bold text-white uppercase tracking-wider shadow transition-colors"
-                                              >
-                                                  <Grid size={12} className="mr-2" /> Generate Fishnet
-                                              </button>
-                                          )}
-
-                                          <div className="flex items-center space-x-2">
-                                              <input
-                                                  type="text"
-                                                  placeholder="Label Field (e.g. ID, name)"
-                                                  value={layer.labelField || ''}
-                                                  onChange={(e) => {
-                                                      if (setMapLayers) {
-                                                          setMapLayers(prev => prev.map(l => l.id === layer.id ? { ...l, labelField: e.target.value } : l));
-                                                      }
-                                                  }}
-                                                  className="flex-1 min-w-0 bg-slate-800 text-[10px] text-slate-300 border border-slate-700 rounded px-2 py-1.5 outline-none focus:border-cyan-500 placeholder-slate-500 font-mono"
-                                              />
-                                              <button
-                                                  onClick={() => {
-                                                      if (setMapLayers) {
-                                                          setMapLayers(prev => prev.map(l => l.id === layer.id ? { ...l, showLabels: !l.showLabels } : l));
-                                                      }
-                                                  }}
-                                                  className={`flex items-center justify-center text-[10px] px-3 py-1.5 rounded font-bold uppercase tracking-wider shadow transition-colors shrink-0 ${layer.showLabels ? 'bg-cyan-600 hover:bg-cyan-500 text-white' : 'bg-slate-700 hover:bg-slate-600 text-slate-300'}`}
-                                              >
-                                                  <Type size={12} className="mr-2" /> {layer.showLabels ? "Hide Labels" : "Show Labels"}
-                                              </button>
-                                          </div>
-                                      </div>
-                                  );
-                              }
-
-                              return (
-                                  <div className="flex items-center space-x-2">
-                                      {layer.name.includes('.tif') || layer.name.includes('Raster') || layer.name.includes('Extract') ? (
-                                          <>
-                                              <span className="text-[9px] text-slate-500 uppercase tracking-widest w-12 shrink-0">Colormap</span>
-                                              <select 
-                                                  className="flex-1 bg-slate-800 text-[10px] text-slate-300 border border-slate-700 rounded px-1 py-0.5 outline-none"
-                                                  value={layer.cmap || 'viridis'}
-                                                  onChange={(e) => {
-                                                      if (setMapLayers) {
-                                                          setMapLayers(prev => prev.map(l => l.id === layer.id ? { ...l, cmap: e.target.value } : l));
-                                                      }
-                                                  }}
-                                              >
-                                                  <option value="viridis">Viridis</option>
-                                                  <option value="plasma">Plasma</option>
-                                                  <option value="inferno">Inferno</option>
-                                                  <option value="magma">Magma</option>
-                                                  <option value="cividis">Cividis</option>
-                                                  <option value="gray">Gray</option>
-                                                  <option value="terrain">Terrain</option>
-                                              </select>
-                                          </>
-                                      ) : (
-                                            <>
-                                                <span className="text-[9px] text-slate-500 uppercase tracking-widest w-12 shrink-0">Color</span>
-                                                <DebouncedColorPicker 
-                                                    color={layer.vectorColor}
-                                                    onChange={(newColor) => {
-                                                        if (setMapLayers) {
-                                                            setMapLayers(prev => prev.map(l => l.id === layer.id ? { ...l, vectorColor: newColor } : l));
-                                                        }
-                                                    }}
-                                                />
-                                            </>
-                                      )}
+                          {/* Nested Child Layers (e.g., Fishnets) */}
+                          {childLayers.length > 0 && (
+                              <div className="mt-3 space-y-2 border-t border-slate-700/50 pt-2">
+                                  <div className="text-[9px] text-slate-500 uppercase tracking-widest mb-1 flex items-center">
+                                      <Grid size={10} className="mr-1" /> Derived Tool Vectors
                                   </div>
-                              );
-                          })()}
+                                  {childLayers.map(childLayer => (
+                                      <div key={childLayer.id} className="bg-slate-800/80 rounded p-2 border border-slate-700/80">
+                                          <div className="flex items-center justify-between mb-2">
+                                              <span className="text-[10px] text-slate-300 truncate font-medium flex-1 mr-2">{childLayer.name}</span>
+                                              <div className="flex items-center space-x-1 shrink-0">
+                                                  <button 
+                                                      onPointerDown={(e) => {
+                                                          e.preventDefault();
+                                                          e.stopPropagation();
+                                                          if (setMapLayers) {
+                                                              setMapLayers(prev => prev.map(l => l.id === childLayer.id ? { ...l, visible: !l.visible } : l));
+                                                          }
+                                                      }}
+                                                      className="text-slate-400 hover:text-white"
+                                                  >
+                                                      {childLayer.visible ? <Eye size={10} className="text-emerald-400" /> : <EyeOff size={10} className="text-slate-600" />}
+                                                  </button>
+                                                  <button
+                                                      onPointerDown={(e) => {
+                                                          e.preventDefault();
+                                                          e.stopPropagation();
+                                                          if (setNodes) {
+                                                              setNodes(prev => prev.map(n => n.id === childLayer.id ? { ...n, params: { ...n.params, export_to_map: false } } : n));
+                                                          }
+                                                      }}
+                                                      className="text-slate-400 hover:text-orange-400"
+                                                  >
+                                                      <MinusCircle size={10} />
+                                                  </button>
+                                              </div>
+                                          </div>
+                                          <LayerConfigPanel 
+                                              layer={childLayer} 
+                                              nodes={nodes} 
+                                              setNodes={setNodes} 
+                                              setMapLayers={setMapLayers} 
+                                              selectedFeatures={selectedFeatures} 
+                                          />
+                                      </div>
+                                  ))}
+                              </div>
+                          )}
                       </div>
                   )}
               </Reorder.Item>

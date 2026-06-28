@@ -875,10 +875,10 @@ export default function Toolbox({
         </div>
       )}
 
-      <div className="flex bg-slate-900 border-b border-slate-700">
+      <div className="flex bg-slate-950 border-b border-slate-800 shrink-0">
         <button onClick={() => setActiveRightTab('toolbox')} className={`flex-1 py-4 text-[10px] font-bold uppercase tracking-widest transition-all flex items-center justify-center ${activeRightTab === 'toolbox' ? 'text-emerald-400 border-b-2 border-emerald-400 bg-slate-800' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/50'}`}><Wrench size={12} className="mr-1" /> Tools</button>
         <button onClick={() => setActiveRightTab('inspector')} className={`flex-1 py-4 text-[10px] font-bold uppercase tracking-widest transition-all flex items-center justify-center ${activeRightTab === 'inspector' ? 'text-emerald-400 border-b-2 border-emerald-400 bg-slate-800' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/50'}`}><SlidersHorizontal size={12} className="mr-1" /> Params</button>
-        <button onClick={() => setActiveRightTab('identify')} className={`flex-1 py-4 text-[10px] font-bold uppercase tracking-widest transition-all flex items-center justify-center ${activeRightTab === 'identify' ? 'text-emerald-400 border-b-2 border-emerald-400 bg-slate-800' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/50'}`}><Info size={12} className="mr-1" /> Identify</button>
+        <button onClick={() => setActiveRightTab('identify')} className={`flex-1 py-4 text-[10px] font-bold uppercase tracking-widest transition-all flex items-center justify-center ${activeRightTab === 'identify' ? 'text-emerald-400 border-b-2 border-emerald-400 bg-slate-800' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/50'}`}><Info size={12} className="mr-1" /> Info</button>
         <button onClick={() => { if (selectedFeatures && selectedFeatures.length > 0) setActiveRightTab('editing'); }} className={`flex-1 py-4 text-[10px] font-bold uppercase tracking-widest transition-all flex items-center justify-center ${activeRightTab === 'editing' ? 'text-emerald-400 border-b-2 border-emerald-400 bg-slate-800' : selectedFeatures && selectedFeatures.length > 0 ? 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/50' : 'text-slate-700 cursor-not-allowed'}`} title={selectedFeatures && selectedFeatures.length > 0 ? 'Edit selected features' : 'Select features first'}><Edit size={12} className="mr-1" /> Edit</button>
       </div>
 

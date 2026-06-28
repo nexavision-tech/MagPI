@@ -1,8 +1,9 @@
 import React, { useEffect, useRef } from 'react';
 import L from 'leaflet';
-import 'leaflet-draw';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet-draw/dist/leaflet.draw.css';
+import 'leaflet-draw';
+import { featuresMatch } from '../utils/featureMatch';
 import 'leaflet.vectorgrid';
 import 'cesium/Build/Cesium/Widgets/widgets.css';
 import { Map as MapIcon, Satellite, Edit, Globe, Layers, Eye, EyeOff, XCircle, Upload } from 'lucide-react';
@@ -65,6 +66,7 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
     
     // Explicit render state to lock a fishnet cell override
     const [explicitRender, setExplicitRender] = React.useState(null); // { bbox, sourceLayerId }
+    const [renderedCells, setRenderedCells] = React.useState(new Set()); // Set of bbox strings
     const drawMode = useRef(null);
     const interactionModeRef = useRef(interactionMode);
     
@@ -417,6 +419,13 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
 
         const handleRenderFishnet = (e) => {
             console.log('[MagPI] Fishnet render event received:', e.detail);
+            if (e.detail.bbox) {
+                setRenderedCells(prev => {
+                    const newSet = new Set(prev);
+                    newSet.add(e.detail.bbox);
+                    return newSet;
+                });
+            }
             setExplicitRender({ bbox: e.detail.bbox, sourceLayerId: e.detail.sourceLayerId || null });
         };
         window.addEventListener('magpi-render-fishnet', handleRenderFishnet);
@@ -733,8 +742,21 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                     map.createPane(paneName);
                 }
                 const layerIndex = mapLayers.findIndex(l => l.id === layer.id);
+                let calculatedIndex = layerIndex;
+                
+                // If it's a child tool vector (like a fishnet), it should draw ON TOP of its parent
+                const isChild = connections.some(c => c.to === layer.id);
+                if (isChild) {
+                    const parentConnection = connections.find(c => c.to === layer.id);
+                    const parentIndex = mapLayers.findIndex(l => l.id === parentConnection.from);
+                    if (parentIndex !== -1) {
+                        calculatedIndex = parentIndex - 0.5; // Lower numerical index = higher Z-Index
+                    }
+                }
+                
                 // The item at the TOP of the CatalogBrowser (index 0) gets the HIGHEST Z-index.
-                const baseZIndex = 400 + ((mapLayers.length - layerIndex) * 10);
+                const baseZIndex = 400 + ((mapLayers.length - calculatedIndex) * 10);
+                
                 // Boost z-index for explicitly rendered parent vectors so they draw ABOVE the fishnet grid
                 const isLayerExplicitTarget = explicitRender && explicitRender.sourceLayerId === layer.id;
                 map.getPane(paneName).style.zIndex = isLayerExplicitTarget ? 800 : baseZIndex;
@@ -921,14 +943,32 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                                 interactive: true, // Allow clicking any feature to select its layer
                                 style: (feature) => {
                                     // Use nodeId instead of layerId because the dispatcher sets nodeId
-                                    const isSelected = selectedFeatures && selectedFeatures.some(sf => sf?.nodeId === layer.id && JSON.stringify(sf?.feature?.properties) === JSON.stringify(feature.properties));
+                                    const isSelected = selectedFeatures && selectedFeatures.some(sf => sf?.nodeId === layer.id && featuresMatch(sf?.feature?.properties, feature.properties));
                                     if (isFishnet) {
+                                        const coords = feature.geometry?.coordinates;
+                                        let bboxStr = null;
+                                        if (coords) {
+                                            let xmin = 180, ymin = 90, xmax = -180, ymax = -90;
+                                            const getBounds = (arr) => {
+                                                if (typeof arr[0] === 'number') {
+                                                    xmin = Math.min(xmin, arr[0]); ymin = Math.min(ymin, arr[1]);
+                                                    xmax = Math.max(xmax, arr[0]); ymax = Math.max(ymax, arr[1]);
+                                                } else { arr.forEach(getBounds); }
+                                            };
+                                            getBounds(coords);
+                                            if (xmin === xmax) { xmin -= 0.0001; xmax += 0.0001; }
+                                            if (ymin === ymax) { ymin -= 0.0001; ymax += 0.0001; }
+                                            if (xmin < 180) bboxStr = `${xmin},${ymin},${xmax},${ymax}`;
+                                        }
+                                        const isRenderedCell = renderedCells.has(bboxStr);
                                         return {
-                                            weight: isSelected ? 4 : 2,
-                                            color: isSelected ? '#00ffff' : '#ff8c00', // Cyan when selected, Orange outline
-                                            opacity: 0.8,
-                                            fillColor: isSelected ? '#00ffff' : '#ff8c00',
-                                            fillOpacity: isSelected ? 0.2 : 0.05 // Ensure it remains clickable via hit detection!
+                                            weight: isRenderedCell ? 2 : (isSelected ? 4 : 2),
+                                            color: isRenderedCell ? '#f59e0b' : (isSelected ? '#00ffff' : '#ff8c00'),
+                                            opacity: isRenderedCell ? 0.3 : 0.8,
+                                            fillColor: isRenderedCell ? 'transparent' : (isSelected ? '#00ffff' : '#ff8c00'),
+                                            fillOpacity: isRenderedCell ? 0.0 : (isSelected ? 0.2 : 0.05),
+                                            dashArray: isRenderedCell ? '4,4' : null,
+                                            interactive: !isRenderedCell
                                         };
                                     }
                                 return {
@@ -1055,8 +1095,9 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
         } else if (baseLayerConfig && baseLayerConfig.visible && !map.hasLayer(osmLayerRef.current)) {
             map.addLayer(osmLayerRef.current);
         }
-    }
-}, [computedLayers, activeWorkspace, loadedData, explicitRender]); // selectedNode removed — use ref to prevent full rebuild on selection changes
+        
+        }
+    }, [computedLayers, activeWorkspace, loadedData, explicitRender, renderedCells]); // selectedNode removed — use ref to prevent full rebuild on selection changes
 
     // Lightweight effect for styling selection changes WITHOUT rebuilding the DOM
     useEffect(() => {
@@ -1086,15 +1127,43 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                 layerObj.eachLayer(childLayer => {
                     if (!childLayer.feature) return;
                     const feature = childLayer.feature;
-                    const isSelected = selectedFeatures && selectedFeatures.some(sf => sf?.nodeId === layerId && JSON.stringify(sf?.feature?.properties) === JSON.stringify(feature.properties));
+                    const isSelected = selectedFeatures && selectedFeatures.some(sf => sf?.nodeId === layerId && featuresMatch(sf?.feature?.properties, feature.properties));
                     if (isFishnet) {
+                        const coords = feature.geometry?.coordinates;
+                        let bboxStr = null;
+                        if (coords) {
+                            let xmin = 180, ymin = 90, xmax = -180, ymax = -90;
+                            const getBounds = (arr) => {
+                                if (typeof arr[0] === 'number') {
+                                    xmin = Math.min(xmin, arr[0]); ymin = Math.min(ymin, arr[1]);
+                                    xmax = Math.max(xmax, arr[0]); ymax = Math.max(ymax, arr[1]);
+                                } else { arr.forEach(getBounds); }
+                            };
+                            getBounds(coords);
+                            if (xmin === xmax) { xmin -= 0.0001; xmax += 0.0001; }
+                            if (ymin === ymax) { ymin -= 0.0001; ymax += 0.0001; }
+                            if (xmin < 180) bboxStr = `${xmin},${ymin},${xmax},${ymax}`;
+                        }
+                        const isRenderedCell = renderedCells.has(bboxStr);
                         childLayer.setStyle({
-                            weight: isSelected ? 4 : 2,
-                            color: isSelected ? '#00ffff' : '#ff8c00',
-                            opacity: 0.8,
-                            fillColor: isSelected ? '#00ffff' : '#ff8c00',
-                            fillOpacity: isSelected ? 0.2 : 0.05
+                            weight: isRenderedCell ? 2 : (isSelected ? 4 : 2),
+                            color: isRenderedCell ? '#f59e0b' : (isSelected ? '#00ffff' : '#ff8c00'),
+                            opacity: isRenderedCell ? 0.3 : 0.8,
+                            fillColor: isRenderedCell ? 'transparent' : (isSelected ? '#00ffff' : '#ff8c00'),
+                            fillOpacity: isRenderedCell ? 0.0 : (isSelected ? 0.2 : 0.05),
+                            dashArray: isRenderedCell ? '4,4' : null,
+                            interactive: !isRenderedCell
                         });
+                        // update DOM for interactivity
+                        if (childLayer._path) {
+                            if (isRenderedCell) {
+                                childLayer._path.classList.add('magpi-non-interactive');
+                                childLayer._path.style.pointerEvents = 'none';
+                            } else {
+                                childLayer._path.classList.remove('magpi-non-interactive');
+                                childLayer._path.style.pointerEvents = 'auto';
+                            }
+                        }
                     } else {
                         childLayer.setStyle({
                             color: isSelected ? (isEditingMode ? '#f59e0b' : '#00ffff') : cLayer.vectorColor,
@@ -1116,7 +1185,7 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                 });
             }
         });
-    }, [selectedFeatures, computedLayers, activeWorkspace, isEditingMode]);
+    }, [selectedFeatures, computedLayers, activeWorkspace, isEditingMode, renderedCells]);
 
     // Visual feedback for Vertex Snapping
     useEffect(() => {
@@ -1356,7 +1425,7 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                     {/* Leaflet 2D Map (Hidden when in globe mode) */}
                     <div 
                         ref={mapRef} 
-                        className={`absolute inset-0 w-full h-full ${interactionMode === 'select' ? 'magpi-select-mode' : 'magpi-nav-mode'}`}
+                        className="absolute inset-0 w-full h-full magpi-nav-mode"
                         style={{ 
                             visibility: activeWorkspace === 'globe' ? 'hidden' : 'visible',
                             zIndex: activeWorkspace === 'globe' ? 1 : 10,

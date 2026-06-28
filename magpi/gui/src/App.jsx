@@ -13,9 +13,11 @@ import FileBrowserModal from './components/FileBrowserModal';
 import EnvSettingsModal from './components/EnvSettingsModal';
 import DataStudio from './components/DataStudio';
 import CatalogPane from './components/CatalogPane';
+import WorkflowWorkspace from './components/WorkflowWorkspace';
 import { generatePythonScript } from './utils/scriptGen';
 import { generateAirflowDAG } from './utils/airflowGen';
 import { saveProject, loadProject } from './utils/fileOps';
+import { featuresMatch } from './utils/featureMatch';
 
 export default function App() {
   const [activeWorkspace, setActiveWorkspace] = useState('builder');
@@ -50,15 +52,15 @@ export default function App() {
              
              // If multi-select (shiftKey or ctrlKey)
              if (e.detail.shiftKey || e.detail.ctrlKey) {
-                 const exists = prev.find(f => f?.nodeId === e.detail.nodeId && JSON.stringify(f?.feature?.properties) === JSON.stringify(e.detail.feature?.properties));
+                 const exists = prev.find(f => f?.nodeId === e.detail.nodeId && featuresMatch(f?.feature?.properties, e.detail.feature?.properties));
                  if (exists) {
-                     return prev.filter(f => !(f?.nodeId === e.detail.nodeId && JSON.stringify(f?.feature?.properties) === JSON.stringify(e.detail.feature?.properties)));
+                     return prev.filter(f => !(f?.nodeId === e.detail.nodeId && featuresMatch(f?.feature?.properties, e.detail.feature?.properties)));
                  } else {
                      return [...prev, e.detail];
                  }
              } else {
                  // For single select, if clicking the EXACT same feature, toggle it off
-                 if (prev.length === 1 && prev[0]?.nodeId === e.detail.nodeId && JSON.stringify(prev[0]?.feature?.properties) === JSON.stringify(e.detail.feature?.properties)) {
+                 if (prev.length === 1 && prev[0]?.nodeId === e.detail.nodeId && featuresMatch(prev[0]?.feature?.properties, e.detail.feature?.properties)) {
                      return [];
                  }
                  return [e.detail];
@@ -69,7 +71,7 @@ export default function App() {
      return () => window.removeEventListener('magpi-feature-selected', handleSelect);
   }, []);
 
-  // Separate side-effect for opening Data Studio & Identify Tab
+  // Separate side-effect for opening Identify Tab on feature select
   useEffect(() => {
       if (selectedFeatures && selectedFeatures.length > 0) {
           setActiveRightTab('identify');
@@ -77,7 +79,7 @@ export default function App() {
               setSelectedNodeId(selectedFeatures[0].nodeId);
           }
           setShowTerminal(true);
-          window.dispatchEvent(new CustomEvent('magpi-open-data-studio'));
+          // Data Studio auto-popup disabled based on user feedback
       } else {
           setActiveRightTab('toolbox');
       }
@@ -827,6 +829,7 @@ export default function App() {
         <div className="flex bg-slate-900 border-b border-slate-700 px-4 pt-2">
             <button onClick={() => setActiveWorkspace('planar')} className={`px-6 py-2 text-xs font-bold uppercase tracking-widest rounded-t-lg transition-colors flex items-center border border-b-0 ${activeWorkspace === 'planar' ? 'bg-slate-800 text-purple-400 border-slate-600' : 'bg-transparent text-slate-500 border-transparent hover:bg-slate-800/50 hover:text-slate-300'}`}><Edit3 size={14} className="mr-2" /> Planar View</button>
             <button onClick={() => setActiveWorkspace('builder')} className={`px-6 py-2 text-xs font-bold uppercase tracking-widest rounded-t-lg transition-colors flex items-center border border-b-0 ml-1 ${activeWorkspace === 'builder' ? 'bg-slate-800 text-emerald-400 border-slate-600' : 'bg-transparent text-slate-500 border-transparent hover:bg-slate-800/50 hover:text-slate-300'}`}><Wrench size={14} className="mr-2" /> Model Builder</button>
+            <button onClick={() => setActiveWorkspace('flow')} className={`px-6 py-2 text-xs font-bold uppercase tracking-widest rounded-t-lg transition-colors flex items-center border border-b-0 ml-1 ${activeWorkspace === 'flow' ? 'bg-slate-800 text-emerald-400 border-slate-600' : 'bg-transparent text-slate-500 border-transparent hover:bg-slate-800/50 hover:text-slate-300'}`}><Activity size={14} className="mr-2" /> Flow</button>
             <button onClick={() => setActiveWorkspace('globe')} className={`px-6 py-2 text-xs font-bold uppercase tracking-widest rounded-t-lg transition-colors flex items-center border border-b-0 ml-1 ${activeWorkspace === 'globe' ? 'bg-slate-800 text-cyan-400 border-slate-600' : 'bg-transparent text-slate-500 border-transparent hover:bg-slate-800/50 hover:text-slate-300'}`}><MapIcon size={14} className="mr-2" /> Scene View</button>
             <button onClick={() => setActiveWorkspace('dbstudio')} className={`px-6 py-2 text-xs font-bold uppercase tracking-widest rounded-t-lg transition-colors flex items-center border border-b-0 ml-1 ${activeWorkspace === 'dbstudio' ? 'bg-slate-800 text-purple-400 border-slate-600' : 'bg-transparent text-slate-500 border-transparent hover:bg-slate-800/50 hover:text-slate-300'}`}><Database size={14} className="mr-2" /> DB Studio</button>
             <button onClick={() => setActiveWorkspace('tensor_brew')} className={`px-6 py-2 text-xs font-bold uppercase tracking-widest rounded-t-lg transition-colors flex items-center border border-b-0 ml-1 ${activeWorkspace === 'tensor_brew' ? 'bg-slate-800 text-indigo-400 border-slate-600' : 'bg-transparent text-slate-500 border-transparent hover:bg-slate-800/50 hover:text-slate-300'}`}><Layers size={14} className="mr-2" /> Tensor Brew</button>
@@ -838,11 +841,11 @@ export default function App() {
         <div className="flex-1 flex overflow-hidden min-h-0 relative z-0 bg-slate-800">
           
           {/* Render Catalog Pane when in Builder or Planar */}
-          <div className={`relative ${['builder', 'planar'].includes(activeWorkspace) ? 'flex' : 'hidden'} flex-col z-20`}>
-            <CatalogPane 
-                mapLayers={mapLayers} 
-                setMapLayers={setMapLayers} 
-                reorderLayers={(startIndex, endIndex) => {
+            <div className={`relative ${['builder', 'planar', 'flow'].includes(activeWorkspace) ? 'flex' : 'hidden'} flex-col z-20`}>
+              <CatalogPane 
+                  mapLayers={mapLayers} 
+                  setMapLayers={setMapLayers} 
+                  reorderLayers={(startIndex, endIndex) => {
                     setMapLayers(prev => {
                         const result = Array.from(prev);
                         const [removed] = result.splice(startIndex, 1);
@@ -852,6 +855,7 @@ export default function App() {
                 }}
                 activeWorkspace={activeWorkspace}
                 nodes={nodes}
+                connections={connections}
                 setNodes={setNodes}
                 selectedNodeId={selectedNodeId}
                 setSelectedNodeId={setSelectedNodeId}
@@ -893,6 +897,11 @@ export default function App() {
           />
         </div>
         
+        {/* Render Flow Workspace Fullscreen when Active */}
+        <div className={`absolute inset-0 z-50 ${activeWorkspace === 'flow' ? 'block' : 'hidden'} bg-slate-900`}>
+            <WorkflowWorkspace />
+        </div>
+        
         {/* Render Tensor Brew Fullscreen when Active */}
         <div className={`absolute inset-0 z-50 ${activeWorkspace === 'tensor_brew' ? 'block' : 'hidden'}`}>
             <TensorBrew activeWorkspace={activeWorkspace} />
@@ -910,7 +919,7 @@ export default function App() {
       </div>
       </ReactFlowProvider>
 
-      <div className="flex-none z-30"><Terminal showTerminal={showTerminal} setShowTerminal={setShowTerminal} logs={logs} isProcessing={isProcessing} selectedNode={selectedNode} /></div>
+      <div className="flex-none z-30"><Terminal showTerminal={showTerminal} setShowTerminal={setShowTerminal} logs={logs} isProcessing={isProcessing} selectedNode={selectedNode} selectedFeatures={selectedFeatures} /></div>
       
       <div className="flex-none shrink-0 bg-slate-950 border-t border-slate-800 text-[10.5px] text-slate-400 flex items-center justify-between px-3 py-1.5 z-50 font-sans shadow-[0_-2px_5px_rgba(0,0,0,0.5)]">
         <div className="flex items-center space-x-4">
