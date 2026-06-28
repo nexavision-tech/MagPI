@@ -212,28 +212,47 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                     window.dispatchEvent(new CustomEvent('magpi-feature-selected', { detail: { ...sf, isBulk: idx > 0 } }));
                 });
             } else if (drawMode.current === 'polygon') {
+                // Find the target vector layer's node ID
+                let targetNodeId = null;
                 if (highlightGroup.current) {
-                    let targetLayer = null;
                     highlightGroup.current.eachLayer(layerObj => {
-                        if (layerObj instanceof L.GeoJSON) targetLayer = layerObj;
+                        if (layerObj instanceof L.GeoJSON && layerObj.magpi_layer_id) {
+                            targetNodeId = layerObj.magpi_layer_id;
+                        }
                     });
+                }
+                
+                if (targetNodeId && loadedDataRef.current[targetNodeId]) {
+                    const newFeature = e.layer.toGeoJSON();
+                    newFeature.properties = { 
+                        ...newFeature.properties,
+                        isNewFeature: true, 
+                        _magpi_new_id: `new_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`
+                    };
                     
-                    if (targetLayer) {
-                        const newFeature = e.layer.toGeoJSON();
-                        newFeature.properties = { isNewFeature: true };
-                        e.layer.feature = newFeature;
-                        e.layer._magpiModified = true;
-                        targetLayer.addLayer(e.layer);
-                        
-                        window.dispatchEvent(new CustomEvent('magpi-feature-selected', { 
-                            detail: { 
-                                feature: newFeature, 
-                                layerName: targetLayer.magpi_layer_id || 'new_polygon', 
-                                nodeId: targetLayer.magpi_layer_id, 
-                            } 
-                        }));
-                        console.log('[MagPI] New polygon added to vector layer.');
+                    // Add to cached data so renderer picks it up
+                    const cached = loadedDataRef.current[targetNodeId];
+                    if (cached.data && cached.data.features) {
+                        cached.data.features.push(newFeature);
                     }
+                    
+                    // Force renderer to re-render with new feature
+                    setLoadedData(prev => ({
+                        ...prev,
+                        [targetNodeId]: { ...prev[targetNodeId] }
+                    }));
+                    
+                    // Select the new feature to highlight it
+                    window.dispatchEvent(new CustomEvent('magpi-feature-selected', { 
+                        detail: { 
+                            feature: newFeature, 
+                            layerName: targetNodeId, 
+                            nodeId: targetNodeId, 
+                        } 
+                    }));
+                    console.log('[MagPI] New polygon added to cached data and triggered re-render.');
+                } else {
+                    console.warn('[MagPI] Could not find target vector layer for new polygon.');
                 }
             } else {
                 if (onAoiDrawn) {

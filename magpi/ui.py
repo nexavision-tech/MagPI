@@ -568,49 +568,143 @@ def LaunchCanvas(port=8282):
             try:
                 import geopandas as gpd
                 import json
+                import shutil
+                from shapely.geometry import shape
                 
                 file_path = payload.get('file_path')
                 features = payload.get('features', [])
+                bbox_str = payload.get('bbox')  # Optional: scope edits to a spatial region
                 
                 if not file_path:
                     raise ValueError("Missing file_path in payload")
+                
+                if not features:
+                    self.send_response(200)
+                    self.send_header('Content-type', 'application/json')
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"status": "success", "message": "No features to save."}).encode('utf-8'))
+                    return
                     
+                import os
+                
+                # Create backup before modifying
+                if os.path.exists(file_path):
+                    backup_path = file_path + '.bak'
+                    try:
+                        if file_path.endswith('.shp'):
+                            # For shapefiles, backup all associated files
+                            base = file_path[:-4]
+                            for ext in ['.shp', '.shx', '.dbf', '.prj', '.cpg']:
+                                src = base + ext
+                                if os.path.exists(src):
+                                    shutil.copy2(src, src + '.bak')
+                        else:
+                            shutil.copy2(file_path, backup_path)
+                        logger.info(f"Backup created: {backup_path}")
+                    except Exception as be:
+                        logger.warning(f"Could not create backup: {be}")
+                
+                    # Read existing data
+                    try:
+                        existing_gdf = gpd.read_file(file_path)
+                        if existing_gdf.crs is None:
+                            existing_gdf.set_crs(epsg=4326, inplace=True)
+                    except Exception as re:
+                        logger.warning(f"Could not read existing file for merge: {re}")
+                        existing_gdf = None
+                else:
+                    existing_gdf = None
+                
+                # Build GeoDataFrame from incoming edited features
                 feature_collection = {
                     "type": "FeatureCollection",
                     "features": features
                 }
+                edited_gdf = gpd.GeoDataFrame.from_features(feature_collection)
+                if edited_gdf.crs is None:
+                    edited_gdf.set_crs(epsg=4326, inplace=True)
                 
-                if not features:
-                    # If empty, just write empty geojson to prevent geopandas errors
-                    if file_path.endswith('.geojson'):
-                        with open(file_path, 'w') as f:
-                            json.dump(feature_collection, f)
-                    else:
-                        raise ValueError("Cannot save empty feature collection to non-geojson format.")
-                else:
-                    # Use geopandas to ensure complex geometries are handled correctly
-                    # and to support non-geojson formats if needed (though UI might only send geojson for now)
-                    gdf = gpd.GeoDataFrame.from_features(feature_collection)
-                    
-                    # Ensure crs is set (assuming WGS84 for leaflet)
-                    if gdf.crs is None:
-                        gdf.set_crs(epsg=4326, inplace=True)
+                if existing_gdf is not None and len(existing_gdf) > 0:
+                    # MERGE strategy: replace features within the bbox, keep everything else
+                    if bbox_str:
+                        parts = [float(x) for x in bbox_str.split(',')]
+                        xmin, ymin, xmax, ymax = parts
+                        # Expand bbox slightly to catch boundary features
+                        eps = 0.0001
+                        from shapely.geometry import box
+                        import pandas as pd
+                        edit_box = box(xmin - eps, ymin - eps, xmax + eps, ymax + eps)
                         
-                    if file_path.endswith('.geojson'):
-                        gdf.to_file(file_path, driver='GeoJSON')
-                    elif file_path.endswith('.shp'):
-                        gdf.to_file(file_path, driver='ESRI Shapefile')
-                    elif file_path.endswith('.gpkg'):
-                        gdf.to_file(file_path, driver='GPKG')
+                        # Keep features OUTSIDE the edit bbox from original file
+                        outside_mask = ~existing_gdf.geometry.intersects(edit_box)
+                        kept_gdf = existing_gdf[outside_mask].copy()
+                        
+                        # Combine: original features outside bbox + edited features
+                        merged_gdf = gpd.GeoDataFrame(
+                            pd.concat([kept_gdf, edited_gdf], ignore_index=True),
+                            crs=existing_gdf.crs
+                        )
                     else:
-                        gdf.to_file(file_path)
+                        # No bbox scope: try to match by properties and update geometries
+                        # Build a lookup from existing features
+                        import pandas as pd
+                        
+                        # Use property-based matching
+                        existing_props = existing_gdf.drop(columns='geometry').to_dict('records')
+                        edited_props = edited_gdf.drop(columns='geometry').to_dict('records')
+                        
+                        # Track which existing rows were updated
+                        updated_indices = set()
+                        new_features = []
+                        
+                        for i, edited_row in edited_gdf.iterrows():
+                            e_props = {k: v for k, v in edited_row.items() if k != 'geometry'}
+                            matched = False
+                            for j, exist_row in existing_gdf.iterrows():
+                                if j in updated_indices:
+                                    continue
+                                ex_props = {k: v for k, v in exist_row.items() if k != 'geometry'}
+                                if e_props == ex_props:
+                                    # Found match — update geometry
+                                    existing_gdf.at[j, 'geometry'] = edited_row.geometry
+                                    updated_indices.add(j)
+                                    matched = True
+                                    break
+                            if not matched:
+                                new_features.append(edited_row)
+                        
+                        if new_features:
+                            new_gdf = gpd.GeoDataFrame(new_features, crs=existing_gdf.crs)
+                            merged_gdf = gpd.GeoDataFrame(
+                                pd.concat([existing_gdf, new_gdf], ignore_index=True),
+                                crs=existing_gdf.crs
+                            )
+                        else:
+                            merged_gdf = existing_gdf
+                    
+                    logger.info(f"Merge save: {len(existing_gdf)} existing + {len(edited_gdf)} edited = {len(merged_gdf)} total")
+                else:
+                    # No existing file — just save the edited features
+                    merged_gdf = edited_gdf
+                
+                # Save merged result
+                if file_path.endswith('.geojson'):
+                    merged_gdf.to_file(file_path, driver='GeoJSON')
+                elif file_path.endswith('.shp'):
+                    merged_gdf.to_file(file_path, driver='ESRI Shapefile')
+                elif file_path.endswith('.gpkg'):
+                    merged_gdf.to_file(file_path, driver='GPKG')
+                else:
+                    merged_gdf.to_file(file_path)
                     
                 self.send_response(200)
                 self.send_header('Content-type', 'application/json')
                 self.end_headers()
-                self.wfile.write(json.dumps({"status": "success", "message": f"Saved {len(features)} features to {file_path}"}).encode('utf-8'))
+                self.wfile.write(json.dumps({"status": "success", "message": f"Merged {len(edited_gdf)} edited features into {len(merged_gdf)} total in {file_path}"}).encode('utf-8'))
             except Exception as e:
                 logger.error(f"Save GeoJSON failed: {e}")
+                import traceback
+                traceback.print_exc()
                 self.send_response(500)
                 self.send_header('Content-type', 'application/json')
                 self.end_headers()

@@ -48,16 +48,25 @@ export const useMapEvents = ({
                 };
                 
                 if (mapInstance.current && mapInstance.current._magpiIsEditing) {
+                    // Clean up previous edit layer if switching features
                     if (mapInstance.current._magpiActiveEditSvgLayer) {
                         const oldSvg = mapInstance.current._magpiActiveEditSvgLayer;
-                        oldSvg.editing.disable();
                         
-                        // Sync back to canvas
+                        // Disable editing on the POLYGON inside the GeoJSON group, not the group itself
+                        try {
+                            const oldPoly = oldSvg.getLayers && oldSvg.getLayers()[0];
+                            if (oldPoly && oldPoly.editing) {
+                                oldPoly.editing.disable();
+                            }
+                        } catch(e) { console.warn('[MagPI] Error disabling old edit:', e); }
+                        
+                        // Sync edited geometry back to canvas layer
                         const oldCanvas = mapInstance.current._magpiActiveEditCanvasLayer;
                         if (oldCanvas) {
-                            if (oldSvg.getLayers && oldSvg.getLayers()[0]) {
-                                oldCanvas.setLatLngs(oldSvg.getLayers()[0].getLatLngs());
-                                oldCanvas.feature.geometry = oldSvg.getLayers()[0].toGeoJSON().geometry;
+                            const oldPoly = oldSvg.getLayers && oldSvg.getLayers()[0];
+                            if (oldPoly) {
+                                oldCanvas.setLatLngs(oldPoly.getLatLngs());
+                                oldCanvas.feature.geometry = oldPoly.toGeoJSON().geometry;
                                 oldCanvas._magpiModified = true;
                             }
                             oldCanvas._magpiIsHiddenForEdit = false;
@@ -68,20 +77,21 @@ export const useMapEvents = ({
                         mapInstance.current._magpiActiveEditCanvasLayer = null;
                     }
                     
-                    // Hide canvas layer
+                    // Hide canvas layer for the new feature being edited
                     foundLayer._magpiIsHiddenForEdit = true;
                     foundLayer.setStyle({ opacity: 0, fillOpacity: 0, interactive: false });
                     
-                    // Create SVG layer
+                    // Create SVG copy for editing (SVG supports vertex drag handles, canvas doesn't)
                     const svgLayer = L.geoJSON(foundLayer.feature, { 
                         renderer: L.svg(),
                         style: { color: '#f59e0b', weight: 4, fillOpacity: 0.4 }
                     }).addTo(mapInstance.current);
                     
-                    // Enable editing on the polygon itself
+                    // Enable editing on the actual polygon inside the GeoJSON group
                     const svgPoly = svgLayer.getLayers()[0];
                     if (svgPoly && svgPoly.editing) {
                         svgPoly.editing.enable();
+                        console.log('[MagPI] Vertex editing enabled on feature.');
                     }
                     
                     mapInstance.current._magpiActiveEditSvgLayer = svgLayer;
@@ -136,6 +146,27 @@ export const useMapEvents = ({
                 // CRITICAL: Disable map dragging so vertex handles can receive mousedown events
                 mapInstance.current.dragging.disable();
                 console.log('[MagPI] Edit mode enabled. Map dragging disabled for vertex editing.');
+                
+                // If a feature is already selected, auto-activate editing on it
+                if (activeFeatureLayer.current && activeFeatureLayer.current.layer) {
+                    const foundLayer = activeFeatureLayer.current.layer;
+                    foundLayer._magpiIsHiddenForEdit = true;
+                    foundLayer.setStyle({ opacity: 0, fillOpacity: 0, interactive: false });
+                    
+                    const svgLayer = L.geoJSON(foundLayer.feature, { 
+                        renderer: L.svg(),
+                        style: { color: '#f59e0b', weight: 4, fillOpacity: 0.4 }
+                    }).addTo(mapInstance.current);
+                    
+                    const svgPoly = svgLayer.getLayers()[0];
+                    if (svgPoly && svgPoly.editing) {
+                        svgPoly.editing.enable();
+                        console.log('[MagPI] Auto-editing pre-selected feature.');
+                    }
+                    
+                    mapInstance.current._magpiActiveEditSvgLayer = svgLayer;
+                    mapInstance.current._magpiActiveEditCanvasLayer = foundLayer;
+                }
             }
         };
         
@@ -148,7 +179,10 @@ export const useMapEvents = ({
                 mapInstance.current.dragging.enable();
                 
                 if (mapInstance.current._magpiActiveEditSvgLayer) {
-                    try { mapInstance.current._magpiActiveEditSvgLayer.editing.disable(); } catch(e) {}
+                    try {
+                        const poly = mapInstance.current._magpiActiveEditSvgLayer.getLayers && mapInstance.current._magpiActiveEditSvgLayer.getLayers()[0];
+                        if (poly && poly.editing) poly.editing.disable();
+                    } catch(e) {}
                     mapInstance.current.removeLayer(mapInstance.current._magpiActiveEditSvgLayer);
                     mapInstance.current._magpiActiveEditSvgLayer = null;
                 }
@@ -180,41 +214,54 @@ export const useMapEvents = ({
         const handleSaveEdits = (e) => {
             const { nodeId } = e.detail;
             if (!nodeId) return;
-            // Sync active edit layer back to canvas before saving
-            if (mapInstance.current && mapInstance.current._magpiActiveEditSvgLayer) {
-                const activeSvg = mapInstance.current._magpiActiveEditSvgLayer;
-                activeSvg.editing.disable();
-                
-                const activeCanvas = mapInstance.current._magpiActiveEditCanvasLayer;
-                if (activeCanvas && activeSvg.getLayers && activeSvg.getLayers()[0]) {
-                    const editedGJ = activeSvg.getLayers()[0].toGeoJSON();
-                    activeCanvas.setLatLngs(activeSvg.getLayers()[0].getLatLngs());
-                    activeCanvas.feature.geometry = editedGJ.geometry;
-                    activeCanvas._magpiModified = true;
-                    activeCanvas._magpiIsHiddenForEdit = false;
-                    activeCanvas.setStyle({ opacity: 1, fillOpacity: 0.2, interactive: true });
-                }
-                mapInstance.current.removeLayer(activeSvg);
-                mapInstance.current._magpiActiveEditSvgLayer = null;
-                mapInstance.current._magpiActiveEditCanvasLayer = null;
-            }
 
             const cached = loadedDataRef.current[nodeId];
             if (cached && cached.data && cached.data.features) {
+                // First: sync active SVG edit layer back to cached data
+                if (mapInstance.current && mapInstance.current._magpiActiveEditSvgLayer) {
+                    const activeSvg = mapInstance.current._magpiActiveEditSvgLayer;
+                    const activeCanvas = mapInstance.current._magpiActiveEditCanvasLayer;
+                    
+                    if (activeSvg.getLayers && activeSvg.getLayers()[0]) {
+                        const editedGeo = activeSvg.getLayers()[0].toGeoJSON();
+                        
+                        // Sync geometry to cached data
+                        if (activeCanvas && activeCanvas.feature) {
+                            const match = cached.data.features.find(feat => 
+                                JSON.stringify(feat.properties) === JSON.stringify(activeCanvas.feature.properties)
+                            );
+                            if (match) {
+                                match.geometry = editedGeo.geometry;
+                            }
+                        }
+                    }
+                    
+                    // Clean up SVG edit layer
+                    try {
+                        const poly = activeSvg.getLayers && activeSvg.getLayers()[0];
+                        if (poly && poly.editing) poly.editing.disable();
+                    } catch(e) {}
+                    mapInstance.current.removeLayer(activeSvg);
+                    mapInstance.current._magpiActiveEditSvgLayer = null;
+                    
+                    if (activeCanvas) {
+                        activeCanvas._magpiIsHiddenForEdit = false;
+                        activeCanvas.setStyle({ opacity: 1, fillOpacity: 0.2, interactive: true });
+                        mapInstance.current._magpiActiveEditCanvasLayer = null;
+                    }
+                }
+
+                // Second: collect geometry edits from any other modified canvas layers
                 if (highlightGroup.current) {
                     highlightGroup.current.eachLayer(layerObj => {
                         if (layerObj instanceof L.GeoJSON) {
                             layerObj.eachLayer(childLayer => {
                                 if (childLayer._magpiModified) {
                                     childLayer._magpiModified = false;
-                                    
-                                    // Update cached data if modified
                                     const editedGeoJSON = childLayer.toGeoJSON();
                                     
-                                    if (editedGeoJSON.properties && editedGeoJSON.properties.isNewFeature) {
-                                        delete editedGeoJSON.properties.isNewFeature;
-                                        cached.data.features.push(editedGeoJSON);
-                                    } else {
+                                    // For non-new features, update geometry in cache
+                                    if (!editedGeoJSON.properties?.isNewFeature) {
                                         const f = cached.data.features.find(feat => 
                                             JSON.stringify(feat.properties) === JSON.stringify(editedGeoJSON.properties)
                                         );
@@ -228,21 +275,28 @@ export const useMapEvents = ({
                     });
                 }
 
-                if (mapInstance.current) {
-                    mapInstance.current._magpiIsEditing = false;
-                }
+                // Third: clean isNewFeature flags from all features before saving
+                cached.data.features.forEach(feat => {
+                    if (feat.properties) {
+                        delete feat.properties.isNewFeature;
+                        delete feat.properties._magpi_new_id;
+                    }
+                });
 
+                // Finally: save to backend
                 const node = nodesRef.current.find(n => n.id === nodeId);
                 if (node && node.params && node.params.file_path) {
                     let filePath = node.params.file_path;
                     if (!filePath.startsWith('/') && !filePath.startsWith('./')) {
                         filePath = `./magpi_output/${filePath}`;
                     }
-                    console.log('[MagPI] Saving edits for', filePath);
+                    console.log('[MagPI] Saving edits for', filePath, '— features:', cached.data.features.length);
+                    // Include bbox so backend can do a spatial merge instead of overwriting
+                    const saveBbox = explicitRender ? explicitRender.bbox : null;
                     fetch(`http://${window.location.hostname}:${window.MAGPI_PORT || '8282'}/api/save_geojson`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ file_path: filePath, features: cached.data.features })
+                        body: JSON.stringify({ file_path: filePath, features: cached.data.features, bbox: saveBbox })
                     })
                     .then(res => res.json())
                     .then(data => {
@@ -251,6 +305,7 @@ export const useMapEvents = ({
                             setIsEditingMode(false);
                             if (mapInstance.current) {
                                 L.DomUtil.removeClass(mapInstance.current.getContainer(), 'magpi-edit-mode');
+                                mapInstance.current._magpiIsEditing = false;
                                 mapInstance.current.dragging.enable();
                             }
                         } else {
@@ -484,7 +539,10 @@ export const useMapEvents = ({
                 
                 // Cleanup SVG edit layer if any
                 if (mapInstance.current._magpiActiveEditSvgLayer) {
-                    mapInstance.current._magpiActiveEditSvgLayer.editing.disable();
+                    try {
+                        const poly = mapInstance.current._magpiActiveEditSvgLayer.getLayers && mapInstance.current._magpiActiveEditSvgLayer.getLayers()[0];
+                        if (poly && poly.editing) poly.editing.disable();
+                    } catch(e) {}
                     mapInstance.current.removeLayer(mapInstance.current._magpiActiveEditSvgLayer);
                     mapInstance.current._magpiActiveEditSvgLayer = null;
                 }

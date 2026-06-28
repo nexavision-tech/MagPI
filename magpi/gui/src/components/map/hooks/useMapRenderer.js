@@ -20,6 +20,10 @@ export const useMapRenderer = ({
     useEffect(() => {
         if (!mapInstance.current || !highlightGroup.current) return;
         const map = mapInstance.current;
+        
+        // Preserve layers that are being actively edited (don't destroy their references)
+        const editCanvasLayer = map._magpiActiveEditCanvasLayer;
+        
         highlightGroup.current.clearLayers();
         
         [...computedLayers].reverse().forEach(layer => {
@@ -283,6 +287,20 @@ export const useMapRenderer = ({
 
                         gjLayer.magpi_layer_id = layer.id;
                         highlightGroup.current.addLayer(gjLayer);
+                        
+                        // If we're actively editing a feature, re-link the canvas reference
+                        // The old canvas layer was destroyed by clearLayers(), so find the new one
+                        if (editCanvasLayer && editCanvasLayer.feature && map._magpiIsEditing) {
+                            gjLayer.eachLayer(childLayer => {
+                                if (childLayer.feature && 
+                                    JSON.stringify(childLayer.feature.properties) === JSON.stringify(editCanvasLayer.feature.properties)) {
+                                    // Found the re-created canvas layer — hide it and update the reference
+                                    childLayer._magpiIsHiddenForEdit = true;
+                                    childLayer.setStyle({ opacity: 0, fillOpacity: 0, interactive: false });
+                                    map._magpiActiveEditCanvasLayer = childLayer;
+                                }
+                            });
+                        }
                         
                         if (autoZoom && selectedNodeRef.current && selectedNodeRef.current.id === layer.id && lastZoomedNode.current !== layer.id) {
                             lastZoomedNode.current = layer.id;

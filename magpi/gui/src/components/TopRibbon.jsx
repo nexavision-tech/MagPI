@@ -6,7 +6,7 @@ export default function TopRibbon({
   processingScope, setProcessingScope, 
   onGenerate, onSave, onLoad, onClear, onAutoLayout, onOpenEnvSettings, onImportENVI,
   isDaemonAlive, projectName, profiles = [], activeProfile, activeRole, onProfileChange,
-  interactionMode, setInteractionMode
+  interactionMode, setInteractionMode, explicitRender
 }) {
   const hiddenFileInput = React.useRef(null);
   const [isEditingMode, setIsEditingMode] = React.useState(false);

@@ -126,10 +126,17 @@ body {
     cursor: pointer !important;
 }
 
-/* Ensure SVG overlay pane (where edit vertices live) sits above canvas panes */
+/* Ensure SVG edit polygons sit above canvas panes and are interactive */
+.magpi-edit-mode .leaflet-overlay-pane {
+    z-index: 9999 !important;
+}
 .magpi-edit-mode .leaflet-overlay-pane svg {
     z-index: 9999 !important;
-    pointer-events: auto !important;
+    /* Do NOT set pointer-events:auto here — SVG root covers entire viewport and would block canvas clicks */
+}
+.magpi-edit-mode .leaflet-overlay-pane svg path {
+    pointer-events: visiblePainted !important;
+    cursor: cell !important;
 }
 .magpi-edit-mode .leaflet-marker-pane {
     z-index: 10001 !important;
