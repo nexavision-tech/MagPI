@@ -339,7 +339,7 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
         loadedData,
         loadedDataRef,
         setLoadedData,
-        setExplicitRender,
+        explicitRender,
         setRenderedCells,
         setIsEditingMode,
         activeFeatureLayer,

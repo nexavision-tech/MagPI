@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import L from 'leaflet';
 
 export const useMapEvents = ({
@@ -7,7 +7,7 @@ export const useMapEvents = ({
     loadedData,
     loadedDataRef,
     setLoadedData,
-    setExplicitRender,
+    explicitRender,
     setRenderedCells,
     setIsEditingMode,
     activeFeatureLayer,
@@ -126,40 +126,7 @@ export const useMapEvents = ({
         window.addEventListener('magpi-draw-lasso', handleDrawLasso);
         window.addEventListener('magpi-zoom-layer', handleZoomLayer);
 
-        const handleRenderFishnet = (e) => {
-            console.log('[MagPI] Fishnet render event received:', e.detail);
-            if (e.detail.bbox) {
-                setRenderedCells(prev => {
-                    const newSet = new Set(prev);
-                    newSet.add(e.detail.bbox);
-                    return newSet;
-                });
-            }
-            setExplicitRender({ bbox: e.detail.bbox, sourceLayerId: e.detail.sourceLayerId || null });
-        };
-        window.addEventListener('magpi-render-fishnet', handleRenderFishnet);
-        
-        const handleClearSelection = () => {
-            console.log('[MagPI] Clearing selection and render locks.');
-            setExplicitRender(prev => {
-                if (prev && prev.sourceLayerId) {
-                    setLoadedData(currentData => {
-                        const newData = { ...currentData };
-                        delete newData[prev.sourceLayerId];
-                        return newData;
-                    });
-                }
-                return null;
-            });
-            setRenderedCells(new Set());
-            setIsEditingMode(false);
-            if (mapInstance.current) {
-                L.DomUtil.removeClass(mapInstance.current.getContainer(), 'magpi-edit-mode');
-                mapInstance.current.dragging.enable();
-            }
-            window.dispatchEvent(new CustomEvent('magpi-feature-selected', { detail: null }));
-        };
-        window.addEventListener('magpi-clear-selection', handleClearSelection);
+
         
         const handleEditVector = () => {
             setIsEditingMode(true);
@@ -458,8 +425,7 @@ export const useMapEvents = ({
             window.removeEventListener('magpi-draw-marquee', handleDrawMarquee);
             window.removeEventListener('magpi-draw-lasso', handleDrawLasso);
             window.removeEventListener('magpi-zoom-layer', handleZoomLayer);
-            window.removeEventListener('magpi-render-fishnet', handleRenderFishnet);
-            window.removeEventListener('magpi-clear-selection', handleClearSelection);
+
             window.removeEventListener('magpi-edit-vector', handleEditVector);
             window.removeEventListener('magpi-cancel-edits', handleCancelEdits);
             window.removeEventListener('magpi-save-edits', handleSaveEdits);
@@ -472,4 +438,50 @@ export const useMapEvents = ({
             window.removeEventListener('magpi-snap-vertices', handleSnap);
         };
     }, []); // Empty deps because callbacks use refs for current data
+
+    const prevExplicitRenderRef = useRef(null);
+    useEffect(() => {
+        if (explicitRender) {
+            if (explicitRender.bbox) {
+                setRenderedCells(prev => {
+                    const newSet = new Set(prev);
+                    newSet.add(explicitRender.bbox);
+                    return newSet;
+                });
+            }
+        } else {
+            // explicitRender became null, purge cache and clear selection
+            const prev = prevExplicitRenderRef.current;
+            if (prev && prev.sourceLayerId) {
+                console.log('[MagPI] explicitRender cleared. Purging cache for layer:', prev.sourceLayerId);
+                setLoadedData(currentData => {
+                    const newData = { ...currentData };
+                    delete newData[prev.sourceLayerId];
+                    return newData;
+                });
+            }
+            setRenderedCells(new Set());
+            setIsEditingMode(false);
+            if (mapInstance.current) {
+                L.DomUtil.removeClass(mapInstance.current.getContainer(), 'magpi-edit-mode');
+                mapInstance.current._magpiIsEditing = false;
+                if (mapInstance.current.dragging) mapInstance.current.dragging.enable();
+                
+                // Cleanup SVG edit layer if any
+                if (mapInstance.current._magpiActiveEditSvgLayer) {
+                    mapInstance.current._magpiActiveEditSvgLayer.editing.disable();
+                    mapInstance.current.removeLayer(mapInstance.current._magpiActiveEditSvgLayer);
+                    mapInstance.current._magpiActiveEditSvgLayer = null;
+                }
+                if (mapInstance.current._magpiActiveEditCanvasLayer) {
+                    const canvasLayer = mapInstance.current._magpiActiveEditCanvasLayer;
+                    canvasLayer._magpiIsHiddenForEdit = false;
+                    canvasLayer.setStyle({ opacity: 1, fillOpacity: 0.2, interactive: true });
+                    mapInstance.current._magpiActiveEditCanvasLayer = null;
+                }
+            }
+            window.dispatchEvent(new CustomEvent('magpi-feature-selected', { detail: null }));
+        }
+        prevExplicitRenderRef.current = explicitRender;
+    }, [explicitRender, setRenderedCells, setLoadedData, setIsEditingMode, mapInstance]);
 };
