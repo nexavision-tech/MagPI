@@ -340,16 +340,25 @@ export default function App() {
     
     const handleRenderFishnet = (e) => {
         setExplicitRender({ bbox: e.detail.bbox, sourceLayerId: e.detail.sourceLayerId || null });
+        if (e.detail.sourceLayerId) {
+            setSelectedNodeId(e.detail.sourceLayerId);
+        }
+    };
+
+    const handleClearSelection = () => {
+        setExplicitRender(null);
     };
 
     window.addEventListener('magpi-map-drop', handleMapDrop);
     window.addEventListener('magpi-log', handleLog);
     window.addEventListener('magpi-render-fishnet', handleRenderFishnet);
+    window.addEventListener('magpi-clear-selection', handleClearSelection);
     
     return () => {
         window.removeEventListener('magpi-map-drop', handleMapDrop);
         window.removeEventListener('magpi-log', handleLog);
         window.removeEventListener('magpi-render-fishnet', handleRenderFishnet);
+        window.removeEventListener('magpi-clear-selection', handleClearSelection);
     };
   }, []);
 

@@ -14,26 +14,37 @@ const DebouncedColorPicker = ({ color, onChange }) => {
         />
     );
 };
+const OpacitySlider = ({ layer, setMapLayers }) => {
+    const [localOpacity, setLocalOpacity] = useState(layer.opacity ?? 80);
+    useEffect(() => { setLocalOpacity(layer.opacity ?? 80); }, [layer.opacity]);
+
+    const handleCommit = () => {
+        if (setMapLayers) {
+            setMapLayers(prev => prev.map(l => l.id === layer.id ? { ...l, opacity: localOpacity } : l));
+        }
+    };
+
+    return (
+        <div className="flex items-center space-x-2">
+            <span className="text-[9px] text-slate-500 uppercase tracking-widest w-12 shrink-0">Opacity</span>
+            <input 
+                type="range" 
+                min="0" max="100" 
+                value={localOpacity}
+                onChange={(e) => setLocalOpacity(parseInt(e.target.value))}
+                onMouseUp={handleCommit}
+                onTouchEnd={handleCommit}
+                className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer" 
+            />
+            <span className="text-[9px] text-slate-400 w-6 text-right shrink-0">{localOpacity}%</span>
+        </div>
+    );
+};
 
 export default function LayerConfigPanel({ layer, nodes, setNodes, setMapLayers, selectedFeatures }) {
     return (
         <div className="mt-2 pl-5 space-y-3 bg-slate-900/50 p-2 rounded border border-slate-700/50">
-            <div className="flex items-center space-x-2">
-                <span className="text-[9px] text-slate-500 uppercase tracking-widest w-12 shrink-0">Opacity</span>
-                <input 
-                    type="range" 
-                    min="0" max="100" 
-                    value={layer.opacity}
-                    onChange={(e) => {
-                        const newOpacity = parseInt(e.target.value);
-                        if (setMapLayers) {
-                            setMapLayers(prev => prev.map(l => l.id === layer.id ? { ...l, opacity: newOpacity } : l));
-                        }
-                    }}
-                    className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer" 
-                />
-                <span className="text-[9px] text-slate-400 w-6 text-right shrink-0">{layer.opacity}%</span>
-            </div>
+            <OpacitySlider layer={layer} setMapLayers={setMapLayers} />
             
             {layer.isBase === false && (() => {
                 const node = nodes.find(n => n.id === layer.id);

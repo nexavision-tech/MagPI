@@ -433,7 +433,17 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
         
         const handleClearSelection = () => {
             console.log('[MagPI] Clearing selection and render locks.');
-            setExplicitRender(null);
+            setExplicitRender(prev => {
+                if (prev && prev.sourceLayerId) {
+                    setLoadedData(currentData => {
+                        const newData = { ...currentData };
+                        delete newData[prev.sourceLayerId];
+                        return newData;
+                    });
+                }
+                return null;
+            });
+            setRenderedCells(new Set());
             setIsEditingMode(false);
             if (mapInstance.current) L.DomUtil.removeClass(mapInstance.current.getContainer(), 'magpi-edit-mode');
             window.dispatchEvent(new CustomEvent('magpi-feature-selected', { detail: null }));
@@ -802,22 +812,24 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                         rect.magpi_layer_id = layer.id;
                         
                         // Add click handler to the footprint rectangle so users can select the layer even when vectors aren't fully rendered
-                        rect.on('click', (e) => {
-                            // In NAV mode, only the active (highlighted) layer is clickable for identification
-                            if (interactionModeRef.current === 'nav') {
-                                if (!selectedNodeRef.current || selectedNodeRef.current.id !== layer.id) return;
-                            }
-                            if (e.originalEvent?._magpiFeatureClicked) return;
-                            if (e.originalEvent) e.originalEvent._magpiFeatureClicked = true;
-                            window.dispatchEvent(new CustomEvent('magpi-feature-selected', { 
-                                detail: { 
-                                    layerName: layer.name || layer.id, 
-                                    nodeId: layer.id,
-                                    isFootprint: true,
-                                    bounds: { xmin, ymin, xmax, ymax }
-                                } 
-                            }));
-                        });
+                        if (isStandaloneFootprint) {
+                            rect.on('click', (e) => {
+                                // In NAV mode, only the active (highlighted) layer is clickable for identification
+                                if (interactionModeRef.current === 'nav') {
+                                    if (!selectedNodeRef.current || selectedNodeRef.current.id !== layer.id) return;
+                                }
+                                if (e.originalEvent?._magpiFeatureClicked) return;
+                                if (e.originalEvent) e.originalEvent._magpiFeatureClicked = true;
+                                window.dispatchEvent(new CustomEvent('magpi-feature-selected', { 
+                                    detail: { 
+                                        layerName: layer.name || layer.id, 
+                                        nodeId: layer.id,
+                                        isFootprint: true,
+                                        bounds: { xmin, ymin, xmax, ymax }
+                                    } 
+                                }));
+                            });
+                        }
                         
                         highlightGroup.current.addLayer(rect);
                         
@@ -1125,11 +1137,15 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
             if (layerObj instanceof L.Rectangle && !layerObj.feature) {
                 // It's the bounding box rectangle
                 const isSelected = selectedFeatures && selectedFeatures.some(f => f?.nodeId === layerId && f?.isFootprint);
+                const isExplicitTarget = explicitRender && explicitRender.sourceLayerId === layerId;
+                const renderMode = isExplicitTarget ? 'full' : (cLayer.renderMode || 'footprint');
+                const isStandaloneFootprint = !isFishnet && renderMode !== 'full';
+
                 layerObj.setStyle({
                     color: isSelected ? '#00ffff' : (isExtent ? '#00ffff' : cLayer.vectorColor),
                     weight: isSelected ? 4 : 2,
                     fillColor: isSelected ? '#00ffff' : cLayer.vectorColor,
-                    fillOpacity: isSelected ? 0.3 : (isFishnet ? 0.0 : 0.2)
+                    fillOpacity: isStandaloneFootprint ? (isSelected ? 0.3 : 0.1) : 0
                 });
             } else if (layerObj instanceof L.GeoJSON) {
                 // It's the vector features
@@ -1156,10 +1172,10 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
                         const isRenderedCell = renderedCells.has(bboxStr);
                         childLayer.setStyle({
                             weight: isRenderedCell ? 2 : (isSelected ? 4 : 2),
-                            color: isRenderedCell ? '#f59e0b' : (isSelected ? '#00ffff' : '#ff8c00'),
+                            color: isRenderedCell ? '#f59e0b' : (isSelected ? '#00ffff' : (cLayer.vectorColor || '#ff8c00')),
                             opacity: isRenderedCell ? 0.3 : 0.8,
-                            fillColor: isRenderedCell ? 'transparent' : (isSelected ? '#00ffff' : '#ff8c00'),
-                            fillOpacity: isRenderedCell ? 0.0 : (isSelected ? 0.2 : 0.05),
+                            fillColor: isRenderedCell ? 'transparent' : (isSelected ? '#00ffff' : (cLayer.vectorColor || '#ff8c00')),
+                            fillOpacity: isRenderedCell ? 0.0 : (isSelected ? 0.2 : 0.0),
                             dashArray: isRenderedCell ? '4,4' : null,
                             interactive: !isRenderedCell
                         });

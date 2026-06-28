@@ -712,6 +712,7 @@ def LaunchCanvas(port=8282):
                 # Reading the entire shapefile can be slow for 471k rows, 
                 # but we'll read it and slice it for now. 
                 # Future optimization: use fiona to slice directly or read in chunks.
+                kwargs = {}
                 if layer_name:
                     kwargs['layer'] = layer_name
                 if bbox_param:
