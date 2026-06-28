@@ -58,10 +58,12 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
     const nodesRef = useRef(nodes);
     const loadedDataRef = useRef(loadedData);
     const selectedNodeRef = useRef(selectedNode);
+    const selectedFeaturesRef = useRef(selectedFeatures);
     
     useEffect(() => { nodesRef.current = nodes; }, [nodes]);
     useEffect(() => { loadedDataRef.current = loadedData; }, [loadedData]);
     useEffect(() => { selectedNodeRef.current = selectedNode; }, [selectedNode]);
+    useEffect(() => { selectedFeaturesRef.current = selectedFeatures; }, [selectedFeatures]);
     
     useEffect(() => {
         interactionModeRef.current = interactionMode;
@@ -334,7 +336,7 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
         nodes,
         explicitRender,
         renderedCells,
-        selectedFeatures,
+        selectedFeaturesRef,
         selectedNodeRef,
         interactionModeRef,
         lastZoomedNode,

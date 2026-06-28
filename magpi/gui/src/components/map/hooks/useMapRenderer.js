@@ -11,7 +11,7 @@ export const useMapRenderer = ({
     nodes,
     explicitRender,
     renderedCells,
-    selectedFeatures,
+    selectedFeaturesRef,
     selectedNodeRef,
     interactionModeRef,
     lastZoomedNode,
@@ -52,7 +52,7 @@ export const useMapRenderer = ({
                 
                 if (!isNaN(y1) && !isNaN(x1) && !isNaN(y2) && !isNaN(x2) && isSaneBounds) {
                     const bounds = [[y1, x1], [y2, x2]];
-                    const isSelected = selectedFeatures && selectedFeatures.some(f => f?.nodeId === layer.id && f?.isFootprint);
+                    const isSelected = selectedFeaturesRef.current && selectedFeaturesRef.current.some(f => f?.nodeId === layer.id && f?.isFootprint);
                     const isExtent = layer.toolId === 'core_extent';
                     const isFishnet = layer.toolId === 'core_fishnet';
                     
@@ -146,7 +146,7 @@ export const useMapRenderer = ({
                             renderer: canvasRenderer,
                             interactive: true,
                             style: (feature) => {
-                                const isSelected = selectedFeatures && selectedFeatures.some(sf => sf?.nodeId === layer.id && featuresMatch(sf?.feature?.properties, feature.properties));
+                                const isSelected = selectedFeaturesRef.current && selectedFeaturesRef.current.some(sf => sf?.nodeId === layer.id && featuresMatch(sf?.feature?.properties, feature.properties));
                                 if (isFishnet) {
                                     const coords = feature.geometry?.coordinates;
                                     let bboxStr = null;
@@ -186,7 +186,7 @@ export const useMapRenderer = ({
                             },
                             pointToLayer: (feature, latlng) => {
                                 const baseOpacity = layer.opacity !== undefined ? layer.opacity / 100 : 1;
-                                const isSelected = selectedFeatures && selectedFeatures.some(sf => sf?.nodeId === layer.id && featuresMatch(sf?.feature?.properties, feature.properties));
+                                const isSelected = selectedFeaturesRef.current && selectedFeaturesRef.current.some(sf => sf?.nodeId === layer.id && featuresMatch(sf?.feature?.properties, feature.properties));
                                 return L.circleMarker(latlng, {
                                     radius: isSelected ? 6 : 4,
                                     weight: isSelected ? 2 : 1,
@@ -289,5 +289,5 @@ export const useMapRenderer = ({
                 }
             }
         });
-    }, [computedLayers, loadedData, explicitRender, renderedCells, selectedFeatures, connections, nodes]);
+    }, [computedLayers, loadedData, explicitRender, renderedCells, connections, nodes]);
 };
