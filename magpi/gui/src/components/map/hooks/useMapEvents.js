@@ -121,11 +121,21 @@ export const useMapEvents = ({
             setIsEditingMode(true);
             if (mapInstance.current) {
                 L.DomUtil.addClass(mapInstance.current.getContainer(), 'magpi-edit-mode');
-                if (activeFeatureLayer.current && activeFeatureLayer.current.layer && activeFeatureLayer.current.layer.editing) {
-                    activeFeatureLayer.current.layer.editing.enable();
+                
+                // Enable editing for all features in highlightGroup
+                if (highlightGroup.current) {
+                    highlightGroup.current.eachLayer(layerObj => {
+                        if (layerObj instanceof L.GeoJSON) {
+                            layerObj.eachLayer(childLayer => {
+                                if (childLayer.editing) {
+                                    childLayer.editing.enable();
+                                }
+                            });
+                        }
+                    });
                 }
             }
-            console.log('[MagPI] Edit mode enabled.');
+            console.log('[MagPI] Edit mode enabled for all features.');
         };
         window.addEventListener('magpi-edit-vector', handleEditVector);
         
@@ -134,17 +144,25 @@ export const useMapEvents = ({
             if (!nodeId) return;
             const cached = loadedDataRef.current[nodeId];
             if (cached && cached.data && cached.data.features) {
-                if (activeFeatureLayer.current && activeFeatureLayer.current.layer) {
-                    const editedGeoJSON = activeFeatureLayer.current.layer.toGeoJSON();
-                    const f = cached.data.features.find(feat => 
-                        JSON.stringify(feat.properties) === JSON.stringify(editedGeoJSON.properties)
-                    );
-                    if (f) {
-                        f.geometry = editedGeoJSON.geometry;
-                    }
-                    if (activeFeatureLayer.current.layer.editing) {
-                        activeFeatureLayer.current.layer.editing.disable();
-                    }
+                if (highlightGroup.current) {
+                    highlightGroup.current.eachLayer(layerObj => {
+                        if (layerObj instanceof L.GeoJSON) {
+                            layerObj.eachLayer(childLayer => {
+                                if (childLayer.editing && childLayer.editing.enabled()) {
+                                    childLayer.editing.disable();
+                                    
+                                    // Update cached data if modified
+                                    const editedGeoJSON = childLayer.toGeoJSON();
+                                    const f = cached.data.features.find(feat => 
+                                        JSON.stringify(feat.properties) === JSON.stringify(editedGeoJSON.properties)
+                                    );
+                                    if (f) {
+                                        f.geometry = editedGeoJSON.geometry;
+                                    }
+                                }
+                            });
+                        }
+                    });
                 }
 
                 const node = nodesRef.current.find(n => n.id === nodeId);

@@ -35,7 +35,7 @@ const getAncestralExtent = (nodeId, nodes, connections) => {
     return null;
 };
 
-const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activeWorkspace, nodes = [], nodeStatuses = {}, connections = [], globalEnv, mapLayers = [], autoZoom, selectedFeatures, setSelectedFeatures, interactionMode = 'nav' }) => {
+const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activeWorkspace, nodes = [], nodeStatuses = {}, connections = [], globalEnv, mapLayers = [], autoZoom, selectedFeatures, setSelectedFeatures, interactionMode = 'nav', explicitRender, setExplicitRender }) => {
     const mapRef = useRef(null);
     const mapInstance = useRef(null); 
     const highlightGroup = useRef(null);
@@ -47,7 +47,6 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
     const [currentZoom, setCurrentZoom] = React.useState(2);
     const [viewportBBox, setViewportBBox] = React.useState("");
     const [isEditingMode, setIsEditingMode] = React.useState(false);
-    const [explicitRender, setExplicitRender] = React.useState(null); 
     const [renderedCells, setRenderedCells] = React.useState(new Set()); 
 
     const lastZoomedNode = useRef(null);
@@ -80,7 +79,11 @@ const MapViewport = React.memo(({ onAoiDrawn, onAoiImported, selectedNode, activ
     useEffect(() => {
         if (!mapRef.current || mapInstance.current) return; 
 
-        const map = L.map(mapRef.current, { zoomControl: false, doubleClickZoom: false }).setView([0, 0], 2);
+        const map = L.map(mapRef.current, { 
+            zoomControl: false, 
+            doubleClickZoom: false,
+            preferCanvas: true // Use canvas instead of SVG for massive vector performance (400k+ footprints)
+        }).setView([0, 0], 2);
         mapInstance.current = map;
         map.on('zoomend', () => setCurrentZoom(map.getZoom()));
 

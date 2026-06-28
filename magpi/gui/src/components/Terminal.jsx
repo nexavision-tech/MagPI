@@ -13,6 +13,12 @@ export default function Terminal({ showTerminal, setShowTerminal, logs, isProces
   const [dataError, setDataError] = useState(null);
   const [page, setPage] = useState(0);
   const limit = 100;
+  
+  const [editingCell, setEditingCell] = useState(null); // { rIdx, col }
+  const [pendingEdits, setPendingEdits] = useState({}); // { rIdx: { col: val } }
+  const [formula, setFormula] = useState('');
+  const [formulaTargetCol, setFormulaTargetCol] = useState('');
+  const [isCommitting, setIsCommitting] = useState(false);
 
   // DB Studio State
   const [dbConnections, setDbConnections] = useState([]);
@@ -88,9 +94,9 @@ export default function Terminal({ showTerminal, setShowTerminal, logs, isProces
         setDataError(null);
         try {
             const layerNameParam = selectedNode.params?.layer_name ? `&layer_name=${encodeURIComponent(selectedNode.params.layer_name)}` : '';
-            // If explicitRender is active and targeting this node, filter by its bounds
+            // If explicitRender is active, filter by its bounds
             let bboxParam = '';
-            if (explicitRender && explicitRender.sourceLayerId === selectedNode.id && explicitRender.bbox) {
+            if (explicitRender && explicitRender.bbox) {
                 bboxParam = `&bbox=${encodeURIComponent(explicitRender.bbox)}`;
             }
             
@@ -125,6 +131,95 @@ export default function Terminal({ showTerminal, setShowTerminal, logs, isProces
     }
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleApplyFormula = async () => {
+      if (!formula || !formulaTargetCol || !selectedNode) return;
+      
+      let path = selectedNode.params?.file_path || selectedNode.params?.out_shp || selectedNode.params?.out_feature_class;
+      if (!path) return;
+      
+      setIsLoadingData(true);
+      try {
+          const res = await fetch(`http://${window.location.hostname}:${window.MAGPI_PORT || '8282'}/api/vector_formula`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                  file_path: path,
+                  layer_name: selectedNode.params?.layer_name,
+                  new_column: formulaTargetCol,
+                  formula: formula
+              })
+          });
+          const data = await res.json();
+          if (res.ok) {
+              setFormula('');
+              setFormulaTargetCol('');
+              setPage(0);
+              
+              // Force a refresh by temporarily toggling activeTab or using a refresh counter
+              // For simplicity since we don't have a refresh trigger state, we can manually fetch
+              const layerNameParam = selectedNode.params?.layer_name ? `&layer_name=${encodeURIComponent(selectedNode.params.layer_name)}` : '';
+              let bboxParam = '';
+              if (explicitRender && explicitRender.bbox) {
+                  bboxParam = `&bbox=${encodeURIComponent(explicitRender.bbox)}`;
+              }
+              const fetchRes = await fetch(`http://${window.location.hostname}:${window.MAGPI_PORT || '8282'}/api/vector_data?file=${encodeURIComponent(path)}${layerNameParam}&limit=${limit}&offset=0${bboxParam}`);
+              if (fetchRes.ok) {
+                  const newData = await fetchRes.json();
+                  setTableData(newData);
+              }
+          } else {
+              setDataError(data.error || "Formula execution failed");
+          }
+      } catch (err) {
+          setDataError(err.message);
+      } finally {
+          setIsLoadingData(false);
+      }
+  };
+
+  const handleCommitEdits = async () => {
+      if (Object.keys(pendingEdits).length === 0 || !selectedNode) return;
+      
+      let path = selectedNode.params?.file_path || selectedNode.params?.out_shp || selectedNode.params?.out_feature_class;
+      if (!path) return;
+      
+      setIsCommitting(true);
+      try {
+          // Send edits mapping: { row_index: { col: val } }
+          // The tableData.rows is just the current page. We need the actual row index.
+          // Wait! The rIdx is just the current page index. The actual row index in the geodataframe is page * limit + rIdx.
+          // Or even better, if we have a stable FID, but we might not. Let's assume standard row index.
+          const formattedEdits = {};
+          Object.keys(pendingEdits).forEach(rIdx => {
+              const actualRowIdx = page * limit + parseInt(rIdx);
+              formattedEdits[actualRowIdx] = pendingEdits[rIdx];
+          });
+          
+          const res = await fetch(`http://${window.location.hostname}:${window.MAGPI_PORT || '8282'}/api/vector_edit`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                  file_path: path,
+                  layer_name: selectedNode.params?.layer_name,
+                  edits: formattedEdits
+              })
+          });
+          
+          const data = await res.json();
+          if (res.ok) {
+              setPendingEdits({});
+              // Refresh table
+              setTableData({ ...tableData });
+          } else {
+              setDataError(data.error || "Failed to commit edits");
+          }
+      } catch (err) {
+          setDataError(err.message);
+      } finally {
+          setIsCommitting(false);
+      }
   };
 
   useEffect(() => {
@@ -278,6 +373,47 @@ export default function Terminal({ showTerminal, setShowTerminal, logs, isProces
                   </div>
               ) : tableData && tableData.columns ? (
                   <>
+                      {/* FORMULA BAR & COMMIT */}
+                      <div className="flex-none bg-slate-900 border-b border-slate-700 px-4 py-2 flex items-center justify-between">
+                          <div className="flex items-center space-x-3 w-2/3">
+                              <span className="text-purple-400 font-bold text-[10px] uppercase tracking-widest flex items-center"><TermIcon size={12} className="mr-1"/> Formula</span>
+                              <input 
+                                  className="bg-slate-950 border border-slate-700 rounded px-2 py-1 text-slate-200 text-xs w-28 focus:outline-none focus:border-purple-500" 
+                                  placeholder="New Col" 
+                                  value={formulaTargetCol} 
+                                  onChange={e => setFormulaTargetCol(e.target.value)} 
+                              />
+                              <span className="text-slate-500 font-bold">=</span>
+                              <input 
+                                  className="flex-1 bg-slate-950 border border-slate-700 rounded px-2 py-1 text-slate-200 text-xs font-mono focus:outline-none focus:border-purple-500" 
+                                  placeholder="e.g. ['Area'] * 10 or 1" 
+                                  value={formula} 
+                                  onChange={e => setFormula(e.target.value)}
+                                  onKeyDown={e => e.key === 'Enter' && handleApplyFormula()}
+                              />
+                              <button 
+                                  onClick={handleApplyFormula}
+                                  disabled={isLoadingData}
+                                  className="bg-purple-600 hover:bg-purple-500 text-white px-3 py-1 rounded text-[10px] uppercase font-bold transition-colors disabled:opacity-50"
+                              >
+                                  {isLoadingData ? 'Applying...' : 'Apply'}
+                              </button>
+                          </div>
+                          
+                          <div className="flex items-center">
+                              {Object.keys(pendingEdits).length > 0 && (
+                                  <button 
+                                      onClick={handleCommitEdits}
+                                      disabled={isCommitting}
+                                      className="flex items-center bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1 rounded text-[10px] uppercase font-bold transition-colors disabled:opacity-50"
+                                  >
+                                      {isCommitting ? <Loader2 size={14} className="animate-spin mr-1" /> : <Save size={14} className="mr-1" />}
+                                      Commit {Object.keys(pendingEdits).length} Edits
+                                  </button>
+                              )}
+                          </div>
+                      </div>
+                      
                       {/* TABLE WRAPPER */}
                       <div className="flex-1 overflow-auto custom-scrollbar">
                           <table className="w-full text-left border-collapse whitespace-nowrap">
@@ -319,21 +455,57 @@ export default function Terminal({ showTerminal, setShowTerminal, logs, isProces
                                           >
                                               <td className="px-3 py-1.5 text-slate-600 border-r border-slate-800/50">{page * limit + rIdx + 1}</td>
                                               {tableData.columns.map((col, cIdx) => {
-                                                  const cellText = row[col] !== null ? String(row[col]) : '';
+                                                  const originalVal = row[col] !== null ? String(row[col]) : '';
+                                                  const isPending = pendingEdits[rIdx] && pendingEdits[rIdx][col] !== undefined;
+                                                  const displayVal = isPending ? String(pendingEdits[rIdx][col]) : originalVal;
+                                                  const isEditingThisCell = editingCell?.rIdx === rIdx && editingCell?.col === col;
+                                                  
                                                   return (
-                                                      <td key={cIdx} className={`px-4 py-1.5 border-r border-slate-800/50 max-w-[300px] truncate relative group ${isSelected ? 'text-cyan-300' : 'text-slate-300'}`} title={cellText}>
-                                                          {row[col] !== null ? cellText : <span className="text-slate-600 italic">null</span>}
-                                                          {cellText && (
-                                                              <button 
-                                                                  onClick={(e) => {
-                                                                      e.stopPropagation();
-                                                                      navigator.clipboard.writeText(cellText);
+                                                      <td 
+                                                          key={cIdx} 
+                                                          className={`px-4 py-1.5 border-r border-slate-800/50 max-w-[300px] truncate relative group ${isPending ? 'bg-amber-900/30 text-amber-300 font-bold' : isSelected ? 'text-cyan-300' : 'text-slate-300'}`} 
+                                                          title={displayVal}
+                                                          onDoubleClick={(e) => {
+                                                              e.stopPropagation();
+                                                              setEditingCell({ rIdx, col, val: displayVal });
+                                                          }}
+                                                      >
+                                                          {isEditingThisCell ? (
+                                                              <input 
+                                                                  autoFocus
+                                                                  className="w-full bg-slate-950 text-white px-1 py-0.5 outline-none border border-purple-500 rounded text-xs font-mono"
+                                                                  value={editingCell.val}
+                                                                  onChange={e => setEditingCell(prev => ({ ...prev, val: e.target.value }))}
+                                                                  onBlur={() => {
+                                                                      if (editingCell.val !== originalVal) {
+                                                                          setPendingEdits(prev => ({
+                                                                              ...prev,
+                                                                              [rIdx]: { ...(prev[rIdx] || {}), [col]: editingCell.val }
+                                                                          }));
+                                                                      }
+                                                                      setEditingCell(null);
                                                                   }}
-                                                                  className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 bg-slate-700 hover:bg-emerald-600 text-white p-1 rounded transition-all"
-                                                                  title="Copy to clipboard"
-                                                              >
-                                                                  <Copy size={10} />
-                                                              </button>
+                                                                  onKeyDown={e => {
+                                                                      if (e.key === 'Enter') e.target.blur();
+                                                                      if (e.key === 'Escape') setEditingCell(null);
+                                                                  }}
+                                                              />
+                                                          ) : (
+                                                              <>
+                                                                  {displayVal !== '' ? displayVal : <span className="text-slate-600 italic">null</span>}
+                                                                  {displayVal && !isPending && (
+                                                                      <button 
+                                                                          onClick={(e) => {
+                                                                              e.stopPropagation();
+                                                                              navigator.clipboard.writeText(displayVal);
+                                                                          }}
+                                                                          className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 bg-slate-700 hover:bg-emerald-600 text-white p-1 rounded transition-all"
+                                                                          title="Copy to clipboard"
+                                                                      >
+                                                                          <Copy size={10} />
+                                                                      </button>
+                                                                  )}
+                                                              </>
                                                           )}
                                                       </td>
                                                   );

@@ -401,8 +401,108 @@ def LaunchCanvas(port=8282):
                     logger.error(f"Spatial Modify API failed: {e}")
                     self.send_response(500)
                     self.send_header('Content-type', 'application/json')
+                    self.wfile.write(json.dumps({"error": str(e)}).encode('utf-8'))
+                    
+            elif parsed_path.path == '/api/vector_formula':
+                content_length = int(self.headers['Content-Length'])
+                post_data = self.rfile.read(content_length)
+                try:
+                    payload = json.loads(post_data.decode('utf-8'))
+                    self.handle_vector_formula(payload)
+                except Exception as e:
+                    logger.error(f"Vector Formula API failed: {e}")
+                    self.send_response(500)
+                    self.send_header('Content-type', 'application/json')
                     self.end_headers()
                     self.wfile.write(json.dumps({"error": str(e)}).encode('utf-8'))
+                    
+            elif parsed_path.path == '/api/vector_edit':
+                content_length = int(self.headers['Content-Length'])
+                post_data = self.rfile.read(content_length)
+                try:
+                    payload = json.loads(post_data.decode('utf-8'))
+                    self.handle_vector_edit(payload)
+                except Exception as e:
+                    logger.error(f"Vector Edit API failed: {e}")
+                    self.send_response(500)
+                    self.send_header('Content-type', 'application/json')
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"error": str(e)}).encode('utf-8'))
+
+        def handle_vector_edit(self, payload):
+            try:
+                import geopandas as gpd
+                file_path = payload.get('file_path')
+                layer_name = payload.get('layer_name')
+                edits = payload.get('edits') # Format: { row_index: { col_name: new_val } }
+                
+                if not file_path or not edits:
+                    raise ValueError("file_path and edits are required")
+                    
+                kwargs = {}
+                if layer_name:
+                    kwargs['layer'] = layer_name
+                    
+                gdf = gpd.read_file(file_path, **kwargs)
+                
+                for r_idx, col_edits in edits.items():
+                    r_idx = int(r_idx)
+                    for col, val in col_edits.items():
+                        if col in gdf.columns:
+                            gdf.at[r_idx, col] = val
+                            
+                gdf.to_file(file_path, **kwargs)
+                
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"status": "success", "message": f"Updated {len(edits)} rows"}).encode('utf-8'))
+                
+            except Exception as e:
+                logger.error(f"Vector Edit execution failed: {e}")
+                self.send_response(500)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": str(e)}).encode('utf-8'))
+                
+        def handle_vector_formula(self, payload):
+            try:
+                import geopandas as gpd
+                file_path = payload.get('file_path')
+                layer_name = payload.get('layer_name')
+                new_col = payload.get('new_column')
+                formula = payload.get('formula')
+                
+                if not file_path or not new_col or not formula:
+                    raise ValueError("file_path, new_column, and formula are required")
+                    
+                kwargs = {}
+                if layer_name:
+                    kwargs['layer'] = layer_name
+                    
+                gdf = gpd.read_file(file_path, **kwargs)
+                
+                # Formula support using eval. This is local so risk is minimal, but we provide local context
+                # Formula format: e.g. "['Area'] * 10" or "['col1'] + ['col2']"
+                import re
+                # Convert "['ColName']" to "gdf['ColName']"
+                processed_formula = re.sub(r'\[([^\]]+)\]', r'gdf[\1]', formula)
+                
+                gdf[new_col] = eval(processed_formula)
+                            
+                gdf.to_file(file_path, **kwargs)
+                
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"status": "success", "message": f"Added column {new_col}"}).encode('utf-8'))
+                
+            except Exception as e:
+                logger.error(f"Vector Formula execution failed: {e}")
+                self.send_response(500)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": str(e)}).encode('utf-8'))
 
         def handle_profiles_get(self):
             try:
