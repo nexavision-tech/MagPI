@@ -168,3 +168,4 @@ Werkzeug
 xyzservices
 yarl
 zipp
+JPype1

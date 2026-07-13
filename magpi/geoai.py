@@ -3,9 +3,17 @@ import logging
 import os
 import json
 import numpy as np
+from typing import TypeVar, TypeVarTuple, Generic, Any
+
 from .objects import Result
 
 logger = logging.getLogger("MagPI_GeoAI")
+
+# PEP 646: Variadic Generics for strict Grid Tensor Shape Typing
+# This allows us to statically type deep learning array dimensions, e.g., GridTensor[Batch, Height, Width, Bands]
+Shape = TypeVarTuple('Shape')
+class GridTensor(Generic[*Shape]):
+    pass
 
 def TrainDeepLearningModel(in_folder, out_folder, max_epochs=20, model_type="UNET", batch_size=4, learning_rate=0.001, backbone_model="RESNET34", validation_pct=10):
     logger.info(f"Initiating Open-Source Deep Learning Forge (PyTorch)...")
