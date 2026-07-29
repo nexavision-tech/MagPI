@@ -1,1031 +1,630 @@
-import React, { useState, useCallback, useEffect } from 'react';
-import { ReactFlowProvider } from '@xyflow/react';
-import { GitBranch, XCircle, AlertTriangle, Bell, TerminalSquare, Save, Map as MapIcon, Edit3, Wrench, Layers, Activity, Database, Satellite } from 'lucide-react';
-import TopRibbon from './components/TopRibbon';
-import Terminal from './components/Terminal';
-import Toolbox from './components/Toolbox';
-import NodeCanvas from './components/NodeCanvas';
-import MapViewport from './components/MapViewport';
-import TensorBrew from './components/TensorBrew';
-import JobManager from './components/JobManager';
-import ScriptModal from './components/ScriptModal';
-import FileBrowserModal from './components/FileBrowserModal';
-import EnvSettingsModal from './components/EnvSettingsModal';
-import DataStudio from './components/DataStudio';
-import CatalogPane from './components/CatalogPane';
-import WorkflowWorkspace from './components/WorkflowWorkspace';
-import { generatePythonScript } from './utils/scriptGen';
-import { generateAirflowDAG } from './utils/airflowGen';
-import { saveProject, loadProject } from './utils/fileOps';
-import { featuresMatch } from './utils/featureMatch';
+import React, { useState, useEffect } from 'react';
+import DeckGL from '@deck.gl/react';
+import { ScatterplotLayer, GeoJsonLayer } from '@deck.gl/layers';
+import { Map } from 'react-map-gl/maplibre';
+import 'maplibre-gl/dist/maplibre-gl.css';
+
+// GeoServer WFS endpoints
+const FLORIDA_TRACTS_WFS = 'https://geoserver.nexavision.tech/geoserver/nexavision/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=nexavision:florida_tracts_demographics&outputFormat=application%2Fjson';
+const FORBES_WFS = 'https://geoserver.nexavision.tech/geoserver/nexavision/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=nexavision:forbes_400&outputFormat=application%2Fjson';
+const CONGRESSIONAL_WFS = 'https://geoserver.nexavision.tech/geoserver/nexavision/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=nexavision:congressional_districts&outputFormat=application%2Fjson';
+const POIS_WFS = 'https://geoserver.nexavision.tech/geoserver/nexavision/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=nexavision:florida_pois&outputFormat=application%2Fjson';
+const GLOBAL_COUNTRIES_WFS = 'https://geoserver.nexavision.tech/geoserver/nexavision/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=nexavision:global_countries_10m&outputFormat=application%2Fjson';
+
+const INITIAL_VIEW_STATE = {
+  longitude: -81.5,
+  latitude: 27.5,
+  zoom: 5.5,
+  pitch: 30,
+  bearing: 0
+};
+
+// Vibe: "simple earth green vibe" - Organic, calm colors
+const COLORS = {
+  BORDER: [143, 188, 143, 150], // DarkSeaGreen
+  CONFLICT: [255, 165, 0], // Orange pulse (less aggressive than neon red)
+  POIS: [173, 216, 230, 255], // LightBlue for civic buildings
+  FORBES: [255, 215, 0, 200], // Gold for wealth
+};
+
+// CSS Injection for HUD & Animations
+const injectedStyles = `
+  @keyframes pulse {
+    0% { transform: scale(1); opacity: 0.8; box-shadow: 0 0 10px #ff1414; }
+    50% { transform: scale(1.5); opacity: 0.3; box-shadow: 0 0 30px #ff1414; }
+    100% { transform: scale(1); opacity: 0.8; box-shadow: 0 0 10px #ff1414; }
+  }
+
+  .null-hud-button {
+    background: transparent;
+    border: none;
+    color: #8fbc8f;
+    font-family: monospace;
+    font-size: 1.5rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    transition: color 0.2s;
+  }
+  .null-hud-button:hover {
+    color: #aaffaa;
+  }
+  
+  .null-panel {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    width: 350px;
+    background: rgba(10, 20, 15, 0.85);
+    backdrop-filter: blur(10px);
+    border-right: 1px solid rgba(143, 188, 143, 0.3);
+    transform: translateX(-100%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 20;
+    color: #8fbc8f;
+    font-family: monospace;
+    padding: 20px;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+  }
+  .null-panel.open {
+    transform: translateX(0);
+  }
+  
+  .osint-panel {
+    position: absolute;
+    top: 0;
+    right: 0;
+    height: 100vh;
+    width: 400px;
+    background: rgba(10, 20, 15, 0.95);
+    backdrop-filter: blur(10px);
+    border-left: 1px solid rgba(143, 188, 143, 0.4);
+    transform: translateX(100%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 20;
+    color: #8fbc8f;
+    font-family: monospace;
+    padding: 20px;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+  }
+  .osint-panel.open {
+    transform: translateX(0);
+  }
+  
+  .osint-input {
+    background: transparent;
+    border: 1px solid rgba(143, 188, 143, 0.5);
+    color: #8fbc8f;
+    padding: 10px;
+    width: 100%;
+    font-family: monospace;
+    margin-bottom: 10px;
+    box-sizing: border-box;
+  }
+  
+  .osint-btn {
+    background: rgba(143, 188, 143, 0.2);
+    border: 1px solid #8fbc8f;
+    color: #8fbc8f;
+    padding: 8px 15px;
+    cursor: pointer;
+    font-family: monospace;
+    transition: all 0.2s;
+  }
+  .osint-btn:hover {
+    background: rgba(143, 188, 143, 0.4);
+  }
+
+  .hud-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 15px;
+    font-size: 1rem;
+    border-bottom: 1px solid rgba(143, 188, 143, 0.1);
+    padding-bottom: 10px;
+  }
+
+  .seed-panel {
+    position: absolute;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(10, 20, 15, 0.95);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 215, 0, 0.5);
+    border-radius: 4px;
+    padding: 15px;
+    z-index: 20;
+    color: #8fbc8f;
+    font-family: monospace;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 300px;
+    box-shadow: 0 0 15px rgba(255, 215, 0, 0.2);
+  }
+  
+  .seed-input {
+    background: rgba(0,0,0,0.5);
+    border: 1px solid rgba(255, 215, 0, 0.5);
+    color: #ffd700;
+    padding: 8px;
+    font-family: monospace;
+    margin: 10px 0;
+    width: 100%;
+    text-align: center;
+    box-sizing: border-box;
+  }
+  
+  .seed-input:focus {
+    outline: none;
+    border-color: #ffd700;
+    box-shadow: 0 0 5px rgba(255, 215, 0, 0.5);
+  }
+  
+  .seed-btn {
+    background: rgba(255, 215, 0, 0.1);
+    border: 1px solid #ffd700;
+    color: #ffd700;
+    padding: 8px 20px;
+    cursor: pointer;
+    font-family: monospace;
+    transition: all 0.2s;
+    width: 100%;
+  }
+  
+  .seed-btn:hover {
+    background: rgba(255, 215, 0, 0.3);
+  }
+
+  .hud-label {
+    opacity: 0.6;
+  }
+`;
 
 export default function App() {
-  const [activeWorkspace, setActiveWorkspace] = useState('builder');
-  const [crs, setCrs] = useState("EPSG:4326");
-  const [processingScope, setProcessingScope] = useState("Local Python");
+  const [hoverInfo, setHoverInfo] = useState({});
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [floridaData, setFloridaData] = useState(null);
+  const [forbesData, setForbesData] = useState(null);
+  const [congressData, setCongressData] = useState(null);
+  const [poisData, setPoisData] = useState(null);
+  const [globalData, setGlobalData] = useState(null);
   
-  const [globalEnv, setGlobalEnv] = useState({
-    workspace_dir: "./magpi_workspace",
-    scratch_dir: "./magpi_workspace/magpi_scratch",
-    output_dir: "./magpi_workspace/magpi_output",
-    horizontal_datum: "EPSG:4326",
-    vertical_datum: "EPSG:3855",
-    external_dirs: []
-  });
-  const [showEnvSettings, setShowEnvSettings] = useState(false);
-  const [profiles, setProfiles] = useState([]);
-  const [activeProfile, setActiveProfile] = useState(null);
+  // OSINT Recon State
+  const [osintOpen, setOsintOpen] = useState(false);
+  const [osintUrl, setOsintUrl] = useState('https://tigerweb.geo.census.gov/ArcGIS/rest/services/TIGERweb/tigerWMS_Current/MapServer');
+  const [osintMetadata, setOsintMetadata] = useState(null);
+  const [osintLayers, setOsintLayers] = useState([]);
+  const [selectedOsintLayer, setSelectedOsintLayer] = useState(null);
+  const [osintData, setOsintData] = useState(null);
+  const [osintLoading, setOsintLoading] = useState(false);
   
-  const activeRole = profiles.find(p => p.id === activeProfile)?.role || 'analyst';
+  // HUD toggles
+  const [showForbes, setShowForbes] = useState(true);
+  const [showCongress, setShowCongress] = useState(false);
+  const [showPois, setShowPois] = useState(true);
+  const [showFlorida, setShowFlorida] = useState(true);
+  const [showGlobal, setShowGlobal] = useState(true);
 
-  const [nodes, setNodes] = useState([]);
-  const [connections, setConnections] = useState([]);
+  const [seedCik, setSeedCik] = useState('');
+  const [seedLoading, setSeedLoading] = useState(false);
+  const [seedMessage, setSeedMessage] = useState('');
+
   
-  const [activeRightTab, setActiveRightTab] = useState('toolbox');
-  const [selectedNodeId, setSelectedNodeId] = useState(null);
-  const [hoveredNode, setHoveredNode] = useState(null);
-  const [explicitRender, setExplicitRender] = useState(null);
-  const [selectedFeatures, setSelectedFeatures] = useState([]);
+  const [time, setTime] = useState(0);
 
-  useEffect(() => {
-     const handleSelect = (e) => {
-         setSelectedFeatures(prev => {
-             if (!e.detail) return prev.length === 0 ? prev : [];
-             
-             if (e.detail.shiftKey || e.detail.ctrlKey) {
-                 const exists = prev.find(f => f?.nodeId === e.detail.nodeId && featuresMatch(f?.feature?.properties, e.detail.feature?.properties));
-                 if (exists) {
-                     // If it's a marquee drag, it should strictly ADD to the selection, not toggle it off if it already exists
-                     if (e.detail.isMarquee) {
-                         return prev; // Already selected, don't remove it
-                     }
-                     return prev.filter(f => !(f?.nodeId === e.detail.nodeId && featuresMatch(f?.feature?.properties, e.detail.feature?.properties)));
-                 } else {
-                     return [...prev, e.detail];
-                 }
-             } else {
-                 // For single select, if clicking the EXACT same feature, toggle it off
-                 if (prev.length === 1 && prev[0]?.nodeId === e.detail.nodeId && featuresMatch(prev[0]?.feature?.properties, e.detail.feature?.properties)) {
-                     return [];
-                 }
-                 return [e.detail];
-             }
-         });
-     };
-     window.addEventListener('magpi-feature-selected', handleSelect);
-     return () => window.removeEventListener('magpi-feature-selected', handleSelect);
-  }, []);
 
-  // Separate side-effect for opening Identify Tab on feature select
-  useEffect(() => {
-      if (selectedFeatures && selectedFeatures.length > 0) {
-          setActiveRightTab('identify');
-          if (selectedFeatures[0]?.nodeId) {
-              setSelectedNodeId(selectedFeatures[0].nodeId);
-          }
-          setShowTerminal(true);
-          // Data Studio auto-popup disabled based on user feedback
-      } else {
-          setActiveRightTab('toolbox');
-      }
-  }, [selectedFeatures]);
-
-  const [showScript, setShowScript] = useState(false);
-  const [generatedCode, setGeneratedCode] = useState("");
-  const [showTerminal, setShowTerminal] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [logs, setLogs] = useState([]);
-  const [nodeStatuses, setNodeStatuses] = useState({});
-  const [activeJobId, setActiveJobId] = useState(null);
-  const [isDaemonAlive, setIsDaemonAlive] = useState(false);
-  const [projectName, setProjectName] = useState(() => {
-    const d = new Date();
-    const pad = n => n.toString().padStart(2, '0');
-    return `Untitled_${d.getFullYear()}_${pad(d.getMonth() + 1)}_${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
-  });
-
-  const [projectDir, setProjectDir] = useState(null);
-  const [autoZoom, setAutoZoom] = useState(false);
-  const [interactionMode, setInteractionMode] = useState('nav'); // 'nav' | 'select'
-  const [saveBrowserConfig, setSaveBrowserConfig] = useState({ isOpen: false, initialPath: "." });
-  const [masterReferences, setMasterReferences] = useState({});
-  const [masterGisServers, setMasterGisServers] = useState([]);
-  const [mapLayers, setMapLayers] = useState([
-    { id: 'base', name: 'Base Map (OSM)', visible: true, opacity: 100, isBase: true }
-  ]);
-  
-  const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, title: "", message: "", confirmText: "OK", onConfirm: null, onCancel: null });
-  const [promptDialog, setPromptDialog] = useState({ isOpen: false, title: "", message: "", defaultValue: "", confirmText: "OK", onConfirm: null, onCancel: null });
-
-  // Keep mapLayers synced with node outputs
-  useEffect(() => {
-    setMapLayers(prev => {
-        const baseLayer = prev.find(l => l.id === 'base') || { id: 'base', name: 'Base Map (OSM)', visible: true, opacity: 100, isBase: true };
-        const extractedLayers = [];
-        
-        nodes.forEach(node => {
-            if (node.params && node.params.export_to_map === false) return;
-            
-            const status = nodeStatuses[node.id];
-            if (status === 'success' || node.toolId.startsWith('load_') || node.toolId === 'core_extent' || node.toolId === 'core_fishnet' || node.toolId.startsWith('wfs_') || node.toolId.startsWith('core_input_')) {
-                let layerName = node.name || node.toolId;
-                if (node.params && node.params.out_raster) {
-                    layerName = `${node.name} (${node.params.out_raster})`;
-                } else if (node.params && node.params.file_path) {
-                    layerName = `${node.name} (${node.params.file_path.split('/').pop()})`;
-                }
-                
-                const existingLayer = prev.find(l => l.id === node.id);
-                extractedLayers.push({
-                    id: node.id,
-                    name: layerName,
-                    visible: existingLayer ? existingLayer.visible : true,
-                    opacity: existingLayer ? existingLayer.opacity : 100,
-                    isBase: false,
-                    vectorColor: existingLayer ? existingLayer.vectorColor : undefined,
-                    cmap: existingLayer ? existingLayer.cmap : undefined
-                });
-            }
-        });
-
-        // Preserve Z-Stack Order!
-        const prevOrder = prev.map(l => l.id);
-        extractedLayers.sort((a, b) => {
-            const indexA = prevOrder.indexOf(a.id);
-            const indexB = prevOrder.indexOf(b.id);
-            if (indexA !== -1 && indexB !== -1) return indexA - indexB;
-            if (indexA !== -1) return -1;
-            if (indexB !== -1) return 1;
-            return 0;
-        });
-
-        const newLayers = [baseLayer, ...extractedLayers];
-        
-        // Deep compare to avoid unnecessary re-renders
-        const isDifferent = JSON.stringify(prev) !== JSON.stringify(newLayers);
-        return isDifferent ? newLayers : prev;
-    });
-  }, [nodes, nodeStatuses]);
-
-  useEffect(() => {
-    fetch(`http://${window.location.hostname}:${window.MAGPI_PORT || '8282'}/api/references`)
-      .then(res => res.json())
-      .then(data => {
-        if (data.status === 'success' && data.references) {
-          setMasterReferences(data.references);
-        }
-      })
-      .catch(err => console.error("Failed to load academic references", err));
-      
-    fetch(`http://${window.location.hostname}:${window.MAGPI_PORT || '8282'}/api/gis_servers`)
-      .then(res => res.json())
-      .then(data => {
-        if (data.status === 'success' && data.servers) {
-          setMasterGisServers(data.servers);
-        }
-      })
-      .catch(err => console.error("Failed to load GIS servers", err));
-      
-    fetch(`http://${window.location.hostname}:${window.MAGPI_PORT || '8282'}/api/profiles`)
-      .then(res => res.json())
-      .then(data => {
-        if (data.status === 'success' && data.profiles) {
-          setProfiles(data.profiles);
-          setActiveProfile(data.current_profile_id);
-        }
-      })
-      .catch(err => console.error("Failed to load profiles", err));
-  }, []);
-
-  const handleProfileChange = async (profileId) => {
-    try {
-      const response = await fetch(`http://${window.location.hostname}:${window.MAGPI_PORT || '8282'}/api/profiles`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ profile_id: profileId })
-      });
-      if (response.ok) {
-        setActiveProfile(profileId);
-      }
-    } catch (e) {
-      console.error("Failed to set profile", e);
-    }
+  const handleSeedInject = async () => {
+    if (!seedCik) return;
+    setSeedLoading(true);
+    setSeedMessage('Injecting CIK to pipeline...');
+    
+    // In a real implementation, this would hit a backend endpoint
+    // that adds the CIK to the monitored_people table and triggers the DAG.
+    // For now, we simulate the network request and update the UI.
+    setTimeout(() => {
+      setSeedMessage('SEED ACQUIRED. PIPELINE TRIGGERED.');
+      setSeedCik('');
+      setTimeout(() => setSeedMessage(''), 4000);
+      setSeedLoading(false);
+    }, 1500);
   };
 
-  // --- JOB POLLING ENGINE ---
+  // Fetch GeoServer data manually to pass credentials (for Authentik)
   useEffect(() => {
-    let interval;
-    if (activeJobId) {
-      interval = setInterval(async () => {
-        try {
-          const res = await fetch(`http://${window.location.hostname}:${window.MAGPI_PORT || '8282'}/api/jobs`);
-          if (res.ok) {
-            const jobs = await res.json();
-            const job = jobs.find(j => j.id === activeJobId);
-            if (job && job.node_status) {
-                // Instantly mark input nodes as success so they don't spin
-                const adjustedStatuses = { ...job.node_status };
-                nodes.forEach(n => {
-                    if (n.toolId.startsWith('core_') || n.toolId.startsWith('load_')) {
-                        adjustedStatuses[n.id] = 'success';
-                    }
-                });
-                setNodeStatuses(adjustedStatuses);
-
-                if (job.logs && job.logs.length > 0) {
-                    const parsedLogs = job.logs.filter(l => l.trim().length > 0).map(l => {
-                        let type = 'info';
-                        if (l.includes('[ERROR]') || l.includes('Error:')) type = 'error';
-                        else if (l.includes('[SUCCESS]')) type = 'success';
-                        else if (l.includes('[WARNING]')) type = 'warn';
-                        return { type, msg: l.replace(/\[.*?\]:\s?/, '') };
-                    });
-                    setLogs([{ type: 'info', msg: 'Initiating Daemon Link on port 8282...' }, { type: 'info', msg: `Pipeline Dispatched to Daemon. Job ID: ${job.id}` }, ...parsedLogs]);
-                }
-                
-                if (job.status === 'Finished' || job.status === 'Failed') {
-                    setActiveJobId(null);
-                    setIsProcessing(false);
-                    
-                    if (job.status === 'Finished' && job.derived_outputs && job.derived_outputs.length > 0) {
-                        setNodes(nds => {
-                            let updatedNodes = false;
-                            const newNds = nds.map(n => {
-                                const derived = job.derived_outputs.find(d => d.node_id === n.id);
-                                if (derived) {
-                                    updatedNodes = true;
-                                    const pathKey = derived.path.endsWith('.tif') ? 'out_raster' : 'file_path';
-                                    return { ...n, params: { ...n.params, [pathKey]: derived.path } };
-                                }
-                                return n;
-                            });
-                            return updatedNodes ? newNds : nds;
-                        });
-                    }
-                }
-            }
-          }
-        } catch (e) {}
-      }, 1000);
-    }
-    return () => clearInterval(interval);
-  }, [activeJobId, nodes]);
-
-  // --- DAEMON RESYNC (ON BROWSER REFRESH) ---
-  useEffect(() => {
-      const checkActiveJobs = async () => {
-          try {
-              const res = await fetch(`http://${window.location.hostname}:${window.MAGPI_PORT || '8282'}/api/jobs`);
-              if (res.ok) {
-                  setIsDaemonAlive(true);
-                  const jobs = await res.json();
-                  const activeJob = jobs.find(j => j.status !== 'Finished' && j.status !== 'Failed');
-                  if (activeJob) {
-                      setActiveJobId(activeJob.id);
-                      setIsProcessing(true);
-                      setLogs(prev => [...prev, { type: 'success', msg: `Reconnected to running Daemon Job: ${activeJob.id}` }]);
-                  }
-              } else {
-                  setIsDaemonAlive(false);
-              }
-          } catch (e) {
-              setIsDaemonAlive(false);
-          }
-      };
-      checkActiveJobs();
-      const heartbeat = setInterval(checkActiveJobs, 3000);
-      return () => clearInterval(heartbeat);
-  }, []);
-
-  const [browserConfig, setBrowserConfig] = useState({ isOpen: false, nodeId: null, paramKey: null, initialPath: "." });
-
-  // --- UI LAYOUT FIX ---
-  // Fixes Leaflet/ReactFlow Map getting stuck at 0x0 size when switching tabs due to 'display: hidden'
-  useEffect(() => {
-    setTimeout(() => window.dispatchEvent(new Event('resize')), 100);
-  }, [activeWorkspace]);
-
-  useEffect(() => {
-    const handleMapDrop = (e) => {
-        const data = e.detail;
-        if (!data || !data.id) return;
-        
-        const newNode = {
-            id: `node_${Date.now()}`,
-            toolId: data.id,
-            name: data.name,
-            icon: data.icon,
-            x: 400 + Math.random() * 50,
-            y: 200 + Math.random() * 50,
-            color: data.color || 'bg-slate-600',
-            border: data.border || 'border-slate-500',
-            params: { ...(data.params || data.defaultParams || {}), export_to_map: true }
-        };
-
-        if (data.droppedFilePath) {
-             const key = Object.keys(newNode.params).find(k => k.includes('file') || k.includes('path') || k.includes('image'));
-             if (key) {
-                 newNode.params[key] = data.droppedFilePath;
-             }
-        }
-        
-        setNodes(prev => [...prev, newNode]);
-        setSelectedNodeId(newNode.id);
-        setActiveRightTab('inspector');
-    };
-    
-    const handleLog = (e) => {
-        setLogs(prev => [...prev, e.detail]);
-    };
-    
-    const handleRenderFishnet = (e) => {
-        setExplicitRender({ bbox: e.detail.bbox, sourceLayerId: e.detail.sourceLayerId || null });
-        if (e.detail.sourceLayerId) {
-            setSelectedNodeId(e.detail.sourceLayerId);
-        }
-    };
-
-    const handleClearSelection = () => {
-        setExplicitRender(null);
-    };
-
-    window.addEventListener('magpi-map-drop', handleMapDrop);
-    window.addEventListener('magpi-log', handleLog);
-    window.addEventListener('magpi-render-fishnet', handleRenderFishnet);
-    window.addEventListener('magpi-clear-selection', handleClearSelection);
-    
-    return () => {
-        window.removeEventListener('magpi-map-drop', handleMapDrop);
-        window.removeEventListener('magpi-log', handleLog);
-        window.removeEventListener('magpi-render-fishnet', handleRenderFishnet);
-        window.removeEventListener('magpi-clear-selection', handleClearSelection);
-    };
-  }, []);
-
-  // --- AUTO-SAVE ENGINE (Prevents Losing Work!) ---
-  useEffect(() => {
-    // Listen for unlink requests from CatalogPane
-    const handleUnlink = (e) => {
-        const { path } = e.detail;
-        setGlobalEnv(prev => ({...prev, external_dirs: (prev.external_dirs || []).filter(p => p !== path)}));
-    };
-    window.addEventListener('magpi-unlink-external', handleUnlink);
-    
-    // Load from LocalStorage on initial boot
-    const savedNodes = localStorage.getItem('magpi_autosave_nodes');
-    const savedCxs = localStorage.getItem('magpi_autosave_cxs');
-    const savedEnv = localStorage.getItem('magpi_global_env');
-    if (savedEnv) {
-        try { setGlobalEnv(JSON.parse(savedEnv)); } catch (e) {}
-    }
-    if (savedNodes && savedCxs) {
-        try {
-            const parsedNodes = JSON.parse(savedNodes);
-            if (parsedNodes.length > 0) {
-                setConfirmDialog({
-                    isOpen: true,
-                    title: "Matrix Session Found",
-                    message: "A previous Matrix session was detected. Would you like to restore your workspace?",
-                    confirmText: "Restore Session",
-                    onConfirm: () => {
-                        setNodes(parsedNodes);
-                        setConnections(JSON.parse(savedCxs));
-                        const savedCrs = localStorage.getItem('magpi_autosave_crs');
-                        if (savedCrs) setCrs(savedCrs);
-                        const savedScope = localStorage.getItem('magpi_autosave_scope');
-                        if (savedScope) setProcessingScope(savedScope);
-                        const savedStatuses = localStorage.getItem('magpi_autosave_statuses');
-                        if (savedStatuses) { try { setNodeStatuses(JSON.parse(savedStatuses)); } catch(e) {} }
-                        setLogs([{ type: 'success', msg: 'Previous matrix state restored.' }]);
-                        setShowTerminal(true);
-                        setConfirmDialog(prev => ({ ...prev, isOpen: false }));
-                    },
-                    onCancel: () => {
-                        localStorage.removeItem('magpi_autosave_nodes');
-                        localStorage.removeItem('magpi_autosave_cxs');
-                        localStorage.removeItem('magpi_autosave_crs');
-                        setConfirmDialog(prev => ({ ...prev, isOpen: false }));
-                    }
-                });
-            }
-        } catch (e) { console.error("Failed to restore matrix state."); }
-    }
-  }, []);
-
-  useEffect(() => {
-    // Save to LocalStorage whenever the matrix changes (even if empty)
-    localStorage.setItem('magpi_autosave_nodes', JSON.stringify(nodes));
-    localStorage.setItem('magpi_autosave_cxs', JSON.stringify(connections));
-    localStorage.setItem('magpi_global_env', JSON.stringify(globalEnv));
-    localStorage.setItem('magpi_autosave_crs', crs);
-    localStorage.setItem('magpi_autosave_scope', processingScope);
-    localStorage.setItem('magpi_autosave_statuses', JSON.stringify(nodeStatuses));
-  }, [nodes, connections, globalEnv, crs, processingScope, nodeStatuses]);
-
-  // Sync top-level CRS state with globalEnv.horizontal_datum to prevent divergence
-  useEffect(() => {
-    if (globalEnv.horizontal_datum && globalEnv.horizontal_datum !== crs) {
-      setCrs(globalEnv.horizontal_datum);
-    }
-  }, [globalEnv.horizontal_datum]);
-
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-        if (e.key === 'Delete' && selectedNodeId) {
-            const activeElement = document.activeElement;
-            if (activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA' || activeElement.isContentEditable)) {
-                return;
-            }
-            if (window.confirm("Delete selected node?")) {
-                setNodes(prev => prev.filter(n => n.id !== selectedNodeId));
-                setConnections(prev => prev.filter(c => c.sourceId !== selectedNodeId && c.targetId !== selectedNodeId));
-                setSelectedNodeId(null);
-                setLogs([{ type: 'info', msg: 'Node deleted via keyboard shortcut.' }]);
-            }
-        }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedNodeId]);
-
-  const handleAoiDrawn = useCallback((aoiData) => {
-    const newId = `node_${Date.now()}`;
-    const newNode = { 
-        id: newId, toolId: 'core_extent', name: 'Spatial Extent (AOI)', icon: 'core_extent', 
-        x: 400 + Math.random() * 50, y: 200 + Math.random() * 50, color: 'bg-yellow-600', border: 'border-yellow-500', 
-        params: { xmin: aoiData.xmin, ymin: aoiData.ymin, xmax: aoiData.xmax, ymax: aoiData.ymax } 
-    };
-    setNodes(prev => [...prev, newNode]);
-    setSelectedNodeId(newId);
-    setActiveRightTab('inspector');
-  }, []);
-
-  const handleAoiImported = useCallback((bounds, filename) => {
-    const newNode = { 
-      id: `node_${Date.now()}`, toolId: 'core_extent', name: `AOI: ${filename}`, icon: 'core_extent', 
-      x: 400 + Math.random() * 50, y: 200 + Math.random() * 50, color: 'bg-yellow-600', border: 'border-yellow-500', 
-      params: { xmin: bounds.xmin, ymin: bounds.ymin, xmax: bounds.xmax, ymax: bounds.ymax } 
-    };
-    setNodes(prev => [...prev, newNode]);
-    setSelectedNodeId(newNode.id);
-    setSelectedNodeId(newNode.id);
-    setActiveRightTab('inspector');
-  }, []);
-
-  const handleImportENVI = (file) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
+    const fetchWFS = async (url, setter) => {
       try {
-        const parser = new DOMParser();
-        const xmlDoc = parser.parseFromString(e.target.result, "text/xml");
-        const points = Array.from(xmlDoc.getElementsByTagName('POINT')).map(node => {
-            const [x, y] = node.textContent.split(',').map(Number);
-            return { x, y };
-        });
-        
-        if (points.length === 0) throw new Error("No points found in ROI XML.");
-        
-        const xmin = Math.min(...points.map(p => p.x));
-        const xmax = Math.max(...points.map(p => p.x));
-        const ymin = Math.min(...points.map(p => p.y));
-        const ymax = Math.max(...points.map(p => p.y));
-        
-        const roiNameNode = xmlDoc.getElementsByTagName('NAME')[0];
-        const roiName = roiNameNode ? roiNameNode.textContent : "ENVI ROI";
-        
-        const newNode = { 
-          id: `node_${Date.now()}`, toolId: 'core_extent', name: `ENVI ROI: ${roiName}`, icon: 'core_extent', 
-          x: 400 + Math.random() * 50, y: 200 + Math.random() * 50, color: 'bg-yellow-600', border: 'border-yellow-500', 
-          params: { xmin, ymin, xmax, ymax } 
-        };
-        
-        setNodes(prev => [...prev, newNode]);
-        setSelectedNodeId(newNode.id);
-        setActiveRightTab('inspector');
-        setActiveWorkspace('builder');
-        
-        setLogs([{ type: 'success', msg: `Successfully imported ENVI ROI '${roiName}' as an AOI Extent.` }]);
-        setShowTerminal(true);
+        const response = await fetch(url, { credentials: 'include' });
+        if (response.ok) {
+          const json = await response.json();
+          setter(json);
+        }
       } catch (err) {
-        setLogs([{ type: 'error', msg: `Failed to parse ENVI ROI: ${err.message}` }]);
-        setShowTerminal(true);
+        console.error("Failed to fetch WFS:", err);
       }
     };
-    reader.readAsText(file);
+    fetchWFS(FLORIDA_TRACTS_WFS, setFloridaData);
+    fetchWFS(FORBES_WFS, setForbesData);
+    fetchWFS(CONGRESSIONAL_WFS, setCongressData);
+    fetchWFS(POIS_WFS, setPoisData);
+    fetchWFS(GLOBAL_COUNTRIES_WFS, setGlobalData);
+  }, []);
+
+  // OSINT Fetch Metadata
+  const fetchOsintMetadata = async () => {
+    if (!osintUrl) return;
+    setOsintLoading(true);
+    try {
+      const url = new URL(osintUrl);
+      url.searchParams.set('f', 'json');
+      const res = await fetch(url.toString());
+      const data = await res.json();
+      setOsintMetadata({
+        description: data.description,
+        copyright: data.copyrightText,
+        mapName: data.mapName
+      });
+      setOsintLayers(data.layers || []);
+    } catch (err) {
+      console.error("OSINT Metadata Fetch Failed", err);
+    }
+    setOsintLoading(false);
   };
 
-  const addNode = useCallback((tool, dropX = null, dropY = null) => {
-    const newNodeId = `node_${Date.now()}`;
-    const newNode = { 
-      id: newNodeId, toolId: tool.id, name: tool.name, icon: tool.id, 
-      x: dropX !== null ? dropX : 300 + Math.random() * 50, y: dropY !== null ? dropY : 200 + Math.random() * 50, 
-      color: tool.color, border: tool.border, params: { export_to_map: false, ...tool.params },
-      inputs: tool.inputs ? [...tool.inputs] : undefined,
-      outputs: tool.outputs ? [...tool.outputs] : undefined,
-      reference_keys: tool.reference_keys ? [...tool.reference_keys] : undefined
+  // OSINT Fetch Layer Data
+  const loadOsintLayer = async (layerId) => {
+    setSelectedOsintLayer(layerId);
+    setOsintLoading(true);
+    try {
+      // Query endpoint to get GeoJSON preview (first 500 records)
+      const url = `${osintUrl}/${layerId}/query?where=1=1&outFields=*&f=geojson&resultRecordCount=500`;
+      const res = await fetch(url);
+      const data = await res.json();
+      setOsintData(data);
+    } catch (err) {
+      console.error("OSINT Layer Fetch Failed", err);
+    }
+    setOsintLoading(false);
+  };
+
+  // Animation loop for throbbing dots
+  useEffect(() => {
+    let animationId;
+    const animate = () => {
+      setTime(Date.now() / 1000); // Time in seconds
+      animationId = requestAnimationFrame(animate);
     };
-    setNodes(prev => [...prev, newNode]);
-    setSelectedNodeId(newNode.id);
-    setActiveRightTab('inspector');
-    return newNodeId;
+    animate();
+    
+    // Inject styles
+    const styleEl = document.createElement('style');
+    styleEl.innerHTML = injectedStyles;
+    document.head.appendChild(styleEl);
+
+    return () => {
+      cancelAnimationFrame(animationId);
+      document.head.removeChild(styleEl);
+    };
   }, []);
 
-  const addConnection = useCallback((source, target, sourceHandle = 'out', targetHandle = 'in') => {
-      setConnections(prev => [...prev, {
-          from: source,
-          to: target,
-          sourceHandle: sourceHandle,
-          targetHandle: targetHandle
-      }]);
-  }, []);
+  // "earth pains zones"
+  const TARGET_ZONES = [
+    { name: "Gaza Strip", coordinates: [34.4668, 31.5017], type: "CONFLICT_ZONE" },
+    { name: "Myanmar", coordinates: [95.9560, 21.9162], type: "CONFLICT_ZONE" },
+    { name: "Sudan", coordinates: [30.2176, 12.8628], type: "CONFLICT_ZONE" },
+    { name: "Ukraine", coordinates: [31.1656, 48.3794], type: "CONFLICT_ZONE" },
+  ];
 
-  const updateNodeParam = (nodeId, paramKey, value) => {
-    setNodes(nds => nds.map(n => n.id === nodeId ? { ...n, params: { ...n.params, [paramKey]: value } } : n));
-  };
+  // Calculate throbbing radius based on time (sin wave)
+  const throb = (Math.sin(time * 3) + 1) / 2; // 0 to 1
 
-  const openFileBrowser = (nodeId, paramKey, currentPath) => {
-    let defaultPath = currentPath;
-    if (!defaultPath || defaultPath === "." || defaultPath === "./") {
-        defaultPath = globalEnv?.workspace || ".";
-    }
-    setBrowserConfig({ isOpen: true, nodeId, paramKey, initialPath: defaultPath });
-  };
-
-  const handleFileSelected = async (absolutePath) => {
-    if (browserConfig.nodeId === "LOAD_PROJECT") {
-        try {
-            setLogs([{ type: 'info', msg: `Loading project from ${absolutePath}...` }]);
-            const response = await fetch(`http://${window.location.hostname}:${window.MAGPI_PORT || '8282'}/api/load_project?file=${encodeURIComponent(absolutePath)}`);
-            const data = await response.json();
-            if (response.ok && data.status === 'success') {
-                const pd = data.project_data;
-                if (pd.nodes) setNodes(pd.nodes);
-                if (pd.connections) setConnections(pd.connections);
-                if (pd.crs) setCrs(pd.crs);
-                if (pd.globalEnv) setGlobalEnv(pd.globalEnv);
-                const pName = absolutePath.split('/').pop().replace(/\.[^/.]+$/, "");
-                const pDir = absolutePath.substring(0, absolutePath.lastIndexOf('/'));
-                setProjectName(pName);
-                setProjectDir(pDir);
-                setLogs([{ type: 'success', msg: `Project loaded successfully. Rehydrated ${pd.nodes?.length || 0} nodes.` }]);
-                setNodeStatuses({});
-                setShowTerminal(true);
-            } else {
-                throw new Error(data.error || "Unknown error loading project from daemon.");
-            }
-        } catch (e) {
-            setLogs([{ type: 'error', msg: `Failed to load project: ${e.message}` }]);
-            setShowTerminal(true);
-        }
-    } else if (browserConfig.nodeId === "env" && browserConfig.paramKey === "external_dirs_append") {
-        setGlobalEnv(prev => ({ ...prev, external_dirs: [...(prev.external_dirs || []), absolutePath] }));
-    } else if (browserConfig.nodeId === "env" && browserConfig.paramKey) {
-        setGlobalEnv(prev => ({ ...prev, [browserConfig.paramKey]: absolutePath }));
-    } else if (browserConfig.nodeId && browserConfig.paramKey) {
-        updateNodeParam(browserConfig.nodeId, browserConfig.paramKey, absolutePath);
-    }
-  };
-
-  const updateNodeName = (nodeId, newName) => {
-    setNodes(nds => nds.map(n => n.id === nodeId ? { ...n, name: newName } : n));
-  };
-
-  const deleteNode = (nodeId) => {
-    setNodes(nds => nds.filter(n => n.id !== nodeId));
-    setConnections(cx => cx.filter(c => c.from !== nodeId && c.to !== nodeId));
-    setSelectedNodeId(null);
-    setActiveRightTab('toolbox');
-  };
-
-  const duplicateNode = (nodeId) => {
-    const nodeToCopy = nodes.find(n => n.id === nodeId);
-    if (!nodeToCopy) return;
-    const clonedNode = { ...nodeToCopy, id: `node_${Date.now()}`, x: nodeToCopy.x + 40, y: nodeToCopy.y + 40 };
-    setNodes([...nodes, clonedNode]);
-    setSelectedNodeId(clonedNode.id);
-  };
-
-  const removeConnection = (index) => {
-    setConnections(cx => cx.filter((_, i) => i !== index));
-  };
-
-  const handleClear = () => {
-    setConfirmDialog({
-        isOpen: true,
-        title: "New Project",
-        message: "Are you sure you want to initialize a New Project? This will clear the current canvas. Unsaved changes will be lost.",
-        confirmText: "Start Fresh",
-        onConfirm: () => {
-            setConfirmDialog(prev => ({ ...prev, isOpen: false }));
-            
-            const d = new Date();
-            const pad = n => n.toString().padStart(2, '0');
-            const defaultName = `Untitled_${d.getFullYear()}_${pad(d.getMonth() + 1)}_${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
-            
-            setPromptDialog({
-                isOpen: true,
-                title: "Name Project",
-                message: "Enter a name for the New Project:",
-                defaultValue: defaultName,
-                confirmText: "Create",
-                onConfirm: (newName) => {
-                    setPromptDialog(prev => ({ ...prev, isOpen: false }));
-                    setNodes([]); setConnections([]); setSelectedNodeId(null); setNodeStatuses({});
-                    localStorage.removeItem('magpi_autosave_nodes'); localStorage.removeItem('magpi_autosave_cxs'); localStorage.removeItem('magpi_autosave_crs'); localStorage.removeItem('magpi_autosave_scope'); localStorage.removeItem('magpi_autosave_statuses');
-                    setActiveRightTab('toolbox'); setLogs([{ type: 'info', msg: `Started a new Tabula Rasa session: ${newName}` }]);
-                    setShowTerminal(true);
-                    setProjectDir(null);
-                    setProjectName(newName || defaultName);
-                },
-                onCancel: () => setPromptDialog(prev => ({ ...prev, isOpen: false }))
-            });
-        },
-        onCancel: () => setConfirmDialog(prev => ({ ...prev, isOpen: false }))
-    });
-  };
-
-  const selectedNode = nodes.find(n => n.id === selectedNodeId);
-
-  const handleSave = async () => {
-    if (projectDir) {
-        try {
-            setLogs([{ type: 'info', msg: `Quick saving project...` }]);
-            await saveProject(nodes, connections, crs, globalEnv, projectName, projectDir);
-            setLogs([{ type: 'success', msg: `Project quickly saved to ${projectDir} as ${projectName}.mpjx` }]);
-        } catch (e) {
-            setLogs([{ type: 'error', msg: `Failed to quick save project: ${e.message}` }]);
-            setShowTerminal(true);
-        }
-    } else {
-        setSaveBrowserConfig({ isOpen: true, initialPath: globalEnv.workspace_dir || "." });
-    }
-  };
-
-  const handleSaveConfirm = async (saveData) => {
-    const { dir, name } = saveData;
-    const pName = name;
-    setProjectName(pName);
-    setProjectDir(dir);
-    try {
-        await saveProject(nodes, connections, crs, globalEnv, pName, dir);
-        setLogs([{ type: 'success', msg: `Project successfully saved to ${dir} as ${pName}.mpjx` }]);
-    } catch (e) {
-        setLogs([{ type: 'error', msg: `Failed to save project: ${e.message}` }]);
-        setShowTerminal(true);
-    }
-  };
-
-  const handleLoad = () => {
-    setBrowserConfig({ isOpen: true, nodeId: "LOAD_PROJECT", initialPath: globalEnv.workspace_dir || "." });
-  };
-
-  const handleAutoLayout = () => {
-    if (nodes.length === 0) return;
-    
-    if (window.dagre) {
-        try {
-            const g = new window.dagre.graphlib.Graph();
-            g.setGraph({ rankdir: 'LR', align: 'UL', ranksep: 250, nodesep: 100 });
-            g.setDefaultEdgeLabel(() => ({}));
-            
-            const NODE_WIDTH = 250;
-            const NODE_HEIGHT = 80;
-
-            nodes.forEach(n => {
-                g.setNode(n.id, { width: NODE_WIDTH, height: NODE_HEIGHT });
-            });
-            
-            connections.forEach(c => {
-                g.setEdge(c.from, c.to);
-            });
-            
-            window.dagre.layout(g);
-            
-            setNodes(prev => prev.map(n => {
-                const nodeWithPosition = g.node(n.id);
-                return {
-                    ...n,
-                    x: nodeWithPosition.x - NODE_WIDTH / 2,
-                    y: nodeWithPosition.y - NODE_HEIGHT / 2 + 100
-                };
-            }));
-            
-            setLogs([{ type: 'success', msg: 'Auto-Layout successfully optimized via Dagre.' }]);
-            return; // Exit if successful
-        } catch (e) {
-            console.error("Dagre layout failed, likely due to a cycle:", e);
-        }
-    }
-    
-    // Fallback Homebrew Auto-Layout (executes if Dagre is missing or fails)
-        const depths = {};
-        const getDepth = (nId, visited = new Set()) => {
-            if (depths[nId] !== undefined) return depths[nId];
-            if (visited.has(nId)) return 0;
-            visited.add(nId);
-            const incomingCxs = connections.filter(c => c.to === nId);
-            if (incomingCxs.length === 0) return 0;
-            
-            let maxParentDepth = 0;
-            for (const cx of incomingCxs) {
-                maxParentDepth = Math.max(maxParentDepth, getDepth(cx.from, new Set(visited)));
-            }
-            depths[nId] = maxParentDepth + 1;
-            return depths[nId];
-        };
-        
-        nodes.forEach(n => getDepth(n.id));
-        const nodesByDepth = {};
-        Object.entries(depths).forEach(([nId, d]) => {
-            if (!nodesByDepth[d]) nodesByDepth[d] = [];
-            nodesByDepth[d].push(nodes.find(n => n.id === nId));
-        });
-        
-        const SPACING_X = 350;
-        const SPACING_Y = 150;
-        const START_X = 50;
-        const START_Y = 100;
-        
-        setNodes(prev => prev.map(n => {
-            const d = depths[n.id];
-            const siblings = nodesByDepth[d];
-            const index = siblings.findIndex(s => s.id === n.id);
-            const verticalOffset = ((siblings.length - 1) * SPACING_Y) / 2;
-            return {
-                ...n,
-                x: START_X + (d * SPACING_X),
-                y: START_Y + (index * SPACING_Y) - verticalOffset + 200
-            };
-        }));
-        setLogs([{ type: 'success', msg: 'Homebrew Auto-Layout successfully executed.' }]);
-  };
-
-  const handleGenerate = () => {
-    let code;
-    if (processingScope === "Apache Airflow") {
-        code = generateAirflowDAG(nodes, connections, crs, globalEnv);
-    } else {
-        code = generatePythonScript(nodes, connections, crs, processingScope, globalEnv);
-    }
-    setGeneratedCode(code);
-    setShowScript(true);
-  };
-
-  const handleDeploy = async () => {
-    // 1. Pre-Flight Validation for Orphaned / Unkinked Nodes
-    const invalidNodes = nodes.filter(n => {
-        const hasIncoming = connections.some(c => c.to === n.id);
-        const hasOutgoing = connections.some(c => c.from === n.id);
-        
-        // Identify Source Nodes that generate data (don't inherently need inputs)
-        const isSource = ['core_extent', 'load_raster', 'load_vector', 'logic_constant', 'core_create_vector', 'core_create_raster'].includes(n.toolId) || n.toolId.startsWith('wfs_');
-        
-        // Completely floating/orphaned (no ins, no outs)
-        if (!hasIncoming && !hasOutgoing) return true;
-        
-        // Processing nodes that are missing incoming connections
-        if (!isSource && !hasIncoming) return true;
-        
-        return false;
-    });
-
-    if (invalidNodes.length > 0) {
-        const names = invalidNodes.map(n => n.name).join(", ");
-        setLogs([{ type: 'error', msg: `Pipeline Validation Failed: The following nodes are disconnected or missing required inputs: ${names}` }]);
-        setShowTerminal(true);
-        return;
-    }
-
-    setShowScript(false); setShowTerminal(true); setIsProcessing(true); setNodeStatuses({});
-    const processingStates = {};
-    nodes.forEach(n => processingStates[n.id] = 'processing');
-    setNodeStatuses(processingStates);
-    setLogs([{ type: 'info', msg: 'Initiating Daemon Link on port 8282...' }, { type: 'info', msg: 'Transmitting payload to OS kernel...' }]);
-    try {
-        const payload = {
-            nodes,
-            connections,
-            crs,
-            globalEnv
-        };
-        const response = await fetch(`http://${window.location.hostname}:${window.MAGPI_PORT || '8282'}/api/run_pipeline`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-        const data = await response.json();
-        if (response.ok) {
-            setLogs(prev => [...prev, { type: 'success', msg: `Pipeline Dispatched to Daemon. Job ID: ${data.job_id}` }]);
-            setActiveJobId(data.job_id);
-            // We keep isProcessing true so the UI indicates active work
-        } else {
-            setLogs(prev => [...prev, { type: 'error', msg: `Daemon execution failed: ${data.error}` }]);
-            setNodeStatuses({});
-            setIsProcessing(false);
-        }
-    } catch (err) {
-        setLogs(prev => [...prev, { type: 'error', msg: `Failed to contact MagPI Daemon: ${err.message}` }]);
-        setNodeStatuses({});
-        setIsProcessing(false);
-    }
-  };
-
-  const handleRunUpToNode = async (targetNodeId) => {
-    setShowScript(false); setShowTerminal(true); setIsProcessing(true); setNodeStatuses({});
-    
-    // Calculate subgraph (backward traversal)
-    const activeNodes = new Set([targetNodeId]);
-    let added = true;
-    while(added) {
-        added = false;
-        connections.forEach(c => {
-            if (activeNodes.has(c.to) && !activeNodes.has(c.from)) {
-                activeNodes.add(c.from);
-                added = true;
-            }
-        });
-    }
-    
-    const subgraphNodes = nodes.filter(n => activeNodes.has(n.id));
-    const subgraphConnections = connections.filter(c => activeNodes.has(c.from) && activeNodes.has(c.to));
-    
-    const processingStates = {};
-    subgraphNodes.forEach(n => processingStates[n.id] = 'processing');
-    setNodeStatuses(processingStates);
-    
-    setLogs([{ type: 'info', msg: `Initiating partial run up to node ${targetNodeId}...` }]);
-    
-    try {
-        const payload = { nodes: subgraphNodes, connections: subgraphConnections, crs, globalEnv };
-        const response = await fetch(`http://${window.location.hostname}:${window.MAGPI_PORT || '8282'}/api/run_pipeline`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-        const data = await response.json();
-        if (response.ok) {
-            setLogs(prev => [...prev, { type: 'success', msg: `Partial Pipeline Dispatched. Job ID: ${data.job_id}` }]);
-            setActiveJobId(data.job_id);
-        } else {
-            setLogs(prev => [...prev, { type: 'error', msg: `Daemon execution failed: ${data.error}` }]);
-            setNodeStatuses({}); setIsProcessing(false);
-        }
-    } catch (err) {
-        setLogs(prev => [...prev, { type: 'error', msg: `Failed to contact MagPI Daemon: ${err.message}` }]);
-        setNodeStatuses({}); setIsProcessing(false);
-    }
-  };
+  const layers = [
+    osintData && new GeoJsonLayer({
+      id: 'osint-preview-layer',
+      data: osintData,
+      stroked: true,
+      filled: true,
+      lineWidthMinPixels: 2,
+      getLineColor: [255, 0, 255, 200], // Magenta for OSINT recon
+      getFillColor: [255, 0, 255, 50],
+      pickable: true,
+      onHover: info => setHoverInfo(info)
+    }),
+    showGlobal && new GeoJsonLayer({
+      id: 'global-countries-layer',
+      data: globalData,
+      stroked: true,
+      filled: true,
+      lineWidthMinPixels: 1,
+      getLineColor: COLORS.BORDER,
+      getFillColor: d => {
+        const gdp = d.properties.gdp_md_est || 0;
+        // Normalize GDP somewhat arbitrarily for color scaling (cap at 20M)
+        const normalized = Math.min(gdp / 20000000, 1);
+        return [30 + (normalized * 20), 80 + (normalized * 50), 60 + (normalized * 30), 150]; 
+      },
+      pickable: true,
+      onHover: info => setHoverInfo(info)
+    }),
+    showCongress && new GeoJsonLayer({
+      id: 'congressional-layer',
+      data: congressData,
+      stroked: true,
+      filled: false,
+      lineWidthMinPixels: 1.5,
+      getLineColor: [0, 150, 255, 100], // subtle blue neon
+      pickable: true,
+      onHover: info => setHoverInfo(info)
+    }),
+    showFlorida && new GeoJsonLayer({
+      id: 'florida-tracts-layer',
+      data: floridaData,
+      stroked: true,
+      filled: true,
+      lineWidthMinPixels: 1,
+      getLineColor: COLORS.BORDER,
+      getFillColor: d => {
+        const income = d.properties.median_income || 0;
+        const normalized = Math.min(income / 120000, 1);
+        // Soft organic greens: #2E8B57 (SeaGreen) gradient
+        return [46, 139 - (normalized * 50), 87, 180]; 
+      },
+      pickable: true,
+      onHover: info => setHoverInfo(info)
+    }),
+    showFlorida && new GeoJsonLayer({
+      id: 'conflict-hotspots-layer',
+      data: floridaData,
+      stroked: false,
+      filled: true,
+      getFillColor: d => {
+        const conflict = d.properties.conflict_index || 0;
+        if (conflict < 95) return [0, 0, 0, 0];
+        return [COLORS.CONFLICT[0], COLORS.CONFLICT[1] + (throb * 50), COLORS.CONFLICT[2], 150 + (throb * 100)];
+      },
+      updateTriggers: {
+        getFillColor: [time]
+      }
+    }),
+    showPois && new ScatterplotLayer({
+      id: 'pois-layer',
+      data: poisData?.features || [],
+      getPosition: d => d.geometry.coordinates,
+      getFillColor: COLORS.POIS,
+      getRadius: 1000,
+      radiusMinPixels: 3,
+      pickable: true,
+      onHover: info => setHoverInfo(info)
+    }),
+    showForbes && new ScatterplotLayer({
+      id: 'forbes-layer',
+      data: forbesData?.features || [],
+      getPosition: d => d.geometry.coordinates,
+      getFillColor: [COLORS.FORBES[0], COLORS.FORBES[1], COLORS.FORBES[2], 150 + (throb * 105)],
+      getRadius: 8000,
+      radiusMinPixels: 6,
+      radiusMaxPixels: 20,
+      pickable: true,
+      updateTriggers: {
+        getFillColor: [time]
+      },
+      onHover: info => setHoverInfo(info)
+    })
+  ].filter(Boolean);
 
   return (
-    <div className="absolute inset-0 w-full h-full flex flex-col bg-slate-900 text-slate-200 font-sans overflow-hidden select-none">
-      <div className="flex-none z-40 shadow-md">
-        <TopRibbon activeWorkspace={activeWorkspace} globalEnv={globalEnv} setGlobalEnv={setGlobalEnv} crs={crs} setCrs={setCrs} processingScope={processingScope} setProcessingScope={setProcessingScope} onGenerate={handleGenerate} onSave={handleSave} onLoad={handleLoad} onClear={handleClear} onAutoLayout={handleAutoLayout} onOpenEnvSettings={() => setShowEnvSettings(true)} onImportENVI={handleImportENVI} isDaemonAlive={isDaemonAlive} projectName={projectName} profiles={profiles} activeProfile={activeProfile} activeRole={activeRole} onProfileChange={handleProfileChange} interactionMode={interactionMode} setInteractionMode={setInteractionMode} explicitRender={explicitRender} />
-        <div className="flex bg-slate-900 border-b border-slate-700 px-4 pt-2">
-            <button onClick={() => setActiveWorkspace('planar')} className={`px-6 py-2 text-xs font-bold uppercase tracking-widest rounded-t-lg transition-colors flex items-center border border-b-0 ${activeWorkspace === 'planar' ? 'bg-slate-800 text-purple-400 border-slate-600' : 'bg-transparent text-slate-500 border-transparent hover:bg-slate-800/50 hover:text-slate-300'}`}><Edit3 size={14} className="mr-2" /> Planar View</button>
-            <button onClick={() => setActiveWorkspace('builder')} className={`px-6 py-2 text-xs font-bold uppercase tracking-widest rounded-t-lg transition-colors flex items-center border border-b-0 ml-1 ${activeWorkspace === 'builder' ? 'bg-slate-800 text-emerald-400 border-slate-600' : 'bg-transparent text-slate-500 border-transparent hover:bg-slate-800/50 hover:text-slate-300'}`}><Wrench size={14} className="mr-2" /> Model Builder</button>
-            <button onClick={() => setActiveWorkspace('flow')} className={`px-6 py-2 text-xs font-bold uppercase tracking-widest rounded-t-lg transition-colors flex items-center border border-b-0 ml-1 ${activeWorkspace === 'flow' ? 'bg-slate-800 text-emerald-400 border-slate-600' : 'bg-transparent text-slate-500 border-transparent hover:bg-slate-800/50 hover:text-slate-300'}`}><Activity size={14} className="mr-2" /> Flow</button>
-            <button onClick={() => setActiveWorkspace('globe')} className={`px-6 py-2 text-xs font-bold uppercase tracking-widest rounded-t-lg transition-colors flex items-center border border-b-0 ml-1 ${activeWorkspace === 'globe' ? 'bg-slate-800 text-cyan-400 border-slate-600' : 'bg-transparent text-slate-500 border-transparent hover:bg-slate-800/50 hover:text-slate-300'}`}><MapIcon size={14} className="mr-2" /> Scene View</button>
-            <button onClick={() => setActiveWorkspace('tensor_brew')} className={`px-6 py-2 text-xs font-bold uppercase tracking-widest rounded-t-lg transition-colors flex items-center border border-b-0 ml-1 ${activeWorkspace === 'tensor_brew' ? 'bg-slate-800 text-indigo-400 border-slate-600' : 'bg-transparent text-slate-500 border-transparent hover:bg-slate-800/50 hover:text-slate-300'}`}><Layers size={14} className="mr-2" /> Tensor Brew</button>
-            <button onClick={() => setActiveWorkspace('jobs')} className={`px-6 py-2 text-xs font-bold uppercase tracking-widest rounded-t-lg transition-colors flex items-center border border-b-0 ml-1 ${activeWorkspace === 'jobs' ? 'bg-slate-800 text-rose-400 border-slate-600' : 'bg-transparent text-slate-500 border-transparent hover:bg-slate-800/50 hover:text-slate-300'}`}><Activity size={14} className="mr-2" /> Job Manager</button>
+    <div style={{ width: '100vw', height: '100vh', position: 'relative', overflow: 'hidden' }}>
+      <DeckGL
+        initialViewState={INITIAL_VIEW_STATE}
+        controller={true}
+        layers={layers}
+      >
+        <Map mapStyle="https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json" />
+      </DeckGL>
+
+      {/* Earth Button (Bottom Left) */}
+      <div style={{ position: 'absolute', bottom: '30px', left: '30px', zIndex: 30 }}>
+        <button 
+          className="null-hud-button" 
+          onClick={() => setMenuOpen(!menuOpen)}
+        >
+          <span>earth</span>
+          <span style={{ marginLeft: '10px', fontSize: '1.2em' }}>≡</span>
+        </button>
+      </div>
+
+      {/* OSINT Button (Bottom Right) */}
+      <div style={{ position: 'absolute', bottom: '30px', right: '30px', zIndex: 30 }}>
+        <button 
+          className="null-hud-button" 
+          onClick={() => setOsintOpen(!osintOpen)}
+        >
+          <span style={{ marginRight: '10px', fontSize: '1.2em' }}>⌖</span>
+          <span>recon</span>
+        </button>
+      </div>
+
+
+      {/* Target Seed Injection Panel */}
+      <div className="seed-panel">
+        <h3 style={{ margin: '0 0 5px 0', color: '#ffd700', letterSpacing: '2px', fontSize: '1rem' }}>TARGET INJECTION</h3>
+        <p style={{ margin: 0, fontSize: '0.75rem', opacity: 0.7 }}>Enter SEC CIK to begin entity tracking</p>
+        
+        <input 
+          className="seed-input" 
+          value={seedCik}
+          onChange={(e) => setSeedCik(e.target.value)}
+          placeholder="e.g. 0001018724"
+        />
+        
+        <button 
+          className="seed-btn" 
+          onClick={handleSeedInject}
+          disabled={seedLoading}
+        >
+          {seedLoading ? 'PROCESSING...' : 'INITIALIZE TRACE'}
+        </button>
+        
+        {seedMessage && (
+          <div style={{ marginTop: '10px', fontSize: '0.75rem', color: seedMessage.includes('ERROR') ? '#ff4444' : '#00ff00' }}>
+            {seedMessage}
+          </div>
+        )}
+      </div>
+
+      {/* Sliding HUD Menu */}
+      <div className={`null-panel ${menuOpen ? 'open' : ''}`}>
+        <h1 style={{ margin: '0 0 30px 0', fontSize: '2rem', fontWeight: 'normal', letterSpacing: '2px' }}>NEXA ATLAS</h1>
+        
+        <div className="hud-row">
+          <span className="hud-label">Global Wealth (GDP)</span>
+          <button style={{background:'transparent', color: showGlobal ? '#8fbc8f' : '#555', border:'1px solid', cursor:'pointer'}} onClick={() => setShowGlobal(!showGlobal)}>{showGlobal ? 'ON' : 'OFF'}</button>
+        </div>
+        <div className="hud-row">
+          <span className="hud-label">Forbes 400 Layer</span>
+          <button style={{background:'transparent', color: showForbes ? '#8fbc8f' : '#555', border:'1px solid', cursor:'pointer'}} onClick={() => setShowForbes(!showForbes)}>{showForbes ? 'ON' : 'OFF'}</button>
+        </div>
+        <div className="hud-row">
+          <span className="hud-label">Civic POIs (Townhalls)</span>
+          <button style={{background:'transparent', color: showPois ? '#8fbc8f' : '#555', border:'1px solid', cursor:'pointer'}} onClick={() => setShowPois(!showPois)}>{showPois ? 'ON' : 'OFF'}</button>
+        </div>
+        <div className="hud-row">
+          <span className="hud-label">Congressional Districts</span>
+          <button style={{background:'transparent', color: showCongress ? '#8fbc8f' : '#555', border:'1px solid', cursor:'pointer'}} onClick={() => setShowCongress(!showCongress)}>{showCongress ? 'ON' : 'OFF'}</button>
+        </div>
+        <div className="hud-row">
+          <span className="hud-label">Florida Demographics</span>
+          <button style={{background:'transparent', color: showFlorida ? '#8fbc8f' : '#555', border:'1px solid', cursor:'pointer'}} onClick={() => setShowFlorida(!showFlorida)}>{showFlorida ? 'ON' : 'OFF'}</button>
+        </div>
+        
+        <div style={{ marginTop: 'auto', opacity: 0.5, fontSize: '0.8rem' }}>
+          v2.0.0-rc2 // Eco Intelligence
         </div>
       </div>
-      
-      <ReactFlowProvider>
-        <div className="flex-1 flex overflow-hidden min-h-0 relative z-0 bg-slate-800">
+
+      {/* Sliding OSINT Recon Panel */}
+      <div className={`osint-panel ${osintOpen ? 'open' : ''}`}>
+        <h2 style={{ marginTop: 0, borderBottom: '1px solid', paddingBottom: '10px' }}>OSINT RECON DASH</h2>
+        
+        <p style={{ fontSize: '0.8rem', opacity: 0.8 }}>Paste any ArcGIS REST Endpoint to dynamically preview and analyze spatial metadata linkages.</p>
+        
+        <input 
+          className="osint-input" 
+          value={osintUrl} 
+          onChange={(e) => setOsintUrl(e.target.value)}
+          placeholder="https://.../MapServer"
+        />
+        <button className="osint-btn" onClick={fetchOsintMetadata}>
+          {osintLoading ? 'SCANNING...' : 'INTERROGATE ENDPOINT'}
+        </button>
+
+        {osintMetadata && (
+          <div style={{ marginTop: '20px', fontSize: '0.9rem', background: 'rgba(0,0,0,0.3)', padding: '10px' }}>
+            <strong style={{color: '#fff'}}>{osintMetadata.mapName}</strong>
+            <p style={{ margin: '10px 0' }}>{osintMetadata.description?.substring(0, 150)}...</p>
+            <div style={{ fontSize: '0.7rem', color: '#ffb347' }}>
+              <strong>SOURCE (CYA):</strong> {osintMetadata.copyright || 'No copyright explicitly provided by source.'}
+            </div>
+          </div>
+        )}
+
+        {osintLayers.length > 0 && (
+          <div style={{ marginTop: '20px' }}>
+            <h3>AVAILABLE LAYERS</h3>
+            <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+              {osintLayers.map(l => (
+                <div 
+                  key={l.id} 
+                  style={{ 
+                    padding: '8px', 
+                    cursor: 'pointer', 
+                    borderBottom: '1px solid rgba(143,188,143,0.2)',
+                    background: selectedOsintLayer === l.id ? 'rgba(143,188,143,0.2)' : 'transparent'
+                  }}
+                  onClick={() => loadOsintLayer(l.id)}
+                >
+                  <span style={{opacity: 0.5, marginRight: '10px'}}>#{l.id}</span>
+                  {l.name}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Map Tooltip */}
+      {hoverInfo.object && hoverInfo.object.properties && (
+        <div style={{
+          position: 'absolute',
+          zIndex: 1,
+          pointerEvents: 'none',
+          left: hoverInfo.x + 15,
+          top: hoverInfo.y - 15,
+          color: '#8fbc8f',
+          fontFamily: 'monospace',
+          fontSize: '1rem',
+          background: 'rgba(10, 20, 15, 0.95)',
+          padding: '10px',
+          border: '1px solid #8fbc8f',
+          borderRadius: '4px'
+        }}>
+          {hoverInfo.object.properties.net_worth && (
+            <>
+              <strong>{hoverInfo.object.properties.name}</strong><br/>
+              Rank: #{hoverInfo.object.properties.rank}<br/>
+              Worth: ${hoverInfo.object.properties.net_worth / 1000000000}B<br/>
+              Industry: {hoverInfo.object.properties.industry}
+            </>
+          )}
+          {hoverInfo.object.properties.admin && (
+            <>
+              <strong>{hoverInfo.object.properties.admin}</strong><br/>
+              Continent: {hoverInfo.object.properties.continent}<br/>
+              Est. GDP: ${Math.round(hoverInfo.object.properties.gdp_md_est / 1000)}B<br/>
+              Est. Pop: {(hoverInfo.object.properties.pop_est / 1000000).toFixed(1)}M
+            </>
+          )}
+          {hoverInfo.object.properties.tract_name && (
+            <>
+              <strong>{hoverInfo.object.properties.tract_name}</strong><br/>
+              Pop: {hoverInfo.object.properties.total_population}<br/>
+              Income: ${hoverInfo.object.properties.median_income}<br/>
+              Conflict Index: {Math.round(hoverInfo.object.properties.conflict_index)}
+            </>
+          )}
+          {hoverInfo.object.properties.cd118fp && (
+            <>
+              <strong>Congressional District {hoverInfo.object.properties.cd118fp}</strong><br/>
+              State FIPS: {hoverInfo.object.properties.statefp}
+            </>
+          )}
+          {hoverInfo.object.properties.name && !hoverInfo.object.properties.net_worth && !hoverInfo.object.properties.tract_name && (
+            <>
+              <strong>{hoverInfo.object.properties.name}</strong><br/>
+              {hoverInfo.object.properties.city && `City: ${hoverInfo.object.properties.city}`}
+            </>
+          )}
           
-          {/* Render Catalog Pane when in Builder or Planar */}
-            <div className={`relative ${['builder', 'planar', 'flow'].includes(activeWorkspace) ? 'flex' : 'hidden'} flex-col z-20`}>
-              <CatalogPane 
-                  mapLayers={mapLayers} 
-                  setMapLayers={setMapLayers} 
-                  reorderLayers={(startIndex, endIndex) => {
-                    setMapLayers(prev => {
-                        const result = Array.from(prev);
-                        const [removed] = result.splice(startIndex, 1);
-                        result.splice(endIndex, 0, removed);
-                        return result;
-                    });
-                }}
-                activeWorkspace={activeWorkspace}
-                nodes={nodes}
-                connections={connections}
-                setNodes={setNodes}
-                selectedNodeId={selectedNodeId}
-                setSelectedNodeId={setSelectedNodeId}
-                openFileBrowser={openFileBrowser}
-                globalEnv={globalEnv}
-                isDaemonAlive={isDaemonAlive}
-                autoZoom={autoZoom}
-                setAutoZoom={setAutoZoom}
-                selectedFeatures={selectedFeatures}
-                interactionMode={interactionMode}
-            />
-          </div>
-
-        <div className={activeWorkspace === 'builder' ? 'flex-1 relative opacity-100 z-10' : 'absolute inset-0 opacity-0 pointer-events-none -z-10'}>
-            <NodeCanvas nodes={nodes} setNodes={setNodes} connections={connections} setConnections={setConnections} selectedNodeId={selectedNodeId} setSelectedNodeId={setSelectedNodeId} setActiveRightTab={setActiveRightTab} nodeStatuses={nodeStatuses} removeConnection={removeConnection} addNode={addNode} />
-        </div>
-        <div className={`relative ${['globe', 'planar'].includes(activeWorkspace) ? 'flex-1 w-full min-w-0' : 'hidden'} flex-col shadow-[-10px_0_20px_rgba(0,0,0,0.3)] z-10 border-l border-r border-slate-800`}>
-            <MapViewport onAoiDrawn={handleAoiDrawn} onAoiImported={handleAoiImported} selectedNode={nodes.find(n => n.id === selectedNodeId)} activeWorkspace={activeWorkspace} nodes={nodes} nodeStatuses={nodeStatuses} connections={connections} globalEnv={globalEnv} mapLayers={mapLayers} autoZoom={autoZoom} selectedFeatures={selectedFeatures} setSelectedFeatures={setSelectedFeatures} interactionMode={interactionMode} explicitRender={explicitRender} setExplicitRender={setExplicitRender} />
-        </div>
-        <div className={`w-[320px] shrink-0 relative ${['builder', 'planar'].includes(activeWorkspace) ? 'flex' : 'hidden'} flex-col z-20`}>
-            <Toolbox 
-            addNode={addNode}
-            addConnection={addConnection}
-            activeRightTab={activeRightTab} 
-            setActiveRightTab={setActiveRightTab} 
-            selectedNode={selectedNode}
-            updateNodeParam={updateNodeParam}
-            updateNodeName={updateNodeName}
-            duplicateNode={duplicateNode}
-            deleteNode={deleteNode}
-            openFileBrowser={openFileBrowser}
-            handleRunUpToNode={handleRunUpToNode}
-            connections={connections}
-            nodes={nodes}
-            masterReferences={masterReferences}
-            masterGisServers={masterGisServers}
-            selectedFeatures={selectedFeatures}
-            setSelectedFeatures={setSelectedFeatures}
-          />
-        </div>
-        
-        {/* Render Flow Workspace Fullscreen when Active */}
-        <div className={`absolute inset-0 z-50 ${activeWorkspace === 'flow' ? 'block' : 'hidden'} bg-slate-900`}>
-            <WorkflowWorkspace />
-        </div>
-        
-        {/* Render Tensor Brew Fullscreen when Active */}
-        <div className={`absolute inset-0 z-50 ${activeWorkspace === 'tensor_brew' ? 'block' : 'hidden'}`}>
-            <TensorBrew activeWorkspace={activeWorkspace} />
-        </div>
-        
-        {/* Render Job Manager Fullscreen when Active */}
-        <div className={`absolute inset-0 z-50 ${activeWorkspace === 'jobs' ? 'block' : 'hidden'}`}>
-            <JobManager activeWorkspace={activeWorkspace} />
-        </div>
-        
-        {/* Render DB Studio Fullscreen when Active */}
-        <div className={`absolute inset-0 z-50 ${activeWorkspace === 'dbstudio' ? 'block' : 'hidden'}`}>
-            <DataStudio />
-        </div>
-      </div>
-      </ReactFlowProvider>
-
-      <div className="flex-none z-30"><Terminal showTerminal={showTerminal} setShowTerminal={setShowTerminal} logs={logs} isProcessing={isProcessing} selectedNode={selectedNode} selectedFeatures={selectedFeatures} explicitRender={explicitRender} /></div>
-      
-      <div className="flex-none shrink-0 bg-slate-950 border-t border-slate-800 text-[10.5px] text-slate-400 flex items-center justify-between px-3 py-1.5 z-50 font-sans shadow-[0_-2px_5px_rgba(0,0,0,0.5)]">
-        <div className="flex items-center space-x-4">
-          <span className="flex items-center cursor-pointer hover:text-slate-200 transition-colors"><GitBranch size={11} className="mr-1 text-emerald-500" /> main*</span>
-          <span className="flex items-center cursor-pointer hover:text-slate-200 transition-colors"><XCircle size={11} className="mr-1 text-red-500" />0 <AlertTriangle size={11} className="ml-2 mr-1 text-yellow-500" />0</span>
-          <span className="flex items-center cursor-pointer hover:text-slate-200 transition-colors" onClick={() => setShowTerminal(!showTerminal)} title="Toggle MagPI Console"><TerminalSquare size={11} className="mr-1 text-blue-400" /> {showTerminal ? "Hide Console" : "Show Console"}</span>
-        </div>
-        <div className="flex items-center space-x-4 font-mono">
-          <span className="cursor-pointer hover:text-slate-200 transition-colors hidden sm:block text-slate-600">UTF-8</span>
-          <span className="cursor-pointer hover:text-slate-200 transition-colors">Python 3.10 <span className="text-emerald-500 font-bold ml-1">(magpi-env)</span></span>
-          <span className="cursor-pointer hover:text-emerald-400 transition-colors"><Bell size={11} /></span>
-        </div>
-      </div>
-      
-      <ScriptModal showScript={showScript} setShowScript={setShowScript} generatedCode={generatedCode} processingScope={processingScope} onDeploy={handleDeploy} />
-      <FileBrowserModal isOpen={browserConfig.isOpen} onClose={() => setBrowserConfig(prev => ({ ...prev, isOpen: false }))} onSelect={handleFileSelected} initialPath={browserConfig.initialPath} />
-      <FileBrowserModal isOpen={saveBrowserConfig.isOpen} onClose={() => setSaveBrowserConfig(prev => ({ ...prev, isOpen: false }))} onSelect={handleSaveConfirm} initialPath={saveBrowserConfig.initialPath} isSaveMode={true} defaultSaveName={projectName} />
-      <EnvSettingsModal isOpen={showEnvSettings} onClose={() => setShowEnvSettings(false)} globalEnv={globalEnv} setGlobalEnv={setGlobalEnv} openFileBrowser={openFileBrowser} />
-      
-      {/* Custom Confirm Dialog */}
-      {confirmDialog.isOpen && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[100] backdrop-blur-sm px-4">
-          <div className="bg-slate-900 border border-slate-700 rounded-lg p-6 max-w-md w-full shadow-2xl flex flex-col">
-            <h2 className="text-lg font-bold text-slate-200 mb-3 flex items-center">
-                <AlertTriangle size={18} className="mr-2 text-yellow-500" />
-                {confirmDialog.title}
-            </h2>
-            <p className="text-slate-400 text-sm mb-6">{confirmDialog.message}</p>
-            <div className="flex justify-end space-x-3">
-              <button onClick={confirmDialog.onCancel} className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold uppercase rounded border border-slate-600 transition-colors">Cancel</button>
-              <button onClick={confirmDialog.onConfirm} className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold uppercase rounded border border-emerald-500 transition-colors shadow-lg shadow-emerald-900/50">{confirmDialog.confirmText}</button>
+          {/* Dynamic OSINT Recon Tooltip Dump */}
+          {hoverInfo.layer && hoverInfo.layer.id === 'osint-preview-layer' && (
+            <div style={{ maxWidth: '300px', wordWrap: 'break-word' }}>
+              <strong style={{color: '#fff', borderBottom: '1px solid', display: 'block', marginBottom: '5px'}}>
+                RAW OSINT RECORD
+              </strong>
+              {Object.entries(hoverInfo.object.properties).slice(0, 15).map(([key, val]) => (
+                <div key={key} style={{ fontSize: '0.8rem', margin: '2px 0' }}>
+                  <span style={{ opacity: 0.6 }}>{key}:</span> {String(val)}
+                </div>
+              ))}
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Custom Prompt Dialog */}
-      {promptDialog.isOpen && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[100] backdrop-blur-sm px-4">
-          <div className="bg-slate-900 border border-slate-700 rounded-lg p-6 max-w-md w-full shadow-2xl flex flex-col">
-            <h2 className="text-lg font-bold text-slate-200 mb-3 flex items-center">
-                <Edit3 size={18} className="mr-2 text-blue-400" />
-                {promptDialog.title}
-            </h2>
-            <p className="text-slate-400 text-sm mb-4">{promptDialog.message}</p>
-            <input 
-                type="text" 
-                defaultValue={promptDialog.defaultValue}
-                id="magpi_custom_prompt_input"
-                className="w-full bg-slate-950 border border-slate-700 rounded px-3 py-2 text-sm text-slate-200 mb-6 focus:outline-none focus:border-blue-500"
-                autoFocus
-                onKeyDown={(e) => {
-                    if (e.key === 'Enter') promptDialog.onConfirm(e.target.value);
-                    if (e.key === 'Escape') promptDialog.onCancel();
-                }}
-            />
-            <div className="flex justify-end space-x-3">
-              <button onClick={promptDialog.onCancel} className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold uppercase rounded border border-slate-600 transition-colors">Cancel</button>
-              <button onClick={() => promptDialog.onConfirm(document.getElementById('magpi_custom_prompt_input').value)} className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold uppercase rounded border border-blue-500 transition-colors shadow-lg shadow-blue-900/50">{promptDialog.confirmText}</button>
-            </div>
-          </div>
+          )}
         </div>
       )}
     </div>
