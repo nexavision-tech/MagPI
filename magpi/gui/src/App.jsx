@@ -197,8 +197,10 @@ export default function App() {
   const [poisData, setPoisData] = useState(null);
   const [globalData, setGlobalData] = useState(null);
   
-  // OSINT Recon State
+  // OSINT & Feed Mixer State
   const [osintOpen, setOsintOpen] = useState(false);
+  const [feedQueue, setFeedQueue] = useState([]);
+  const [feedLoading, setFeedLoading] = useState(false);
   const [osintUrl, setOsintUrl] = useState('https://tigerweb.geo.census.gov/ArcGIS/rest/services/TIGERweb/tigerWMS_Current/MapServer');
   const [osintMetadata, setOsintMetadata] = useState(null);
   const [osintLayers, setOsintLayers] = useState([]);
@@ -206,12 +208,67 @@ export default function App() {
   const [osintData, setOsintData] = useState(null);
   const [osintLoading, setOsintLoading] = useState(false);
   
+  // Fetch pending events from API when Feed Mixer opens
+  useEffect(() => {
+    if (osintOpen) {
+      setFeedLoading(true);
+      fetch('http://localhost:3001/api/queue/pending')
+        .then(res => res.json())
+        .then(data => {
+           if (Array.isArray(data)) setFeedQueue(data);
+           setFeedLoading(false);
+        })
+        .catch(err => {
+           console.error("Failed to fetch queue", err);
+           setFeedLoading(false);
+        });
+    }
+  }, [osintOpen]);
+  
   // HUD toggles
   const [showForbes, setShowForbes] = useState(true);
   const [showCongress, setShowCongress] = useState(false);
   const [showPois, setShowPois] = useState(true);
   const [showFlorida, setShowFlorida] = useState(true);
   const [showGlobal, setShowGlobal] = useState(true);
+
+  // Settings State
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [youtubeApiKey, setYoutubeApiKey] = useState('');
+  const [settingsLoading, setSettingsLoading] = useState(false);
+  const [settingsMessage, setSettingsMessage] = useState('');
+
+  // Fetch settings on mount
+  useEffect(() => {
+    fetch('http://localhost:3001/api/user/settings?user_id=default_user')
+      .then(res => res.json())
+      .then(data => {
+        if (data.youtube_api_key) {
+          setYoutubeApiKey(data.youtube_api_key);
+        }
+      })
+      .catch(err => console.error('Failed to fetch settings:', err));
+  }, []);
+
+  const saveSettings = async () => {
+    setSettingsLoading(true);
+    try {
+      const res = await fetch('http://localhost:3001/api/user/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: 'default_user', youtube_api_key: youtubeApiKey })
+      });
+      if (res.ok) {
+        setSettingsMessage('Settings saved successfully!');
+        setTimeout(() => setSettingsMessage(''), 3000);
+      } else {
+        setSettingsMessage('ERROR: Failed to save settings.');
+      }
+    } catch (err) {
+      setSettingsMessage('ERROR: ' + err.message);
+    }
+    setSettingsLoading(false);
+  };
 
   const [seedCik, setSeedCik] = useState('');
   const [seedLoading, setSeedLoading] = useState(false);
@@ -440,16 +497,61 @@ export default function App() {
         </button>
       </div>
 
-      {/* OSINT Button (Bottom Right) */}
+      {/* OSINT / FEED MIXER Button (Bottom Right) */}
       <div style={{ position: 'absolute', bottom: '30px', right: '30px', zIndex: 30 }}>
         <button 
           className="null-hud-button" 
           onClick={() => setOsintOpen(!osintOpen)}
         >
           <span style={{ marginRight: '10px', fontSize: '1.2em' }}>⌖</span>
-          <span>recon</span>
+          <span>feed_mixer</span>
         </button>
       </div>
+
+      {/* Settings Button (Top Right) */}
+      <div style={{ position: 'absolute', top: '30px', right: '30px', zIndex: 30 }}>
+        <button 
+          className="null-hud-button" 
+          onClick={() => setSettingsOpen(!settingsOpen)}
+        >
+          <span style={{ marginRight: '10px', fontSize: '1.2em' }}>⚙</span>
+          <span>settings</span>
+        </button>
+      </div>
+
+      {/* Settings Panel */}
+      {settingsOpen && (
+        <div className="seed-panel" style={{ top: '80px', bottom: 'auto', right: '30px', left: 'auto', transform: 'none' }}>
+          <h3 style={{ margin: '0 0 5px 0', color: '#ffd700', letterSpacing: '2px', fontSize: '1rem' }}>USER SETTINGS</h3>
+          <p style={{ margin: 0, fontSize: '0.75rem', opacity: 0.7 }}>Manage your API Keys & Session State</p>
+          
+          <div style={{ width: '100%', marginTop: '15px' }}>
+            <label style={{ fontSize: '0.75rem', color: '#8fbc8f' }}>YouTube Data API v3 Key:</label>
+            <input 
+              className="seed-input" 
+              type="password"
+              value={youtubeApiKey}
+              onChange={(e) => setYoutubeApiKey(e.target.value)}
+              placeholder="AIzaSy..."
+            />
+          </div>
+          
+          <button 
+            className="seed-btn" 
+            onClick={saveSettings}
+            disabled={settingsLoading}
+            style={{ marginTop: '10px' }}
+          >
+            {settingsLoading ? 'SAVING...' : 'SAVE SETTINGS'}
+          </button>
+          
+          {settingsMessage && (
+            <div style={{ marginTop: '10px', fontSize: '0.75rem', color: settingsMessage.includes('ERROR') ? '#ff4444' : '#00ff00' }}>
+              {settingsMessage}
+            </div>
+          )}
+        </div>
+      )}
 
 
       {/* Target Seed Injection Panel */}
@@ -484,23 +586,23 @@ export default function App() {
         <h1 style={{ margin: '0 0 30px 0', fontSize: '2rem', fontWeight: 'normal', letterSpacing: '2px' }}>NEXA ATLAS</h1>
         
         <div className="hud-row">
-          <span className="hud-label">Global Wealth (GDP)</span>
+          <span className="hud-label"><span style={{color: '#ffd700'}}>τ</span> Global Wealth (GDP)</span>
           <button style={{background:'transparent', color: showGlobal ? '#8fbc8f' : '#555', border:'1px solid', cursor:'pointer'}} onClick={() => setShowGlobal(!showGlobal)}>{showGlobal ? 'ON' : 'OFF'}</button>
         </div>
         <div className="hud-row">
-          <span className="hud-label">Forbes 400 Layer</span>
+          <span className="hud-label"><span style={{color: '#ffd700'}}>👤</span> Forbes 400 Layer</span>
           <button style={{background:'transparent', color: showForbes ? '#8fbc8f' : '#555', border:'1px solid', cursor:'pointer'}} onClick={() => setShowForbes(!showForbes)}>{showForbes ? 'ON' : 'OFF'}</button>
         </div>
         <div className="hud-row">
-          <span className="hud-label">Civic POIs (Townhalls)</span>
+          <span className="hud-label"><span style={{color: '#ffd700'}}>⌖</span> Civic POIs (Townhalls)</span>
           <button style={{background:'transparent', color: showPois ? '#8fbc8f' : '#555', border:'1px solid', cursor:'pointer'}} onClick={() => setShowPois(!showPois)}>{showPois ? 'ON' : 'OFF'}</button>
         </div>
         <div className="hud-row">
-          <span className="hud-label">Congressional Districts</span>
+          <span className="hud-label"><span style={{color: '#ffd700'}}>⌖</span> Congressional Districts</span>
           <button style={{background:'transparent', color: showCongress ? '#8fbc8f' : '#555', border:'1px solid', cursor:'pointer'}} onClick={() => setShowCongress(!showCongress)}>{showCongress ? 'ON' : 'OFF'}</button>
         </div>
         <div className="hud-row">
-          <span className="hud-label">Florida Demographics</span>
+          <span className="hud-label"><span style={{color: '#ffd700'}}>τ</span> Florida Demographics</span>
           <button style={{background:'transparent', color: showFlorida ? '#8fbc8f' : '#555', border:'1px solid', cursor:'pointer'}} onClick={() => setShowFlorida(!showFlorida)}>{showFlorida ? 'ON' : 'OFF'}</button>
         </div>
         
@@ -509,10 +611,47 @@ export default function App() {
         </div>
       </div>
 
-      {/* Sliding OSINT Recon Panel */}
+      {/* Sliding FEED MIXER / OSINT Panel */}
       <div className={`osint-panel ${osintOpen ? 'open' : ''}`}>
-        <h2 style={{ marginTop: 0, borderBottom: '1px solid', paddingBottom: '10px' }}>OSINT RECON DASH</h2>
+        <button 
+          onClick={() => setOsintOpen(false)}
+          style={{
+            position: 'absolute', top: '10px', right: '10px', background: 'transparent',
+            border: 'none', color: '#ff4444', fontSize: '1.5rem', cursor: 'pointer'
+          }}
+        >
+          ×
+        </button>
+        <h2 style={{ marginTop: 0, borderBottom: '1px solid', paddingBottom: '10px' }}>FEED MIXER & RECON</h2>
         
+        {/* Human Analyst Review Queue */}
+        <div style={{ marginBottom: '30px' }}>
+          <h3 style={{ margin: '0 0 10px 0', color: '#ffb347' }}>ANALYST REVIEW QUEUE</h3>
+          {feedLoading ? (
+            <div style={{ opacity: 0.7 }}>Loading pending events...</div>
+          ) : feedQueue.length === 0 ? (
+            <div style={{ opacity: 0.5, fontStyle: 'italic' }}>Queue is empty.</div>
+          ) : (
+            <div style={{ maxHeight: '300px', overflowY: 'auto', border: '1px solid rgba(143,188,143,0.3)', padding: '10px', background: 'rgba(0,0,0,0.5)' }}>
+              {feedQueue.map(item => (
+                <div key={item.id} style={{ marginBottom: '15px', borderBottom: '1px dashed rgba(255,255,255,0.2)', paddingBottom: '10px' }}>
+                  <div style={{ fontSize: '0.9rem', fontWeight: 'bold' }}>{item.raw_title}</div>
+                  <div style={{ fontSize: '0.8rem', opacity: 0.8, margin: '5px 0' }}>
+                    <span style={{ color: '#ffb347' }}>Subject:</span> {item.extracted_subject} <br/>
+                    <span style={{ color: '#ffb347' }}>Predicate:</span> {item.extracted_predicate}
+                  </div>
+                  <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                    <a href={item.source_url} target="_blank" rel="noreferrer" style={{ color: '#8fbc8f', fontSize: '0.75rem' }}>[Source]</a>
+                    <button className="osint-btn" style={{ fontSize: '0.7rem', padding: '2px 8px' }}>Approve</button>
+                    <button className="osint-btn" style={{ fontSize: '0.7rem', padding: '2px 8px', borderColor: '#ff4444', color: '#ff4444' }}>Discard</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <h3 style={{ margin: '0 0 10px 0' }}>OSINT ENDPOINT INTERROGATOR</h3>
         <p style={{ fontSize: '0.8rem', opacity: 0.8 }}>Paste any ArcGIS REST Endpoint to dynamically preview and analyze spatial metadata linkages.</p>
         
         <input 
@@ -538,7 +677,7 @@ export default function App() {
         {osintLayers.length > 0 && (
           <div style={{ marginTop: '20px' }}>
             <h3>AVAILABLE LAYERS</h3>
-            <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+            <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
               {osintLayers.map(l => (
                 <div 
                   key={l.id} 
