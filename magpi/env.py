@@ -148,6 +148,16 @@ class _Environment:
             logger.debug(f"Intercepted unsupported arcpy.env.{name} = {value}. Storing safely.")
             self._unsupported_envs[name] = value
 
+    def __getitem__(self, key):
+        """Support dictionary-style access: arcpy.env['workspace']"""
+        if hasattr(self.__class__, key) and isinstance(getattr(self.__class__, key), property):
+            return getattr(self, key)
+        return self.__getattr__(key)
+
+    def __setitem__(self, key, value):
+        """Support dictionary-style assignment: arcpy.env['workspace'] = 'C:/'"""
+        self.__setattr__(key, value)
+
     def resolve_path(self, filename, intent="output"):
         """
         Resolves a filename into an absolute path based on the global workspaces.

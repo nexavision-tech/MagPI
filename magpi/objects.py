@@ -33,20 +33,38 @@ class Describe:
         self.shapeType = "N/A"
         self.bandCount = 1
         self.extent = None
-        self.spatialReference = "Unknown"
-        self.wgs84_extent = None # NEW: Stores Lat/Lon for the React Map!
+        self.spatialReference = SpatialReference("Unknown")
+        self.wgs84_extent = None
+        self.name = ""
+        self.baseName = ""
+        self.catalogPath = ""
+        self.path = ""
+        self.extension = ""
+        self.fields = []
         
         if hasattr(dataset, 'output'):
             dataset = dataset.output
         
-        if not isinstance(dataset, str) or not os.path.exists(dataset):
+        if not isinstance(dataset, str):
+            self.name = str(dataset)
+            return
+
+        self.catalogPath = dataset
+        self.path, self.name = os.path.split(dataset)
+        self.baseName, self.extension = os.path.splitext(self.name)
+        
+        if not os.path.exists(dataset):
             logger.warning(f"Describe failed: {dataset} not found.")
             return
             
         file_lower = dataset.lower()
         
-        if file_lower.endswith(('.tif', '.img', '.jp2', '.png', '.h5')):
+        if file_lower.endswith(('.tif', '.img', '.jp2', '.png', '.h5', '.grid')):
             self.dataType = "RasterDataset"
+            self.format = self.extension.strip('.').upper()
+            self.compressionType = "LZ77"
+            self.isInteger = False
+            self.noDataValue = "-9999"
             try:
                 import rasterio
                 from rasterio.warp import transform_bounds
@@ -56,31 +74,57 @@ class Describe:
                     self.extent = Extent(bounds.left, bounds.bottom, bounds.right, bounds.top)
                     self.spatialReference = SpatialReference(src.crs)
                     
-                    # MAGIC PROJECTION: Transform the native CRS to Lat/Lon (EPSG:4326) for the Leaflet UI!
                     try:
                         wgs = transform_bounds(src.crs, 'EPSG:4326', bounds.left, bounds.bottom, bounds.right, bounds.top)
-                        # Leaflet needs [[min_lat, min_lon], [max_lat, max_lon]]
                         self.wgs84_extent = [[wgs[1], wgs[0]], [wgs[3], wgs[2]]]
                     except Exception as e:
                         logger.debug(f"Could not project bounds to WGS84: {e}")
-
             except Exception as e:
                 logger.error(f"Failed to describe raster: {e}")
                 
-        elif file_lower.endswith(('.shp', '.geojson', '.gdb')):
+        elif file_lower.endswith(('.shp', '.geojson', '.gdb', '.gpkg', '.sqlite')):
             self.dataType = "FeatureClass"
+            self.hasM = False
+            self.hasZ = False
+            self.hasSpatialIndex = True
+            self.shapeFieldName = "geometry"
+            self.OIDFieldName = "OBJECTID"
+            self.featureType = "Simple"
             try:
                 import geopandas as gpd
-                import fiona
+                import pyogrio
                 
-                # Use fiona to get the true total bounds without loading geometries into memory
-                with fiona.open(dataset) as src:
-                    bounds = src.bounds
-                    self.extent = Extent(bounds[0], bounds[1], bounds[2], bounds[3])
+                info = pyogrio.read_info(dataset)
+                bounds = info['total_bounds']
+                self.extent = Extent(bounds[0], bounds[1], bounds[2], bounds[3])
+                self.fields = [type('Field', (), {'name': k, 'type': 'String', 'length': 255}) for k in info['fields']]
                 
-                # Still read 1 row just to get the shapeType for the UI
-                gdf = gpd.read_file(dataset, rows=1)
-                self.shapeType = gdf.geom_type[0] if len(gdf) > 0 else "Unknown"
-                self.spatialReference = SpatialReference(gdf.crs)
+                self.shapeType = str(info['geometry_type'])
+                if hasattr(info, 'crs'):
+                    self.spatialReference = SpatialReference(info['crs'])
             except Exception as e:
                 logger.error(f"Failed to describe vector: {e}")
+        elif file_lower.endswith(('.dbf', '.csv', '.txt')):
+            self.dataType = "Table"
+            self.hasOID = False
+
+    def __getattr__(self, item):
+        """
+        Universal mock proxy for exhaustive arcpy.Describe properties.
+        If a script requests a property (like 'isVersioned' or 'hasFAT') that
+        we haven't explicitly computed, safely return a mocked default to avoid crashes.
+        """
+        item_lower = item.lower()
+        if "name" in item_lower:
+            return ""
+        if item_lower.startswith("is") or item_lower.startswith("has"):
+            return False
+        if "type" in item_lower:
+            return "Unknown"
+        if "count" in item_lower:
+            return 0
+        if "length" in item_lower or "width" in item_lower:
+            return 0
+        
+        logger.debug(f"Describe object defaulting property request: '{item}'")
+        return None
