@@ -149,3 +149,94 @@ class InsertCursor:
 
     def insertRow(self, row):
         self.new_rows.append(row)
+# --- NumPy Array Conversions ---
+
+def FeatureClassToNumPyArray(in_table, field_names, skip_nulls=False, null_value=None):
+    import geopandas as gpd
+    import pandas as pd
+    try:
+        gdf = gpd.read_file(in_table)
+    except Exception:
+        gdf = pd.read_csv(in_table)
+        
+    if isinstance(field_names, str):
+        if field_names == "*":
+            field_names = list(gdf.columns)
+        else:
+            field_names = [field_names]
+    else:
+        field_names = list(field_names)
+        
+    # Exclude geometry column if it was wildcarded and not explicitly requested
+    if 'geometry' in field_names and '*' in field_names:
+        field_names.remove('geometry')
+        
+    df = gdf[field_names].copy()
+    if skip_nulls:
+        df = df.dropna()
+        
+    # Convert to structured numpy array (what arcpy returns)
+    return df.to_records(index=False)
+
+def TableToNumPyArray(in_table, field_names, skip_nulls=False, null_value=None):
+    return FeatureClassToNumPyArray(in_table, field_names, skip_nulls, null_value)
+
+def NumPyArrayToTable(in_array, out_table):
+    import pandas as pd
+    df = pd.DataFrame(in_array)
+    df.to_csv(out_table, index=False)
+    logger.info(f"Wrote NumPy array to table: {out_table}")
+
+def NumPyArrayToFeatureClass(in_array, out_table, shape_fields, spatial_reference=None):
+    import geopandas as gpd
+    import pandas as pd
+    from shapely.geometry import Point
+    
+    df = pd.DataFrame(in_array)
+    if isinstance(shape_fields, (list, tuple)) and len(shape_fields) == 2:
+        geometry = [Point(xy) for xy in zip(df[shape_fields[0]], df[shape_fields[1]])]
+        gdf = gpd.GeoDataFrame(df, geometry=geometry)
+        gdf.to_file(out_table)
+        logger.info(f"Wrote NumPy array to FeatureClass: {out_table}")
+    else:
+        logger.error("NumPyArrayToFeatureClass currently only supports Point geometries with [X, Y] shape_fields.")
+
+def ExtendTable(in_table, table_match_field, in_array, array_match_field, append_only=False):
+    import geopandas as gpd
+    import pandas as pd
+    is_spatial = True
+    try:
+        gdf = gpd.read_file(in_table)
+    except Exception:
+        gdf = pd.read_csv(in_table)
+        is_spatial = False
+        
+    df_arr = pd.DataFrame(in_array)
+    
+    # Perform the join
+    merged = gdf.merge(df_arr, left_on=table_match_field, right_on=array_match_field, how='left')
+    
+    if is_spatial:
+        merged.to_file(in_table)
+    else:
+        merged.to_csv(in_table, index=False)
+    logger.info(f"Extended table {in_table} with NumPy array.")
+
+def Describe(in_data):
+    """
+    arcpy.da.Describe returns a dictionary of properties.
+    """
+    import geopandas as gpd
+    try:
+        gdf = gpd.read_file(in_data)
+        desc = {
+            'dataType': 'FeatureClass',
+            'shapeType': str(gdf.geom_type.mode()[0]) if not gdf.empty else 'Polygon',
+            'spatialReference': gdf.crs,
+            'shapeFieldName': 'geometry',
+            'OIDFieldName': 'OBJECTID', # Mock OID field
+            'fields': [{'name': col, 'type': str(gdf[col].dtype)} for col in gdf.columns]
+        }
+        return desc
+    except Exception:
+        return {'dataType': 'Table', 'OIDFieldName': 'OBJECTID', 'fields': []}

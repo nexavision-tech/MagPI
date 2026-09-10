@@ -8,6 +8,7 @@ Created by www.nexavision.tech
 import logging
 from .env import env
 from .objects import Extent, SpatialReference, Describe, Result
+from .classes import Point, Array, Polygon, Polyline
 from .sa import Raster 
 
 # 1. Expose Submodules (The Structural Tree)
@@ -29,7 +30,7 @@ from . import lr
 from . import ga
 
 # 2. Expose Core Root Functions directly to the arcpy.* level
-from .core import ListFeatureClasses, ListRasters, ListFiles, Exists
+from .core import ListFeatureClasses, ListRasters, ListFiles, Exists, ListFields, ValidateFieldName
 from .analysis import Buffer as Buffer_analysis, Clip as Clip_analysis, Intersect as Intersect_analysis, Erase as Erase_analysis, Select as Select_analysis, SpatialJoin as SpatialJoin_analysis
 from .management import CopyFeatures as CopyFeatures_management, Delete as Delete_management, Project as Project_management, Merge as Merge_management, JoinField as JoinField_management, AddField as AddField_management, CalculateField as CalculateField_management, Dissolve as Dissolve_management
 

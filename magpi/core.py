@@ -92,3 +92,37 @@ def Exists(dataset):
         return True
         
     return False
+
+class Field:
+    def __init__(self, name, type="String", length=255):
+        self.name = name
+        self.type = type
+        self.length = length
+
+def ListFields(dataset, wild_card=None, field_type=None):
+    import geopandas as gpd
+    import pandas as pd
+    try:
+        gdf = gpd.read_file(dataset)
+    except Exception:
+        try:
+            gdf = pd.read_csv(dataset)
+        except Exception:
+            return []
+            
+    fields = []
+    for col in gdf.columns:
+        if wild_card:
+            import fnmatch
+            if not fnmatch.fnmatch(col, wild_card):
+                continue
+        fields.append(Field(col, str(gdf[col].dtype)))
+    return fields
+
+def ValidateFieldName(name, workspace=None):
+    import re
+    # Replace invalid characters with underscore
+    valid_name = re.sub(r"[^a-zA-Z0-9_]", "_", str(name))
+    if valid_name and valid_name[0].isdigit():
+        valid_name = "_" + valid_name
+    return valid_name
