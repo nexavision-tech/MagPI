@@ -4,6 +4,11 @@ An open-source Python translation matrix designed to liberate geospatial workflo
 ## 🌍 **The Mission**
 The modern geospatial industry is heavily reliant on proprietary, closed-source ecosystems (e.g., ESRI's `arcpy`). These systems mandate expensive licenses, lock users into Windows environments, and introduce massive computational bottlenecks by resisting native Linux deployment and vectorized array processing.
 
+### 💰 The Economics of the Monopoly
+The economic case for an open-source alternative is staggering. Federal agencies spend an estimated **$750M–$1B annually** on ESRI products. Per analyst, that's $10,000–$16,000/year just in software licensing. GIS analysts make $67K–$91K on average. If MagPI can cut even half that licensing burden, we're talking hundreds of millions freed up — for better pay, more hires, or direct taxpayer savings.
+
+MagPI is strictly licensed under the **GNU GPLv3**, ensuring it remains free and open for the community forever. For agencies looking to transition off proprietary ecosystems, NexaVision offers honest, paid consulting and enterprise support.
+
 ### **MagPI is a Trojan Horse for open-source freedom.** It operates on two fronts:
 
 1. **The Translation Matrix:** It acts as an intercept layer. By simply changing one line of legacy code from import arcpy to import magpi as arcpy, users can execute their existing geospatial scripts natively on Linux servers. MagPI intercepts the legacy commands and routes them through lightning-fast, open-source libraries like geopandas, rasterio, and shapely.
