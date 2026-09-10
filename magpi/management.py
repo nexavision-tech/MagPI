@@ -403,3 +403,221 @@ def ProjectRaster(in_raster, out_raster, out_crs, resampling_type="NEAREST"):
     except Exception as e:
         logger.error(f"Projection failed: {e}")
         return Result(None, status=3)
+
+def Append(inputs, target, schema_type="TEST", field_mapping=None, subtype=None):
+    """
+    MagPI Translation of arcpy.management.Append.
+    Appends multiple feature classes or tables into an existing target dataset.
+    """
+    logger.info(f"Executing Open-Source Append into: {target}")
+    try:
+        target_gdf = _resolve_features(target)
+
+        if isinstance(inputs, str):
+            input_list = [f.strip() for f in inputs.split(';')]
+        else:
+            input_list = list(inputs)
+
+        gdfs = [target_gdf]
+        for inp in input_list:
+            try:
+                gdf = _resolve_features(inp)
+                if gdf.crs != target_gdf.crs:
+                    gdf = gdf.to_crs(target_gdf.crs)
+                gdfs.append(gdf)
+            except Exception as read_err:
+                logger.warning(f"Skipping unreadable input '{inp}': {read_err}")
+
+        appended = pd.concat(gdfs, ignore_index=True)
+        appended.to_file(target)
+        logger.info(f"Append complete. {len(appended)} total features in {target}")
+        return Result(target)
+
+    except Exception as e:
+        logger.error(f"Failed to append: {e}")
+        return Result(None, status=3)
+
+def SummaryStatistics(in_table, out_table, statistics_fields, case_field=None):
+    """
+    MagPI Translation of arcpy.analysis.Statistics (Summary Statistics).
+    Calculates aggregate statistics (SUM, MEAN, MIN, MAX, COUNT, STD, etc.)
+    on fields, optionally grouped by a case field.
+    """
+    logger.info(f"Executing Open-Source SummaryStatistics on: {in_table}")
+    try:
+        gdf = _resolve_features(in_table)
+
+        # Parse statistics_fields: expects list of [field, stat_type] pairs
+        # or semicolon-separated "field STAT;field2 STAT2" string
+        agg_dict = {}
+        if isinstance(statistics_fields, str):
+            pairs = statistics_fields.split(';')
+            for pair in pairs:
+                parts = pair.strip().split()
+                if len(parts) >= 2:
+                    field_name, stat_type = parts[0], parts[1].lower()
+                    stat_map = {'sum': 'sum', 'mean': 'mean', 'min': 'min',
+                                'max': 'max', 'count': 'count', 'std': 'std',
+                                'range': lambda x: x.max() - x.min(),
+                                'first': 'first', 'last': 'last'}
+                    agg_dict[field_name] = stat_map.get(stat_type, stat_type)
+        elif isinstance(statistics_fields, (list, tuple)):
+            for item in statistics_fields:
+                if isinstance(item, (list, tuple)) and len(item) >= 2:
+                    field_name, stat_type = item[0], item[1].lower()
+                    stat_map = {'sum': 'sum', 'mean': 'mean', 'min': 'min',
+                                'max': 'max', 'count': 'count', 'std': 'std',
+                                'range': lambda x: x.max() - x.min(),
+                                'first': 'first', 'last': 'last'}
+                    agg_dict[field_name] = stat_map.get(stat_type, stat_type)
+
+        if case_field:
+            if isinstance(case_field, str):
+                case_field = [f.strip() for f in case_field.split(';')]
+            result_df = gdf.groupby(case_field).agg(agg_dict).reset_index()
+        else:
+            result_df = pd.DataFrame(gdf.agg(agg_dict)).T
+
+        # Flatten column names
+        if hasattr(result_df.columns, 'levels'):
+            result_df.columns = ['_'.join(col).strip('_') for col in result_df.columns]
+
+        if str(out_table).endswith('.csv'):
+            result_df.to_csv(out_table, index=False)
+        else:
+            result_df.to_csv(out_table + '.csv', index=False)
+
+        logger.info(f"SummaryStatistics complete. Saved to: {out_table}")
+        return Result(out_table)
+
+    except Exception as e:
+        logger.error(f"Failed to execute SummaryStatistics: {e}")
+        return Result(None, status=3)
+
+# Alias for ESRI's alternative name
+Statistics = SummaryStatistics
+
+def CreateFeatureclass(out_path, out_name, geometry_type="POLYGON", template=None, has_m="DISABLED", has_z="DISABLED", spatial_reference=None):
+    """
+    MagPI Translation of arcpy.management.CreateFeatureclass.
+    Creates an empty feature class with the specified geometry type.
+    """
+    import shapely
+    full_path = os.path.join(out_path, out_name) if out_path else out_name
+    logger.info(f"Creating empty feature class: {full_path} ({geometry_type})")
+    try:
+        crs = "EPSG:4326"
+        if spatial_reference:
+            if hasattr(spatial_reference, 'factoryCode'):
+                crs = f"EPSG:{spatial_reference.factoryCode}"
+            else:
+                crs = str(spatial_reference)
+
+        gdf = gpd.GeoDataFrame(columns=['geometry'], geometry='geometry', crs=crs)
+
+        # If template provided, copy schema
+        if template and os.path.exists(str(template)):
+            template_gdf = _resolve_features(template)
+            for col in template_gdf.columns:
+                if col != 'geometry':
+                    gdf[col] = pd.Series(dtype=template_gdf[col].dtype)
+
+        gdf.to_file(full_path)
+        logger.info(f"Empty feature class created: {full_path}")
+        return Result(full_path)
+
+    except Exception as e:
+        logger.error(f"Failed to create feature class: {e}")
+        return Result(None, status=3)
+
+def DeleteField(in_table, drop_field):
+    """
+    MagPI Translation of arcpy.management.DeleteField.
+    Removes one or more fields from a feature class or table.
+    """
+    logger.info(f"Deleting field(s) '{drop_field}' from {in_table}")
+    try:
+        gdf = _resolve_features(in_table)
+
+        if isinstance(drop_field, str):
+            fields_to_drop = [f.strip() for f in drop_field.split(';')]
+        else:
+            fields_to_drop = list(drop_field)
+
+        # Never drop the geometry column
+        fields_to_drop = [f for f in fields_to_drop if f != 'geometry' and f in gdf.columns]
+
+        gdf = gdf.drop(columns=fields_to_drop)
+        gdf.to_file(in_table)
+        logger.info(f"DeleteField complete. Removed: {fields_to_drop}")
+        return Result(in_table)
+
+    except Exception as e:
+        logger.error(f"Failed to delete field: {e}")
+        return Result(None, status=3)
+
+def AlterField(in_table, field, new_field_name=None, new_field_alias=None, field_type=None, field_length=None, field_is_nullable=None, clear_field_alias="FALSE"):
+    """
+    MagPI Translation of arcpy.management.AlterField.
+    Renames or modifies properties of a field.
+    """
+    logger.info(f"Altering field '{field}' in {in_table}")
+    try:
+        gdf = _resolve_features(in_table)
+
+        if field not in gdf.columns:
+            logger.error(f"Field '{field}' not found in {in_table}")
+            return Result(None, status=3)
+
+        if new_field_name and new_field_name != field:
+            gdf = gdf.rename(columns={field: new_field_name})
+            logger.info(f"Renamed '{field}' -> '{new_field_name}'")
+
+        if field_type:
+            target_col = new_field_name if new_field_name else field
+            type_map = {'TEXT': 'str', 'SHORT': 'int32', 'LONG': 'int64',
+                        'FLOAT': 'float32', 'DOUBLE': 'float64'}
+            pd_type = type_map.get(field_type.upper(), field_type)
+            try:
+                gdf[target_col] = gdf[target_col].astype(pd_type)
+            except (ValueError, TypeError):
+                logger.warning(f"Could not cast '{target_col}' to {pd_type}")
+
+        gdf.to_file(in_table)
+        logger.info(f"AlterField complete on {in_table}")
+        return Result(in_table)
+
+    except Exception as e:
+        logger.error(f"Failed to alter field: {e}")
+        return Result(None, status=3)
+
+def SelectLayerByAttribute(in_layer_or_view, selection_type="NEW_SELECTION", where_clause="", invert_where_clause=None):
+    """
+    MagPI Translation of arcpy.management.SelectLayerByAttribute.
+    Since MagPI operates on files (not in-memory layers), this returns a
+    filtered GeoDataFrame that can be passed to subsequent tools.
+    """
+    logger.info(f"Executing Open-Source SelectLayerByAttribute on: {in_layer_or_view}")
+    try:
+        gdf = _resolve_features(in_layer_or_view)
+
+        if where_clause:
+            pandas_query = where_clause.replace(" = ", " == ")
+            try:
+                selected = gdf.query(pandas_query)
+            except Exception:
+                # Fallback: try eval
+                mask = gdf.eval(pandas_query)
+                selected = gdf[mask]
+
+            if invert_where_clause:
+                selected = gdf.drop(selected.index)
+
+            logger.info(f"Selected {len(selected)} of {len(gdf)} features")
+            return Result(selected)
+        else:
+            return Result(gdf)
+
+    except Exception as e:
+        logger.error(f"Failed to select by attribute: {e}")
+        return Result(None, status=3)

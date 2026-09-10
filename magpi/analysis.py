@@ -196,3 +196,181 @@ def Select(in_features, out_feature_class, where_clause=""):
     except Exception as e:
         logger.error(f"Failed to execute Select: {e}")
         return Result(None, status=3)
+
+def Union(in_features, out_feature_class, join_attributes="ALL", cluster_tolerance=None, gaps="GAPS"):
+    """
+    MagPI Translation of arcpy.analysis.Union.
+    Computes a geometric union of all input features. All features and their
+    attributes are written to the output, regardless of overlap.
+    """
+    logger.info(f"Executing Open-Source Union on: {in_features}")
+    try:
+        if isinstance(in_features, str):
+            feature_list = [f.strip() for f in in_features.split(';')]
+        elif isinstance(in_features, (list, tuple)):
+            feature_list = list(in_features)
+        else:
+            feature_list = [in_features]
+
+        # Handle ESRI's [[path, rank], [path, rank]] input format
+        cleaned = []
+        for item in feature_list:
+            if isinstance(item, (list, tuple)):
+                cleaned.append(str(item[0]))
+            else:
+                cleaned.append(str(item))
+        feature_list = cleaned
+
+        if len(feature_list) < 2:
+            logger.warning("Union requires at least 2 layers. Copying input.")
+            gdf = _resolve_features(feature_list[0])
+            gdf.to_file(out_feature_class)
+            return Result(out_feature_class)
+
+        base_gdf = _resolve_features(feature_list[0])
+        for feat in feature_list[1:]:
+            overlay_gdf = _resolve_features(feat)
+            if overlay_gdf.crs != base_gdf.crs:
+                overlay_gdf = overlay_gdf.to_crs(base_gdf.crs)
+            base_gdf = gpd.overlay(base_gdf, overlay_gdf, how='union')
+
+        base_gdf.to_file(out_feature_class)
+        logger.info(f"Union complete. {len(base_gdf)} features saved to: {out_feature_class}")
+        return Result(out_feature_class)
+
+    except Exception as e:
+        logger.error(f"Failed to execute Union: {e}")
+        return Result(None, status=3)
+
+def Identity(in_features, identity_features, out_feature_class, join_attributes="ALL", cluster_tolerance=None, relationship="NO_RELATIONSHIPS"):
+    """
+    MagPI Translation of arcpy.analysis.Identity.
+    Computes a geometric intersection of the input and identity features.
+    All input features are preserved; identity features that overlap are joined.
+    """
+    logger.info(f"Executing Open-Source Identity: {in_features} x {identity_features}")
+    try:
+        gdf_in = _resolve_features(in_features)
+        gdf_id = _resolve_features(identity_features)
+
+        if gdf_id.crs != gdf_in.crs:
+            gdf_id = gdf_id.to_crs(gdf_in.crs)
+
+        result_gdf = gpd.overlay(gdf_in, gdf_id, how='identity')
+        result_gdf.to_file(out_feature_class)
+        logger.info(f"Identity complete. {len(result_gdf)} features saved to: {out_feature_class}")
+        return Result(out_feature_class)
+
+    except Exception as e:
+        logger.error(f"Failed to execute Identity: {e}")
+        return Result(None, status=3)
+
+def SymDiff(in_features, update_features, out_feature_class, join_attributes="ALL", cluster_tolerance=None):
+    """
+    MagPI Translation of arcpy.analysis.SymDiff (Symmetrical Difference).
+    Returns features that are in either input but NOT in their overlap.
+    """
+    logger.info(f"Executing Open-Source SymDiff: {in_features} △ {update_features}")
+    try:
+        gdf_in = _resolve_features(in_features)
+        gdf_update = _resolve_features(update_features)
+
+        if gdf_update.crs != gdf_in.crs:
+            gdf_update = gdf_update.to_crs(gdf_in.crs)
+
+        result_gdf = gpd.overlay(gdf_in, gdf_update, how='symmetric_difference')
+        result_gdf.to_file(out_feature_class)
+        logger.info(f"SymDiff complete. {len(result_gdf)} features saved to: {out_feature_class}")
+        return Result(out_feature_class)
+
+    except Exception as e:
+        logger.error(f"Failed to execute SymDiff: {e}")
+        return Result(None, status=3)
+
+def Near(in_features, near_features, search_radius=None, location="NO_LOCATION", angle="NO_ANGLE", method="PLANAR"):
+    """
+    MagPI Translation of arcpy.analysis.Near.
+    Calculates distance and other proximity info between input features
+    and the nearest feature in another layer. Adds NEAR_FID and NEAR_DIST
+    fields to the input feature class IN PLACE.
+    """
+    logger.info(f"Executing Open-Source Near: {in_features} -> {near_features}")
+    try:
+        gdf_in = _resolve_features(in_features)
+        gdf_near = _resolve_features(near_features)
+
+        if gdf_near.crs != gdf_in.crs:
+            gdf_near = gdf_near.to_crs(gdf_in.crs)
+
+        # Use sjoin_nearest which computes distance in one shot
+        max_dist = float(search_radius) if search_radius else None
+        joined = gpd.sjoin_nearest(
+            gdf_in, gdf_near,
+            how='left',
+            max_distance=max_dist,
+            distance_col='NEAR_DIST'
+        )
+
+        # Add NEAR_FID from the index of the nearest feature
+        if 'index_right' in joined.columns:
+            joined = joined.rename(columns={'index_right': 'NEAR_FID'})
+        else:
+            joined['NEAR_FID'] = -1
+
+        # Keep only the original columns plus NEAR_FID and NEAR_DIST
+        keep_cols = list(gdf_in.columns) + ['NEAR_FID', 'NEAR_DIST']
+        joined = joined[[c for c in keep_cols if c in joined.columns]]
+
+        # Handle duplicates from sjoin_nearest (keep closest match per input feature)
+        joined = joined.loc[~joined.index.duplicated(keep='first')]
+
+        # Save back in place
+        joined.to_file(in_features)
+        logger.info(f"Near complete. NEAR_FID and NEAR_DIST added to {in_features}")
+        return Result(in_features)
+
+    except Exception as e:
+        logger.error(f"Failed to execute Near: {e}")
+        return Result(None, status=3)
+
+def GenerateNearTable(in_features, near_features, out_table, search_radius=None, location="NO_LOCATION", angle="NO_ANGLE", closest="ALL", closest_count=0, method="PLANAR"):
+    """
+    MagPI Translation of arcpy.analysis.GenerateNearTable.
+    Like Near, but writes results to a standalone table instead of modifying input.
+    """
+    logger.info(f"Executing Open-Source GenerateNearTable")
+    try:
+        import pandas as pd
+        gdf_in = _resolve_features(in_features)
+        gdf_near = _resolve_features(near_features)
+
+        if gdf_near.crs != gdf_in.crs:
+            gdf_near = gdf_near.to_crs(gdf_in.crs)
+
+        max_dist = float(search_radius) if search_radius else None
+        joined = gpd.sjoin_nearest(
+            gdf_in, gdf_near,
+            how='left',
+            max_distance=max_dist,
+            distance_col='NEAR_DIST'
+        )
+
+        # Build the near table
+        near_table = pd.DataFrame({
+            'IN_FID': joined.index,
+            'NEAR_FID': joined.get('index_right', -1),
+            'NEAR_DIST': joined.get('NEAR_DIST', 0)
+        })
+
+        # Save as CSV (most portable table format)
+        if str(out_table).endswith('.csv'):
+            near_table.to_csv(out_table, index=False)
+        else:
+            near_table.to_csv(out_table + '.csv', index=False)
+
+        logger.info(f"GenerateNearTable complete. {len(near_table)} records saved to: {out_table}")
+        return Result(out_table)
+
+    except Exception as e:
+        logger.error(f"Failed to execute GenerateNearTable: {e}")
+        return Result(None, status=3)
