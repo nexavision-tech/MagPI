@@ -35,3 +35,4 @@ node_modules/
 # Ref docs
 /docs
 magpi/gui/dist/
+magpi_daemon.log

@@ -11,10 +11,16 @@ from .objects import Extent, SpatialReference, Describe, Result
 from .classes import Point, Array, Polygon, Polyline
 from .sa import Raster 
 
+import sys
+
 # 1. Expose Submodules (The Structural Tree)
 from . import wfs
 from . import ia
-from . import geoai
+# geoai requires Python 3.11+ (PEP 646 TypeVarTuple)
+if sys.version_info >= (3, 11):
+    from . import geoai
+else:
+    logging.getLogger("MagPI_Core").warning("geoai skipped — requires Python 3.11+ (current: %s)", sys.version_info)
 from . import ml
 from . import management
 from . import ddd
